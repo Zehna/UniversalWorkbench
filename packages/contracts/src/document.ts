@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  IdSchema,
-  IsoDateTimeSchema,
-  JsonMetadataSchema,
-} from "./common.js";
+import { IdSchema, IsoDateTimeSchema, JsonMetadataSchema } from "./common.js";
 
 export const DocumentKindSchema = z.literal("note");
 export const NoteTitleSchema = z.string().trim().min(1).max(200);
