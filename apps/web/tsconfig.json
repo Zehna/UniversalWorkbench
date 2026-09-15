@@ -3,6 +3,8 @@
   "compilerOptions": {
     "noEmit": true,
     "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "types": ["vitest/globals", "vite/client"]
   },
   "include": [
