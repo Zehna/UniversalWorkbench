@@ -3,13 +3,13 @@ import { z } from "zod";
 const ConfigSchema = z.object({
   DATABASE_URL: z.string().url(),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  APP_MODE: z.enum(["all", "api", "worker"]).default("all"),
+  APP_MODE: z.enum(["all", "api"]).default("all"),
 });
 
 export interface ServerConfig {
   databaseUrl: string;
   port: number;
-  appMode: "all" | "api" | "worker";
+  appMode: "all" | "api";
 }
 
 export function loadConfig(
