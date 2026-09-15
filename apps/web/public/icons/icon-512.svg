@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Universal Workbench">
+  <rect width="512" height="512" rx="108" fill="#111111"/>
+  <path d="M128 128h64v171c0 47.2 27.5 74.7 64 74.7s64-27.5 64-74.7V128h64v176c0 83.7-52 133.3-128 133.3S128 387.7 128 304V128Z" fill="#ffffff"/>
+  <path d="M219 128h74l37 75-37 75h-74l-37-75 37-75Z" fill="#ffffff" opacity="0.22"/>
+</svg>

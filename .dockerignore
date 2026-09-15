@@ -1,0 +1,12 @@
+.git
+.worktrees
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+**/coverage
+.env
+.env.*
+!deploy/docker/.env.example
+*.log

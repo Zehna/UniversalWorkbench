@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workbench -d workbench_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run verify:workspaces
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+        env:
+          TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+      - run: npm run build
+      - run: node scripts/verify-pwa.mjs
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - name: Build and start reference deployment
+        run: docker compose -f deploy/docker/compose.yml up -d --build
+      - name: Smoke deployment
+        run: node scripts/smoke-http.mjs
+      - name: Deployment logs
+        if: always()
+        run: docker compose -f deploy/docker/compose.yml logs --no-color
+      - name: Tear down
+        if: always()
+        run: docker compose -f deploy/docker/compose.yml down -v
