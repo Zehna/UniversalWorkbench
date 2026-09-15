@@ -20,7 +20,8 @@ async function waitFor(label, check) {
     }
   }
 
-  const detail = lastError instanceof Error ? lastError.message : String(lastError);
+  const detail =
+    lastError instanceof Error ? lastError.message : String(lastError);
   throw new Error(`${label} did not become ready: ${detail}`);
 }
 

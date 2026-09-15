@@ -10,7 +10,8 @@ export default defineConfig({
       manifest: {
         name: "Universal Workbench",
         short_name: "Workbench",
-        description: "Local-first universal workbench for AI, APIs, data, and research.",
+        description:
+          "Local-first universal workbench for AI, APIs, data, and research.",
         display: "standalone",
         start_url: "/",
         theme_color: "#111111",
