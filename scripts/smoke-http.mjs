@@ -1,19 +1,51 @@
 const baseUrl = process.env.SMOKE_BASE_URL ?? "http://127.0.0.1:8080";
+const maxAttempts = Number(process.env.SMOKE_MAX_ATTEMPTS ?? "30");
+const retryDelayMs = Number(process.env.SMOKE_RETRY_DELAY_MS ?? "1000");
 
-const web = await fetch(baseUrl);
-if (!web.ok || !(await web.text()).includes("root")) {
-  throw new Error("web shell is not reachable");
+const sleep = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function waitFor(label, check) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await check();
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts) {
+        await sleep(retryDelayMs);
+      }
+    }
+  }
+
+  const detail = lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(`${label} did not become ready: ${detail}`);
 }
 
-const live = await fetch(`${baseUrl}/api/health/live`);
-if (!live.ok || (await live.json()).status !== "ok") {
-  throw new Error("API liveness check failed");
-}
+await waitFor("web shell", async () => {
+  const response = await fetch(baseUrl);
+  const body = await response.text();
+  if (!response.ok || !body.includes("root")) {
+    throw new Error(`received HTTP ${response.status}`);
+  }
+});
 
-const ready = await fetch(`${baseUrl}/api/health/ready`);
-const readyBody = await ready.json();
-if (!ready.ok || readyBody.status !== "ready") {
-  throw new Error(`API readiness failed: ${JSON.stringify(readyBody)}`);
-}
+await waitFor("API liveness", async () => {
+  const response = await fetch(`${baseUrl}/api/health/live`);
+  const body = await response.json();
+  if (!response.ok || body.status !== "ok") {
+    throw new Error(`received ${response.status}: ${JSON.stringify(body)}`);
+  }
+});
+
+await waitFor("API readiness", async () => {
+  const response = await fetch(`${baseUrl}/api/health/ready`);
+  const body = await response.json();
+  if (!response.ok || body.status !== "ready") {
+    throw new Error(`received ${response.status}: ${JSON.stringify(body)}`);
+  }
+});
 
 console.log("docker HTTP smoke passed");
