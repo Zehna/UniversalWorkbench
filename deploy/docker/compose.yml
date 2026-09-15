@@ -2,11 +2,15 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: workbench
-      POSTGRES_PASSWORD: workbench
-      POSTGRES_DB: workbench
+      POSTGRES_USER: ${POSTGRES_USER:-workbench}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workbench}
+      POSTGRES_DB: ${POSTGRES_DB:-workbench}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U workbench -d workbench"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -20,7 +24,7 @@ services:
     environment:
       APP_MODE: all
       PORT: 3000
-      DATABASE_URL: postgresql://workbench:workbench@postgres:5432/workbench
+      DATABASE_URL: postgresql://${POSTGRES_USER:-workbench}:${POSTGRES_PASSWORD:-workbench}@postgres:5432/${POSTGRES_DB:-workbench}
     depends_on:
       postgres:
         condition: service_healthy
