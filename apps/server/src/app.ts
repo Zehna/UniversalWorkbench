@@ -8,7 +8,9 @@ export interface AppDependencies {
   databaseReady(): Promise<boolean>;
 }
 
-function requestIdFromLocals(locals: Record<string, unknown>): string | undefined {
+function requestIdFromLocals(
+  locals: Record<string, unknown>,
+): string | undefined {
   return typeof locals.requestId === "string" ? locals.requestId : undefined;
 }
 
