@@ -338,21 +338,27 @@ P0 data-loss/auth-bypass/secret-leak issues and P1 critical-flow failures block 
 ## 27. Roadmap
 
 ### Phase 0 — Foundation
+
 Monorepo, React/Vite, Express, PostgreSQL/Drizzle baseline, contracts, Docker reference deployment, CI, health checks.
 
 ### Phase 1 — Project & Data Core
+
 Owner auth, Projects, Documents/Revisions, Artifacts, storage abstraction, Action Layer, runtime schemas.
 
 ### Phase 2 — Local-First & Sync
+
 SQLite WASM/OPFS, operation journal, WebSocket durable protocol, cursors/ACK, conflict preservation, tombstones, device identity/revocation.
 
 ### Phase 3 — Tool & Workflow Core
+
 Tool Contract, Context Bus, execution engine, DAG model, linear UI, queue, retries, receipts, provenance, budgets, initial HTTP/JSON/text tools.
 
 ### Phase 4 — AI & Universal Send to...
+
 AI provider abstraction, BYO secrets, AI Tool, Send to..., structured outputs, usage accounting; complete north-star flow.
 
 ### Phase 5 — Hardening & Private Release
+
 SSRF/security hardening, upload pipeline, backup/restore, diagnostics, recovery bundles, upgrades, performance/accessibility verification, private deployment docs.
 
 ## 28. Final architectural rules

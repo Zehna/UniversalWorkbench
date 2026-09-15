@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { SystemClock, UuidGenerator } from '../src/index.js';
+import { describe, expect, it } from "vitest";
+import { SystemClock, UuidGenerator } from "../src/index.js";
 
-describe('shared primitives', () => {
-  it('returns a Date from the system clock', () => {
+describe("shared primitives", () => {
+  it("returns a Date from the system clock", () => {
     expect(new SystemClock().now()).toBeInstanceOf(Date);
   });
 
-  it('returns distinct UUID-shaped identifiers', () => {
+  it("returns distinct UUID-shaped identifiers", () => {
     const ids = new UuidGenerator();
     const a = ids.next();
     const b = ids.next();
