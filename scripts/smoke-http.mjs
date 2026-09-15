@@ -3,7 +3,7 @@ const maxAttempts = Number(process.env.SMOKE_MAX_ATTEMPTS ?? "30");
 const retryDelayMs = Number(process.env.SMOKE_RETRY_DELAY_MS ?? "1000");
 
 const sleep = (milliseconds) =>
-  new Promise((resolve) => setTimeout(resolve, milliseconds));
+  new Promise((resolve) => globalThis.setTimeout(resolve, milliseconds));
 
 async function waitFor(label, check) {
   let lastError;
