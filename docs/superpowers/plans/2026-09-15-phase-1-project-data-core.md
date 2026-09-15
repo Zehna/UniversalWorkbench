@@ -92,6 +92,7 @@ No file should become a generic dumping ground. Repository implementations stay 
 ### Task 1: Phase 1 contracts and workspace boundaries
 
 **Files:**
+
 - Create: `packages/contracts/src/common.ts`
 - Create: `packages/contracts/src/auth.ts`
 - Create: `packages/contracts/src/project.ts`
@@ -103,6 +104,7 @@ No file should become a generic dumping ground. Repository implementations stay 
 - Test: `packages/contracts/test/phase-1-contracts.test.ts`
 
 **Interfaces:**
+
 - Produces `IdSchema`, `OwnerPublicSchema`, `SetupOwnerRequestSchema`, `LoginRequestSchema`, `ProjectSchema`, `CreateProjectRequestSchema`, `NoteDocumentSchema`, `DocumentRevisionSchema`, `UpdateNoteRequestSchema`, `ArtifactSchema`.
 - `UpdateNoteRequestSchema` requires `baseRevisionId`; later services use it for optimistic conflict detection.
 
@@ -118,6 +120,7 @@ No file should become a generic dumping ground. Repository implementations stay 
 ### Task 2: PostgreSQL Phase 1 schema and explicit migration
 
 **Files:**
+
 - Modify: `packages/database/src/schema.ts`
 - Create: `packages/database/src/migrate.ts`
 - Create: `packages/database/drizzle/0000_phase1.sql`
@@ -125,6 +128,7 @@ No file should become a generic dumping ground. Repository implementations stay 
 - Test: `packages/database/test/phase-1-migration.integration.test.ts`
 
 **Tables:**
+
 - `owner_accounts(id uuid pk, singleton_key smallint unique check = 1, username text unique, password_algorithm text, password_salt text, password_hash text, password_parameters jsonb, created_at timestamptz)`
 - `auth_sessions(id uuid pk, owner_id uuid fk, token_hash text unique, created_at timestamptz, expires_at timestamptz, revoked_at timestamptz null)`
 - `projects(id uuid pk, owner_id uuid fk, name text, description text null, schema_version integer default 1, created_at timestamptz, updated_at timestamptz)`
@@ -146,6 +150,7 @@ No file should become a generic dumping ground. Repository implementations stay 
 ### Task 3: Built-in owner password and session primitives
 
 **Files:**
+
 - Create: `packages/auth/src/password.ts`
 - Create: `packages/auth/src/session.ts`
 - Create: `packages/auth/src/repository.ts`
@@ -154,6 +159,7 @@ No file should become a generic dumping ground. Repository implementations stay 
 - Test: `packages/auth/test/session.test.ts`
 
 **Interfaces:**
+
 ```ts
 export interface PasswordHasher {
   hash(password: string): Promise<StoredPasswordHash>;
@@ -181,6 +187,7 @@ Production Argon2id parameters: memory 19 * 1024 KiB, passes 2, parallelism 1, t
 ### Task 4: Auth repository, first-run setup, login, logout, and auth middleware
 
 **Files:**
+
 - Create: `packages/database/src/repositories/auth.ts`
 - Create: `packages/auth/src/service.ts`
 - Create: `apps/server/src/middleware/auth.ts`
@@ -192,6 +199,7 @@ Production Argon2id parameters: memory 19 * 1024 KiB, passes 2, parallelism 1, t
 - Test: `apps/server/test/auth.integration.test.ts`
 
 **Interfaces:**
+
 ```ts
 AuthService.isInitialized(): Promise<boolean>
 AuthService.setupOwner(input): Promise<{ owner: OwnerPublic; session: SessionToken }>
@@ -201,6 +209,7 @@ AuthService.logout(rawToken: string): Promise<void>
 ```
 
 Cookie behavior:
+
 - cookie value is raw random session token; DB stores only digest;
 - `HttpOnly`, `SameSite=Lax`, `Path=/` always;
 - `Secure` when `SESSION_COOKIE_SECURE=true`;
@@ -208,6 +217,7 @@ Cookie behavior:
 - no `Domain` attribute.
 
 Routes:
+
 - `GET /setup/status`
 - `POST /setup/owner` (only before initialization)
 - `POST /auth/login`
@@ -226,6 +236,7 @@ Routes:
 ### Task 5: Project service and Action Layer
 
 **Files:**
+
 - Create: `packages/core/src/action.ts`
 - Create: `packages/core/src/projects.ts`
 - Create: `packages/core/src/index.ts`
@@ -235,6 +246,7 @@ Routes:
 - Test: `packages/database/test/projects.integration.test.ts`
 
 **Interfaces:**
+
 ```ts
 export interface ActionContext {
   actorId: string;
@@ -253,6 +265,7 @@ export async function executeAction<I, O>(spec: {
 ```
 
 Project service:
+
 ```ts
 create(ownerId, input, traceId): Promise<Project>
 list(ownerId): Promise<Project[]>
@@ -271,6 +284,7 @@ update(ownerId, projectId, input, traceId): Promise<Project>
 ### Task 6: Document revisions with optimistic conflict protection
 
 **Files:**
+
 - Create: `packages/documents/src/model.ts`
 - Create: `packages/documents/src/repository.ts`
 - Create: `packages/documents/src/service.ts`
@@ -279,6 +293,7 @@ update(ownerId, projectId, input, traceId): Promise<Project>
 - Test: `packages/database/test/documents.integration.test.ts`
 
 **Interfaces:**
+
 ```ts
 createNote(ownerId, projectId, { title, body }, traceId): Promise<NoteDocumentView>
 updateNote(ownerId, projectId, documentId, {
@@ -303,6 +318,7 @@ listRevisions(ownerId, projectId, documentId): Promise<DocumentRevision[]>
 ### Task 7: Local filesystem storage and immutable Artifact service
 
 **Files:**
+
 - Create: `packages/storage/src/backend.ts`
 - Create: `packages/storage/src/local-filesystem.ts`
 - Create: `packages/storage/src/index.ts`
@@ -315,6 +331,7 @@ listRevisions(ownerId, projectId, documentId): Promise<DocumentRevision[]>
 - Test: `packages/database/test/artifacts.integration.test.ts`
 
 **Interfaces:**
+
 ```ts
 export interface StorageBackend {
   put(input: { key: string; bytes: Uint8Array }): Promise<void>;
@@ -341,6 +358,7 @@ ArtifactService.create(ownerId, projectId, {
 ### Task 8: Protected Project, Document, and Artifact HTTP APIs
 
 **Files:**
+
 - Create: `apps/server/src/middleware/validate.ts`
 - Create: `apps/server/src/routes/projects.ts`
 - Create: `apps/server/src/routes/documents.ts`
@@ -350,6 +368,7 @@ ArtifactService.create(ownerId, projectId, {
 - Test: `apps/server/test/data-api.integration.test.ts`
 
 **Routes:**
+
 - `GET /projects`
 - `POST /projects`
 - `GET /projects/:projectId`
@@ -374,6 +393,7 @@ ArtifactService.create(ownerId, projectId, {
 ### Task 9: First-run, login, project, and note PWA UX
 
 **Files:**
+
 - Create: `apps/web/src/api/client.ts`
 - Create: `apps/web/src/auth/AuthGate.tsx`
 - Create: `apps/web/src/auth/SetupOwner.tsx`
@@ -400,6 +420,7 @@ ArtifactService.create(ownerId, projectId, {
 ### Task 10: Explicit migration deployment and Phase 1 Docker smoke
 
 **Files:**
+
 - Modify: `deploy/docker/compose.yml`
 - Modify: `apps/server/Dockerfile`
 - Modify: `scripts/smoke-http.mjs`
@@ -419,6 +440,7 @@ ArtifactService.create(ownerId, projectId, {
 ### Task 11: Final Phase 1 quality gate and documentation alignment
 
 **Files:**
+
 - Modify: `.github/workflows/ci.yml` only if new migration/artifact checks require explicit steps.
 - Modify: `README.md`
 - Modify: `docs/architecture/phase-1.md`
@@ -456,6 +478,7 @@ Docker Phase 1 vertical smoke               PASS
 ## Self-Review
 
 ### Spec coverage
+
 - Owner auth: Tasks 3–4 and 9.
 - Projects: Tasks 5, 8, 9.
 - Documents/Revisions: Tasks 6, 8, 9.
@@ -469,10 +492,13 @@ Docker Phase 1 vertical smoke               PASS
 - Explicit migration/deployment discipline: Task 10.
 
 ### Intentional deferrals
+
 Phase 2 owns SQLite WASM/OPFS, durable operation journal, WebSocket sync, device identity, tombstones, and conflict synchronization. Phase 3 owns tools/workflows/provenance. Phase 4 owns AI and universal Send To. Phase 5 owns arbitrary upload hardening, recovery, broader rate limiting, backup/restore drills, and private-release hardening.
 
 ### Placeholder scan
+
 No TBD/TODO/"similar to" implementation steps are present.
 
 ### Type consistency
+
 `baseRevisionId`, `currentRevisionId`, `traceId`, owner/project/document/artifact UUIDs, and Action Layer names are consistent across contracts, services, API, and UI tasks.
