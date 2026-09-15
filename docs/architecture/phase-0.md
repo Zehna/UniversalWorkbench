@@ -5,21 +5,22 @@ Phase 0 establishes the build, runtime, database, PWA, deployment, and quality b
 ## Implemented boundaries
 
 - npm workspace modular monolith with `apps/web`, `apps/server`, and focused shared packages.
-- React + Vite + TypeScript PWA shell.
+- React + Vite + TypeScript installable PWA shell with explicit manifest icons.
 - Express + TypeScript server with runtime-validated configuration.
 - Shared Zod contracts for error and health payloads.
 - PostgreSQL as the only Phase 0 production server database.
 - Drizzle ORM dependency and configuration boundary; domain tables intentionally begin in Phase 1.
 - Injectable clock and ID primitives for deterministic later testing.
 - Liveness and database-backed readiness endpoints.
-- Request-ID middleware and bounded JSON request bodies.
-- Reference Docker Compose deployment using PostgreSQL 17.
+- Request IDs are assigned before body parsing; malformed bodies and unknown routes return structured JSON error envelopes.
+- PostgreSQL pools use bounded connection acquisition and an idle-client error listener.
+- Reference Docker Compose deployment using PostgreSQL 17 with configurable database credentials.
 - Filesystem/object-storage domain behavior is not implemented in Phase 0.
-- CI definitions for static quality, real PostgreSQL integration, and Docker smoke verification.
+- CI definitions for static quality, runtime dependency audit, real PostgreSQL integration, PWA artifact verification, and Docker smoke verification.
 
 ## Runtime modes
 
-The server validates `APP_MODE=all|api|worker`. Phase 0 provides HTTP API behavior for `all` and `api`. `worker` is accepted as a forward-compatible runtime role but has no registered jobs in this phase.
+Phase 0 accepts `APP_MODE=all|api`. Both modes run the HTTP API because no background-job runtime exists yet. `worker` remains a planned runtime role in the Master Blueprint, but Phase 0 rejects it rather than starting a no-op process that exits immediately. Worker mode will be enabled only when durable queue/job execution is implemented.
 
 ## Deliberately deferred
 
