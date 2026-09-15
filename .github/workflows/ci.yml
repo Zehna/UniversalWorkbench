@@ -36,6 +36,7 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
       - run: npm run build
+      - run: node scripts/verify-pwa.mjs
 
   docker-smoke:
     runs-on: ubuntu-latest
