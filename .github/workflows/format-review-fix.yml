@@ -1,0 +1,34 @@
+name: Format review fix
+
+on:
+  push:
+    branches:
+      - phase-0-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-0-foundation
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm ci
+      - run: npx prettier --write apps/server/src/app.ts
+      - name: Commit format-only change
+        run: |
+          if git diff --quiet -- apps/server/src/app.ts; then
+            echo "Already formatted"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/server/src/app.ts
+          git commit -m "style: apply prettier to server error handler"
+          git push origin HEAD:phase-0-foundation
