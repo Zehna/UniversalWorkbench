@@ -3,9 +3,14 @@ import { readFile } from "node:fs/promises";
 const expected = new Map([
   ["apps/web/package.json", "@uw/web"],
   ["apps/server/package.json", "@uw/server"],
+  ["packages/artifacts/package.json", "@uw/artifacts"],
+  ["packages/auth/package.json", "@uw/auth"],
   ["packages/contracts/package.json", "@uw/contracts"],
+  ["packages/core/package.json", "@uw/core"],
   ["packages/database/package.json", "@uw/database"],
+  ["packages/documents/package.json", "@uw/documents"],
   ["packages/shared/package.json", "@uw/shared"],
+  ["packages/storage/package.json", "@uw/storage"],
 ]);
 
 let failed = false;
