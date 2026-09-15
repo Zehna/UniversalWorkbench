@@ -4,6 +4,7 @@ import tseslint from "typescript-eslint";
 const nodeGlobals = {
   Buffer: "readonly",
   console: "readonly",
+  fetch: "readonly",
   process: "readonly",
   URL: "readonly",
 };
@@ -36,6 +37,10 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
 );
