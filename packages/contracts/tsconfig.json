@@ -4,10 +4,5 @@
     "noEmit": true,
     "types": ["vitest/globals"]
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts",
-    "vitest.config.ts",
-    "drizzle.config.ts"
-  ]
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
 }
