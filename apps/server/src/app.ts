@@ -45,15 +45,12 @@ export function createApp(deps: AppDependencies) {
   app.use("/health", createHealthRouter(deps));
 
   const notFoundHandler: RequestHandler = (_req, res) => {
-    res
-      .status(404)
-      .json(
-        errorEnvelope(
-          "NOT_FOUND",
-          "Route not found",
-          requestIdFromLocals(res.locals),
-        ),
-      );
+    const body = errorEnvelope(
+      "NOT_FOUND",
+      "Route not found",
+      requestIdFromLocals(res.locals),
+    );
+    res.status(404).json(body);
   };
 
   const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
@@ -61,31 +58,37 @@ export function createApp(deps: AppDependencies) {
     const status = errorStatus(error);
 
     if (status === 400) {
-      res
-        .status(400)
-        .json(errorEnvelope("BAD_REQUEST", "Invalid request body", requestId));
+      const body = errorEnvelope(
+        "BAD_REQUEST",
+        "Invalid request body",
+        requestId,
+      );
+      res.status(400).json(body);
       return;
     }
 
     if (status === 413) {
-      res
-        .status(413)
-        .json(
-          errorEnvelope("PAYLOAD_TOO_LARGE", "Request body too large", requestId),
-        );
+      const body = errorEnvelope(
+        "PAYLOAD_TOO_LARGE",
+        "Request body too large",
+        requestId,
+      );
+      res.status(413).json(body);
       return;
     }
 
     if (status >= 400 && status < 500) {
-      res
-        .status(status)
-        .json(errorEnvelope("BAD_REQUEST", "Invalid request", requestId));
+      const body = errorEnvelope("BAD_REQUEST", "Invalid request", requestId);
+      res.status(status).json(body);
       return;
     }
 
-    res
-      .status(500)
-      .json(errorEnvelope("INTERNAL_ERROR", "Unexpected failure", requestId));
+    const body = errorEnvelope(
+      "INTERNAL_ERROR",
+      "Unexpected failure",
+      requestId,
+    );
+    res.status(500).json(body);
   };
 
   app.use(notFoundHandler);
