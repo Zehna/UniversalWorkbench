@@ -12,6 +12,15 @@ describe("server config", () => {
     expect(config.appMode).toBe("all");
   });
 
+  it("rejects worker mode until the worker runtime exists", () => {
+    expect(() =>
+      loadConfig({
+        DATABASE_URL: "postgresql://u:p@localhost:5432/db",
+        APP_MODE: "worker",
+      }),
+    ).toThrow();
+  });
+
   it("rejects an unsupported app mode", () => {
     expect(() =>
       loadConfig({
