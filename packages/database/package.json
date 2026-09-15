@@ -12,7 +12,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build": "tsup src/index.ts --format esm --dts --clean"
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "migrate": "drizzle-kit migrate --config=drizzle.config.ts"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
