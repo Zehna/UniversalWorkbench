@@ -2,12 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "node"]
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts",
-    "vitest.config.ts",
-    "drizzle.config.ts"
-  ]
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
 }
