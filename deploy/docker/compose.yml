@@ -24,7 +24,7 @@ services:
     environment:
       APP_MODE: all
       PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-workbench}:${POSTGRES_PASSWORD:-workbench}@postgres:5432/${POSTGRES_DB:-workbench}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://workbench:workbench@postgres:5432/workbench}
     depends_on:
       postgres:
         condition: service_healthy
