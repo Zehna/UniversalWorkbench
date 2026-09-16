@@ -1,11 +1,17 @@
+import type { AuthService } from "@uw/auth";
+import type { ErrorEnvelope } from "@uw/contracts";
 import express from "express";
 import type { ErrorRequestHandler, RequestHandler } from "express";
-import type { ErrorEnvelope } from "@uw/contracts";
+import type { SessionCookieConfig } from "./middleware/auth.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
+import { createAuthRouter } from "./routes/auth.js";
 import { createHealthRouter } from "./routes/health.js";
+import { createSetupRouter } from "./routes/setup.js";
 
 export interface AppDependencies {
   databaseReady(): Promise<boolean>;
+  authService?: AuthService;
+  sessionCookie?: SessionCookieConfig;
 }
 
 function requestIdFromLocals(
@@ -45,6 +51,15 @@ export function createApp(deps: AppDependencies) {
   app.use(requestIdMiddleware);
   app.use(express.json({ limit: "1mb" }));
   app.use("/health", createHealthRouter(deps));
+
+  if ((deps.authService && !deps.sessionCookie) || (!deps.authService && deps.sessionCookie)) {
+    throw new Error("authService and sessionCookie must be configured together");
+  }
+
+  if (deps.authService && deps.sessionCookie) {
+    app.use("/setup", createSetupRouter(deps.authService, deps.sessionCookie));
+    app.use("/auth", createAuthRouter(deps.authService, deps.sessionCookie));
+  }
 
   const notFoundHandler: RequestHandler = (_req, res) => {
     const body = errorEnvelope(
