@@ -26,7 +26,7 @@ jobs:
         run: npx drizzle-kit generate --config=packages/database/drizzle.config.ts --name=phase1
       - name: Commit generated migration
         run: |
-          if git diff --quiet -- packages/database/drizzle; then
+          if [ -z "$(git status --porcelain -- packages/database/drizzle)" ]; then
             echo "No migration changes generated"
             exit 1
           fi
