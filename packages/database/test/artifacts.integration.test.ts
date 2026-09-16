@@ -8,10 +8,7 @@ import {
   type ArtifactRepository,
 } from "@uw/artifacts";
 import { SystemClock, UuidGenerator } from "@uw/shared";
-import {
-  createLocalFilesystemStorage,
-  type StorageBackend,
-} from "@uw/storage";
+import { createLocalFilesystemStorage, type StorageBackend } from "@uw/storage";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   closeDatabasePool,
@@ -78,7 +75,9 @@ afterAll(async () => {
   await resetDatabaseSchemas();
   await closeDatabasePool(pool);
   await Promise.all(
-    storageRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+    storageRoots
+      .splice(0)
+      .map((root) => rm(root, { recursive: true, force: true })),
   );
 });
 
@@ -148,7 +147,9 @@ describe("immutable artifact service", () => {
       target_id: string | null;
       trace_id: string;
       metadata: Record<string, unknown>;
-    }>("select action, project_id, target_id, trace_id, metadata from action_audit");
+    }>(
+      "select action, project_id, target_id, trace_id, metadata from action_audit",
+    );
     expect(audit.rows).toHaveLength(1);
     expect(audit.rows[0]).toMatchObject({
       action: "artifact.create",
