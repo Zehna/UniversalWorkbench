@@ -24,7 +24,9 @@ describe("password hashing", () => {
     const hasher = createPasswordHasher();
     const stored = await hasher.hash("phase-one-owner-password");
 
-    await expect(hasher.verify("phase-one-owner-password", stored)).resolves.toBe(true);
+    await expect(
+      hasher.verify("phase-one-owner-password", stored),
+    ).resolves.toBe(true);
     await expect(hasher.verify("wrong-password", stored)).resolves.toBe(false);
   });
 });
