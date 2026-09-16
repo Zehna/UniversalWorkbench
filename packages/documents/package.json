@@ -10,9 +10,15 @@
     }
   },
   "scripts": {
+    "pretest": "npm run build -w @uw/core",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit",
-    "build": "tsup src/index.ts --format esm --dts --clean"
+    "typecheck": "npm run build -w @uw/core && tsc --noEmit",
+    "build": "npm run build -w @uw/core && tsup src/index.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@uw/contracts": "*",
+    "@uw/core": "*",
+    "@uw/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0"
