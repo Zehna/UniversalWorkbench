@@ -1,8 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  createProjectService,
-  ProjectNotFoundError,
-} from "@uw/core";
+import { createProjectService, ProjectNotFoundError } from "@uw/core";
 import { SystemClock, UuidGenerator } from "@uw/shared";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -110,7 +107,9 @@ describe("PostgreSQL project service", () => {
     );
     for (const row of audit.rows) {
       expect(row.metadata).not.toHaveProperty("description");
-      expect(JSON.stringify(row.metadata)).not.toContain("Primary source workspace");
+      expect(JSON.stringify(row.metadata)).not.toContain(
+        "Primary source workspace",
+      );
     }
   });
 
