@@ -88,12 +88,18 @@ export function createPasswordHasher(): PasswordHasher {
       };
     },
 
-    async verify(password: string, stored: StoredPasswordHash): Promise<boolean> {
+    async verify(
+      password: string,
+      stored: StoredPasswordHash,
+    ): Promise<boolean> {
       if (stored.algorithm !== "argon2id") return false;
       if (!hasExpectedParameters(stored.parameters)) return false;
 
       const salt = decodeBase64Url(stored.salt, SALT_BYTES);
-      const expected = decodeBase64Url(stored.hash, stored.parameters.tagLength);
+      const expected = decodeBase64Url(
+        stored.hash,
+        stored.parameters.tagLength,
+      );
       if (!salt || !expected) return false;
 
       try {
