@@ -10,7 +10,7 @@
     }
   },
   "scripts": {
-    "pretest": "npm run build -w @uw/core",
+    "pretest": "npm run build -w @uw/auth && npm run build -w @uw/core",
     "test": "vitest run",
     "typecheck": "npm run build -w @uw/auth && npm run build -w @uw/core && tsc --noEmit",
     "build": "npm run build -w @uw/auth && npm run build -w @uw/core && tsup src/index.ts --format esm --dts --clean",
