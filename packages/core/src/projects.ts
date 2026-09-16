@@ -78,7 +78,9 @@ export interface CreateProjectServiceOptions {
   idGenerator: IdGenerator;
 }
 
-function changedFields(input: CreateProjectRequest | UpdateProjectRequest): string[] {
+function changedFields(
+  input: CreateProjectRequest | UpdateProjectRequest,
+): string[] {
   return Object.entries(input)
     .filter(([, value]) => value !== undefined)
     .map(([key]) => key)
