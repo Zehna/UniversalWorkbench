@@ -3,3 +3,4 @@ dist
 coverage
 .worktrees
 package-lock.json
+packages/database/drizzle/meta
