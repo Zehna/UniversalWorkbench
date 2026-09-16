@@ -8,6 +8,7 @@ COPY packages/auth/package.json packages/auth/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/database/package.json packages/database/package.json
+COPY packages/documents/package.json packages/documents/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN npm ci
 
@@ -17,11 +18,13 @@ COPY packages/auth packages/auth
 COPY packages/contracts packages/contracts
 COPY packages/core packages/core
 COPY packages/database packages/database
+COPY packages/documents packages/documents
 COPY packages/shared packages/shared
 RUN npm run build -w @uw/contracts \
   && npm run build -w @uw/shared \
   && npm run build -w @uw/auth \
   && npm run build -w @uw/core \
+  && npm run build -w @uw/documents \
   && npm run build -w @uw/database \
   && npm run build -w @uw/server \
   && npm prune --omit=dev
@@ -42,6 +45,8 @@ COPY --from=build /app/packages/core/package.json ./packages/core/package.json
 COPY --from=build /app/packages/core/dist ./packages/core/dist
 COPY --from=build /app/packages/database/package.json ./packages/database/package.json
 COPY --from=build /app/packages/database/dist ./packages/database/dist
+COPY --from=build /app/packages/documents/package.json ./packages/documents/package.json
+COPY --from=build /app/packages/documents/dist ./packages/documents/dist
 COPY --from=build /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 
