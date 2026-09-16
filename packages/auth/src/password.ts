@@ -98,7 +98,10 @@ export function createPasswordHasher(): PasswordHasher {
 
       try {
         const actual = await deriveArgon2id(password, salt, stored.parameters);
-        return actual.byteLength === expected.byteLength && timingSafeEqual(actual, expected);
+        return (
+          actual.byteLength === expected.byteLength &&
+          timingSafeEqual(actual, expected)
+        );
       } catch {
         return false;
       }
