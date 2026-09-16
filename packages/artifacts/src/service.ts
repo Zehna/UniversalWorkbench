@@ -25,7 +25,11 @@ export interface ArtifactService {
     traceId: string,
   ): Promise<Artifact>;
   list(ownerId: string, projectId: string): Promise<Artifact[]>;
-  get(ownerId: string, projectId: string, artifactId: string): Promise<Artifact>;
+  get(
+    ownerId: string,
+    projectId: string,
+    artifactId: string,
+  ): Promise<Artifact>;
   getContent(
     ownerId: string,
     projectId: string,
@@ -41,7 +45,10 @@ export interface CreateArtifactServiceOptions {
   idGenerator: IdGenerator;
 }
 
-async function cleanupStorage(storage: StorageBackend, key: string): Promise<void> {
+async function cleanupStorage(
+  storage: StorageBackend,
+  key: string,
+): Promise<void> {
   try {
     await storage.remove(key);
   } catch {
