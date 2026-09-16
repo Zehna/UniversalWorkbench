@@ -1,7 +1,4 @@
-import type {
-  DocumentRevision,
-  NoteDocumentView,
-} from "@uw/contracts";
+import type { DocumentRevision, NoteDocumentView } from "@uw/contracts";
 import type { NoteDocumentSummary } from "./model.js";
 
 export interface CreateNoteRecordInput {
@@ -33,10 +30,7 @@ export type UpdateNoteRecordResult =
 export interface DocumentRepository {
   projectExists(ownerId: string, projectId: string): Promise<boolean>;
   createNote(input: CreateNoteRecordInput): Promise<NoteDocumentView | null>;
-  listNotes(
-    ownerId: string,
-    projectId: string,
-  ): Promise<NoteDocumentSummary[]>;
+  listNotes(ownerId: string, projectId: string): Promise<NoteDocumentSummary[]>;
   getNote(
     ownerId: string,
     projectId: string,

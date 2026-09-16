@@ -111,7 +111,9 @@ async function rollback(client: PoolClient) {
   }
 }
 
-export function createPostgresDocumentRepository(pool: Pool): DocumentRepository {
+export function createPostgresDocumentRepository(
+  pool: Pool,
+): DocumentRepository {
   return {
     async projectExists(ownerId, projectId) {
       const result = await pool.query(
@@ -356,12 +358,7 @@ export function createPostgresDocumentRepository(pool: Pool): DocumentRepository
                   current_revision_id = $2,
                   updated_at = $3
             where id = $4`,
-          [
-            input.title,
-            input.revisionId,
-            input.updatedAt,
-            input.documentId,
-          ],
+          [input.title, input.revisionId, input.updatedAt, input.documentId],
         );
 
         await client.query("commit");
