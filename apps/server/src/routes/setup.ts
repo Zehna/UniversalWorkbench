@@ -1,7 +1,4 @@
-import {
-  AuthAlreadyInitializedError,
-  type AuthService,
-} from "@uw/auth";
+import { AuthAlreadyInitializedError, type AuthService } from "@uw/auth";
 import { SetupOwnerRequestSchema } from "@uw/contracts";
 import { Router } from "express";
 import {

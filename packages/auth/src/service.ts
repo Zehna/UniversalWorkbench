@@ -54,14 +54,11 @@ function toOwnerPublic(owner: OwnerCredentialRecord): OwnerPublic {
   };
 }
 
-export function createAuthService(options: CreateAuthServiceOptions): AuthService {
-  const {
-    repository,
-    passwordHasher,
-    clock,
-    idGenerator,
-    sessionTtlSeconds,
-  } = options;
+export function createAuthService(
+  options: CreateAuthServiceOptions,
+): AuthService {
+  const { repository, passwordHasher, clock, idGenerator, sessionTtlSeconds } =
+    options;
 
   if (!Number.isInteger(sessionTtlSeconds) || sessionTtlSeconds <= 0) {
     throw new Error("sessionTtlSeconds must be a positive integer");
@@ -111,7 +108,10 @@ export function createAuthService(options: CreateAuthServiceOptions): AuthServic
 
     async login(input) {
       const owner = await repository.findOwnerByUsername(input.username);
-      if (!owner || !(await passwordHasher.verify(input.password, owner.password))) {
+      if (
+        !owner ||
+        !(await passwordHasher.verify(input.password, owner.password))
+      ) {
         throw new InvalidCredentialsError();
       }
 

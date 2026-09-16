@@ -52,8 +52,13 @@ export function createApp(deps: AppDependencies) {
   app.use(express.json({ limit: "1mb" }));
   app.use("/health", createHealthRouter(deps));
 
-  if ((deps.authService && !deps.sessionCookie) || (!deps.authService && deps.sessionCookie)) {
-    throw new Error("authService and sessionCookie must be configured together");
+  if (
+    (deps.authService && !deps.sessionCookie) ||
+    (!deps.authService && deps.sessionCookie)
+  ) {
+    throw new Error(
+      "authService and sessionCookie must be configured together",
+    );
   }
 
   if (deps.authService && deps.sessionCookie) {

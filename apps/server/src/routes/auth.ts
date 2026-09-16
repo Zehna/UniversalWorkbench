@@ -31,7 +31,10 @@ export function createAuthRouter(
     } catch (error) {
       if (error instanceof InvalidCredentialsError) {
         res.status(401).json({
-          error: { code: "INVALID_CREDENTIALS", message: "Invalid credentials" },
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message: "Invalid credentials",
+          },
         });
         return;
       }
