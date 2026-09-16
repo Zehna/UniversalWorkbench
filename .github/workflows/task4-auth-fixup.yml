@@ -1,0 +1,53 @@
+name: Task 4 auth fixup
+
+on:
+  push:
+    branches:
+      - phase-1-project-data-core
+
+permissions:
+  contents: write
+
+jobs:
+  fixup:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-1-project-data-core
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm install --ignore-scripts
+      - name: Format Task 4 files
+        run: >-
+          npx prettier --write
+          package-lock.json
+          packages/auth/package.json
+          packages/auth/src/index.ts
+          packages/auth/src/repository.ts
+          packages/auth/src/service.ts
+          packages/database/package.json
+          packages/database/src/index.ts
+          packages/database/src/repositories/auth.ts
+          apps/server/package.json
+          apps/server/src/app.ts
+          apps/server/src/composition.ts
+          apps/server/src/config.ts
+          apps/server/src/index.ts
+          apps/server/src/middleware/auth.ts
+          apps/server/src/routes/auth.ts
+          apps/server/src/routes/setup.ts
+          apps/server/test/auth.integration.test.ts
+      - name: Commit fixup
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No fixup needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json packages/auth packages/database apps/server
+          git commit -m "chore: normalize task 4 auth implementation"
+          git push origin HEAD:phase-1-project-data-core
