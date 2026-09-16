@@ -11,8 +11,9 @@ if (!databaseUrl) throw new Error("TEST_DATABASE_URL is required");
 
 const pool = createDatabasePool(databaseUrl);
 
-async function resetPublicSchema() {
+async function resetDatabaseSchemas() {
   await pool.query("drop schema if exists public cascade");
+  await pool.query("drop schema if exists drizzle cascade");
   await pool.query("create schema public");
 }
 
@@ -28,11 +29,11 @@ async function insertOwner() {
 }
 
 beforeEach(async () => {
-  await resetPublicSchema();
+  await resetDatabaseSchemas();
 });
 
 afterAll(async () => {
-  await resetPublicSchema();
+  await resetDatabaseSchemas();
   await closeDatabasePool(pool);
 });
 
