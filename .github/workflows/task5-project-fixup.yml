@@ -34,7 +34,6 @@ jobs:
           packages/database/src/repositories/audit.ts
           packages/database/src/repositories/projects.ts
           packages/database/test/projects.integration.test.ts
-          apps/server/Dockerfile
       - name: Commit fixup
         run: |
           if [ -z "$(git status --porcelain)" ]; then
@@ -43,6 +42,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json packages/core packages/database apps/server/Dockerfile
+          git add package-lock.json packages/core packages/database
           git commit -m "chore: normalize task 5 project implementation"
           git push origin HEAD:phase-1-project-data-core
