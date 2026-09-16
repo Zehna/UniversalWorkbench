@@ -166,7 +166,9 @@ describe("built-in owner authentication", () => {
     const sessions = await pool.query<{ token_hash: string }>(
       "select token_hash from auth_sessions order by created_at desc",
     );
-    expect(sessions.rows.some((row) => row.token_hash === rawToken)).toBe(false);
+    expect(sessions.rows.some((row) => row.token_hash === rawToken)).toBe(
+      false,
+    );
     expect(
       sessions.rows.some(
         (row) => row.token_hash === digestSessionToken(rawToken),
@@ -184,7 +186,9 @@ describe("built-in owner authentication", () => {
     const cookie = sessionCookieFrom(login);
     const rawToken = rawSessionToken(cookie);
 
-    const session = await request(app).get("/auth/session").set("Cookie", cookie);
+    const session = await request(app)
+      .get("/auth/session")
+      .set("Cookie", cookie);
     expect(session.status).toBe(200);
     expect(session.body.owner).toMatchObject({ username: "owner" });
 
