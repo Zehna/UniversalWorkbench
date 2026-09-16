@@ -11,11 +11,12 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "typecheck": "npm run build -w @uw/auth && tsc --noEmit",
+    "build": "npm run build -w @uw/auth && tsup src/index.ts --format esm --dts --clean",
     "migrate": "drizzle-kit migrate --config=drizzle.config.ts"
   },
   "dependencies": {
+    "@uw/auth": "*",
     "drizzle-orm": "0.45.2",
     "pg": "^8.16.0"
   },
