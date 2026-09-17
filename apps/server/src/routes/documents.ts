@@ -7,12 +7,15 @@ import {
 } from "@uw/contracts";
 import type { AuthService } from "@uw/auth";
 import type { DocumentService } from "@uw/documents";
-import { requireOwner } from "../middleware/auth.js";
+import {
+  requireOwner,
+  type SessionCookieConfig,
+} from "../middleware/auth.js";
 import { mapDomainError, parseRequest } from "../middleware/validate.js";
 
 interface DocumentRouterDependencies {
   authService: AuthService;
-  cookieName: string;
+  sessionCookie: SessionCookieConfig;
   documentService: DocumentService;
 }
 
@@ -24,14 +27,21 @@ function traceIdFromLocals(locals: Record<string, unknown>): string {
   return String(locals.requestId);
 }
 
+function projectIdFromParams(params: object): string {
+  return parseRequest(
+    IdSchema,
+    (params as Record<string, unknown>).projectId,
+  );
+}
+
 export function createDocumentsRouter(deps: DocumentRouterDependencies) {
   const router = Router({ mergeParams: true });
-  router.use(requireOwner(deps.authService, deps.cookieName));
+  router.use(requireOwner(deps.authService, deps.sessionCookie));
 
   router.get("/", async (req, res, next) => {
     try {
       const owner = ownerFromLocals(res.locals);
-      const projectId = parseRequest(IdSchema, req.params.projectId);
+      const projectId = projectIdFromParams(req.params);
       const documents = await deps.documentService.listNotes(
         owner.id,
         projectId,
@@ -45,7 +55,7 @@ export function createDocumentsRouter(deps: DocumentRouterDependencies) {
   router.post("/", async (req, res, next) => {
     try {
       const owner = ownerFromLocals(res.locals);
-      const projectId = parseRequest(IdSchema, req.params.projectId);
+      const projectId = projectIdFromParams(req.params);
       const input = parseRequest(CreateNoteRequestSchema, req.body);
       const document = await deps.documentService.createNote(
         owner.id,
@@ -62,7 +72,7 @@ export function createDocumentsRouter(deps: DocumentRouterDependencies) {
   router.get("/:documentId", async (req, res, next) => {
     try {
       const owner = ownerFromLocals(res.locals);
-      const projectId = parseRequest(IdSchema, req.params.projectId);
+      const projectId = projectIdFromParams(req.params);
       const documentId = parseRequest(IdSchema, req.params.documentId);
       const document = await deps.documentService.getNote(
         owner.id,
@@ -78,7 +88,7 @@ export function createDocumentsRouter(deps: DocumentRouterDependencies) {
   router.patch("/:documentId", async (req, res, next) => {
     try {
       const owner = ownerFromLocals(res.locals);
-      const projectId = parseRequest(IdSchema, req.params.projectId);
+      const projectId = projectIdFromParams(req.params);
       const documentId = parseRequest(IdSchema, req.params.documentId);
       const input = parseRequest(UpdateNoteRequestSchema, req.body);
       const document = await deps.documentService.updateNote(
@@ -97,7 +107,7 @@ export function createDocumentsRouter(deps: DocumentRouterDependencies) {
   router.get("/:documentId/revisions", async (req, res, next) => {
     try {
       const owner = ownerFromLocals(res.locals);
-      const projectId = parseRequest(IdSchema, req.params.projectId);
+      const projectId = projectIdFromParams(req.params);
       const documentId = parseRequest(IdSchema, req.params.documentId);
       const revisions = await deps.documentService.listRevisions(
         owner.id,
