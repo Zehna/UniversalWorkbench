@@ -110,12 +110,15 @@ const protectedRoutes = [
 ] as const;
 
 describe("protected data API", () => {
-  it.each(protectedRoutes)("requires authentication: %s %s", async (method, path) => {
-    const app = createApp(createDeps(false));
-    const response = await request(app)[method](path);
-    expect(response.status).toBe(401);
-    expect(response.body.error.code).toBe("UNAUTHORIZED");
-  });
+  it.each(protectedRoutes)(
+    "requires authentication: %s %s",
+    async (method, path) => {
+      const app = createApp(createDeps(false));
+      const response = await request(app)[method](path);
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("UNAUTHORIZED");
+    },
+  );
 
   it("routes project mutations through ProjectService with trusted owner and trace ID", async () => {
     const deps = createDeps();
@@ -179,6 +182,8 @@ describe("protected data API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("BAD_REQUEST");
-    expect(response.body.error.requestId).toBe(response.headers["x-request-id"]);
+    expect(response.body.error.requestId).toBe(
+      response.headers["x-request-id"],
+    );
   });
 });
