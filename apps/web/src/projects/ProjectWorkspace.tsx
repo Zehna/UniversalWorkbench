@@ -65,8 +65,10 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
           </button>
         ))}
       </div>
-      {creating || selected ? (
+      {selected ? (
         <NoteEditor projectId={project.id} initial={selected} onSaved={saved} />
+      ) : creating ? (
+        <NoteEditor projectId={project.id} onSaved={saved} />
       ) : (
         <p>Select a note or create a new one.</p>
       )}
