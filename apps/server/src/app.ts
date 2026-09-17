@@ -48,6 +48,14 @@ function errorCode(error: unknown, fallback: string): string {
   return typeof code === "string" && code.length > 0 ? code : fallback;
 }
 
+function hasExplicitErrorCode(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return false;
+  }
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && code.length > 0;
+}
+
 function errorMessage(error: unknown, fallback: string): string {
   if (!(error instanceof Error) || error.message.length === 0) return fallback;
   return error.message;
@@ -160,12 +168,13 @@ export function createApp(deps: AppDependencies) {
     }
 
     if (status >= 400 && status < 500) {
+      const fallbackMessage =
+        status === 400 ? "Invalid request body" : "Invalid request";
       const body = errorEnvelope(
         errorCode(error, "BAD_REQUEST"),
-        errorMessage(
-          error,
-          status === 400 ? "Invalid request body" : "Invalid request",
-        ),
+        hasExplicitErrorCode(error)
+          ? errorMessage(error, fallbackMessage)
+          : fallbackMessage,
         requestId,
       ) as ErrorEnvelope & { error: Record<string, unknown> };
       const details = errorDetails(error);
