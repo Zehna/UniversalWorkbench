@@ -1,9 +1,13 @@
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import type { AuthService } from "@uw/auth";
-import type { ArtifactService } from "@uw/artifacts";
-import type { ProjectService } from "@uw/core";
-import type { DocumentService } from "@uw/documents";
+import { ArtifactNotFoundError, type ArtifactService } from "@uw/artifacts";
+import { ProjectNotFoundError, type ProjectService } from "@uw/core";
+import {
+  DocumentNotFoundError,
+  RevisionConflictError,
+  type DocumentService,
+} from "@uw/documents";
 import { createApp } from "../src/app.js";
 
 const OWNER_ID = "11111111-1111-4111-8111-111111111111";
@@ -159,6 +163,56 @@ describe("protected data API", () => {
       .send({ title: "Note", body: "next", baseRevisionId: REVISION_ID });
     expect(updated.status).toBe(200);
     expect(deps.documentService.updateNote).toHaveBeenCalled();
+  });
+
+  it("conceals missing project, document, and artifact resources as 404", async () => {
+    const projectDeps = createDeps();
+    projectDeps.projectService.get.mockRejectedValueOnce(
+      new ProjectNotFoundError(PROJECT_ID),
+    );
+    const projectResponse = await request(createApp(projectDeps))
+      .get(`/projects/${PROJECT_ID}`)
+      .set("Cookie", "uw_session=raw-token");
+    expect(projectResponse.status).toBe(404);
+    expect(projectResponse.body.error.code).toBe("NOT_FOUND");
+
+    const documentDeps = createDeps();
+    documentDeps.documentService.getNote.mockRejectedValueOnce(
+      new DocumentNotFoundError(DOCUMENT_ID),
+    );
+    const documentResponse = await request(createApp(documentDeps))
+      .get(`/projects/${PROJECT_ID}/documents/${DOCUMENT_ID}`)
+      .set("Cookie", "uw_session=raw-token");
+    expect(documentResponse.status).toBe(404);
+    expect(documentResponse.body.error.code).toBe("NOT_FOUND");
+
+    const artifactDeps = createDeps();
+    artifactDeps.artifactService.get.mockRejectedValueOnce(
+      new ArtifactNotFoundError(ARTIFACT_ID),
+    );
+    const artifactResponse = await request(createApp(artifactDeps))
+      .get(`/projects/${PROJECT_ID}/artifacts/${ARTIFACT_ID}`)
+      .set("Cookie", "uw_session=raw-token");
+    expect(artifactResponse.status).toBe(404);
+    expect(artifactResponse.body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("maps stale note updates to 409 with the current revision ID", async () => {
+    const deps = createDeps();
+    deps.documentService.updateNote.mockRejectedValueOnce(
+      new RevisionConflictError(REVISION_ID),
+    );
+    const response = await request(createApp(deps))
+      .patch(`/projects/${PROJECT_ID}/documents/${DOCUMENT_ID}`)
+      .set("Cookie", "uw_session=raw-token")
+      .send({ title: "Note", body: "stale", baseRevisionId: REVISION_ID });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("REVISION_CONFLICT");
+    expect(response.body.error.currentRevisionId).toBe(REVISION_ID);
+    expect(response.body.error.requestId).toBe(
+      response.headers["x-request-id"],
+    );
   });
 
   it("serves artifact content with stored MIME type and attachment headers", async () => {
