@@ -159,12 +159,12 @@ export function createApp(deps: AppDependencies) {
     }
 
     if (status >= 400 && status < 500) {
-      const fallbackCode = status === 400 ? "BAD_REQUEST" : "BAD_REQUEST";
-      const fallbackMessage =
-        status === 400 ? "Invalid request body" : "Invalid request";
       const body = errorEnvelope(
-        errorCode(error, fallbackCode),
-        errorMessage(error, fallbackMessage),
+        errorCode(error, "BAD_REQUEST"),
+        errorMessage(
+          error,
+          status === 400 ? "Invalid request body" : "Invalid request",
+        ),
         requestId,
       ) as ErrorEnvelope & { error: Record<string, unknown> };
       const details = errorDetails(error);
