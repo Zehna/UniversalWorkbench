@@ -3,7 +3,7 @@ import type { ZodType } from "zod";
 export class HttpError extends Error {
   readonly status: number;
   readonly code: string;
-  readonly details?: Record<string, unknown>;
+  readonly details: Record<string, unknown> | undefined;
 
   constructor(
     status: number,
