@@ -7,12 +7,15 @@ import {
 } from "@uw/contracts";
 import type { AuthService } from "@uw/auth";
 import type { ProjectService } from "@uw/core";
-import { requireOwner } from "../middleware/auth.js";
+import {
+  requireOwner,
+  type SessionCookieConfig,
+} from "../middleware/auth.js";
 import { mapDomainError, parseRequest } from "../middleware/validate.js";
 
 interface ProjectRouterDependencies {
   authService: AuthService;
-  cookieName: string;
+  sessionCookie: SessionCookieConfig;
   projectService: ProjectService;
 }
 
@@ -26,7 +29,7 @@ function traceIdFromLocals(locals: Record<string, unknown>): string {
 
 export function createProjectsRouter(deps: ProjectRouterDependencies) {
   const router = Router();
-  router.use(requireOwner(deps.authService, deps.cookieName));
+  router.use(requireOwner(deps.authService, deps.sessionCookie));
 
   router.get("/", async (_req, res, next) => {
     try {
