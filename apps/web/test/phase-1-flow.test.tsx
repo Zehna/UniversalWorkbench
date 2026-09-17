@@ -44,65 +44,116 @@ afterEach(() => {
 
 describe("Phase 1 PWA flow", () => {
   it("sets up the owner, creates a project and note, then preserves local text on revision conflict", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      const method = init?.method ?? "GET";
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
 
-      if (url.endsWith("/setup/status")) return jsonResponse({ initialized: false });
-      if (url.endsWith("/setup/owner") && method === "POST") return jsonResponse({ owner: OWNER }, 201);
-      if (url.endsWith("/projects") && method === "GET") return jsonResponse([]);
-      if (url.endsWith("/projects") && method === "POST") return jsonResponse(PROJECT, 201);
-      if (url.endsWith(`/projects/${PROJECT.id}/documents`) && method === "GET") return jsonResponse([]);
-      if (url.endsWith(`/projects/${PROJECT.id}/documents`) && method === "POST") {
-        return jsonResponse({
-          document: DOCUMENT,
-          revision: {
-            id: REVISION_1,
-            documentId: DOCUMENT.id,
-            revisionNumber: 1,
-            parentRevisionId: null,
-            content: { body: "First note" },
-            metadata: {},
-            createdAt: DOCUMENT.createdAt,
-          },
-        }, 201);
-      }
-      if (url.endsWith(`/projects/${PROJECT.id}/documents/${DOCUMENT.id}`) && method === "PATCH") {
-        return jsonResponse({
-          error: {
-            code: "REVISION_CONFLICT",
-            message: "Document revision conflict",
-            currentRevisionId: REVISION_2,
-          },
-        }, 409);
-      }
+        if (url.endsWith("/setup/status")) {
+          return jsonResponse({ initialized: false });
+        }
+        if (url.endsWith("/setup/owner") && method === "POST") {
+          return jsonResponse({ owner: OWNER }, 201);
+        }
+        if (url.endsWith("/projects") && method === "GET") {
+          return jsonResponse([]);
+        }
+        if (url.endsWith("/projects") && method === "POST") {
+          return jsonResponse(PROJECT, 201);
+        }
+        if (
+          url.endsWith(`/projects/${PROJECT.id}/documents`) &&
+          method === "GET"
+        ) {
+          return jsonResponse([]);
+        }
+        if (
+          url.endsWith(`/projects/${PROJECT.id}/documents`) &&
+          method === "POST"
+        ) {
+          return jsonResponse(
+            {
+              document: DOCUMENT,
+              revision: {
+                id: REVISION_1,
+                documentId: DOCUMENT.id,
+                revisionNumber: 1,
+                parentRevisionId: null,
+                content: { body: "First note" },
+                metadata: {},
+                createdAt: DOCUMENT.createdAt,
+              },
+            },
+            201,
+          );
+        }
+        if (
+          url.endsWith(
+            `/projects/${PROJECT.id}/documents/${DOCUMENT.id}`,
+          ) &&
+          method === "PATCH"
+        ) {
+          return jsonResponse(
+            {
+              error: {
+                code: "REVISION_CONFLICT",
+                message: "Document revision conflict",
+                currentRevisionId: REVISION_2,
+              },
+            },
+            409,
+          );
+        }
 
-      throw new Error(`Unexpected fetch: ${method} ${url}`);
-    });
+        throw new Error(`Unexpected fetch: ${method} ${url}`);
+      },
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /create owner/i })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: "owner" } });
-    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: "a-very-secure-password" } });
+    expect(
+      await screen.findByRole("heading", { name: /create owner/i }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/username/i), {
+      target: { value: "owner" },
+    });
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
+      target: { value: "a-very-secure-password" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /create owner/i }));
 
-    expect(await screen.findByRole("heading", { name: /projects/i })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/project name/i), { target: { value: "Research" } });
+    expect(
+      await screen.findByRole("heading", { name: /projects/i }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: "Research" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /create project/i }));
 
-    expect(await screen.findByRole("heading", { name: "Research" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Research" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /new note/i }));
-    fireEvent.change(screen.getByLabelText(/note title/i), { target: { value: "Sources" } });
-    fireEvent.change(screen.getByLabelText(/note body/i), { target: { value: "First note" } });
+    fireEvent.change(screen.getByLabelText(/note title/i), {
+      target: { value: "Sources" },
+    });
+    fireEvent.change(screen.getByLabelText(/note body/i), {
+      target: { value: "First note" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /save note/i }));
 
-    expect(await screen.findByDisplayValue("First note")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/note body/i), { target: { value: "My local edit" } });
+    expect(
+      await screen.findByDisplayValue("First note"),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/note body/i), {
+      target: { value: "My local edit" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /save note/i }));
 
-    expect(await screen.findByText(/newer revision exists/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/newer revision exists/i),
+    ).toBeInTheDocument();
     expect(screen.getByDisplayValue("My local edit")).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
   });
