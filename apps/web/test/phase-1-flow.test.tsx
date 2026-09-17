@@ -88,9 +88,7 @@ describe("Phase 1 PWA flow", () => {
           );
         }
         if (
-          url.endsWith(
-            `/projects/${PROJECT.id}/documents/${DOCUMENT.id}`,
-          ) &&
+          url.endsWith(`/projects/${PROJECT.id}/documents/${DOCUMENT.id}`) &&
           method === "PATCH"
         ) {
           return jsonResponse(
@@ -143,9 +141,7 @@ describe("Phase 1 PWA flow", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /save note/i }));
 
-    expect(
-      await screen.findByDisplayValue("First note"),
-    ).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("First note")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/note body/i), {
       target: { value: "My local edit" },
     });
