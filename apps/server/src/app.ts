@@ -5,18 +5,19 @@ import type { ArtifactService } from "@uw/artifacts";
 import type { ErrorEnvelope } from "@uw/contracts";
 import type { ProjectService } from "@uw/core";
 import type { DocumentService } from "@uw/documents";
-import { createAuthRouter, type SessionCookieOptions } from "./routes/auth.js";
+import type { SessionCookieConfig } from "./middleware/auth.js";
+import { requestIdMiddleware } from "./middleware/request-id.js";
+import { createAuthRouter } from "./routes/auth.js";
 import { createArtifactsRouter } from "./routes/artifacts.js";
 import { createDocumentsRouter } from "./routes/documents.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createProjectsRouter } from "./routes/projects.js";
 import { createSetupRouter } from "./routes/setup.js";
-import { requestIdMiddleware } from "./middleware/request-id.js";
 
 export interface AppDependencies {
   databaseReady(): Promise<boolean>;
   authService?: AuthService;
-  sessionCookie?: SessionCookieOptions;
+  sessionCookie?: SessionCookieConfig;
   projectService?: ProjectService;
   documentService?: DocumentService;
   artifactService?: ArtifactService;
@@ -78,14 +79,14 @@ function errorEnvelope(
 
 function hasAuthDependencies(deps: AppDependencies): deps is AppDependencies & {
   authService: AuthService;
-  sessionCookie: SessionCookieOptions;
+  sessionCookie: SessionCookieConfig;
 } {
   return Boolean(deps.authService && deps.sessionCookie);
 }
 
 function hasDataDependencies(deps: AppDependencies): deps is AppDependencies & {
   authService: AuthService;
-  sessionCookie: SessionCookieOptions;
+  sessionCookie: SessionCookieConfig;
   projectService: ProjectService;
   documentService: DocumentService;
   artifactService: ArtifactService;
@@ -113,7 +114,7 @@ export function createApp(deps: AppDependencies) {
   if (hasDataDependencies(deps)) {
     const common = {
       authService: deps.authService,
-      cookieName: deps.sessionCookie.name,
+      sessionCookie: deps.sessionCookie,
     };
     app.use(
       "/projects/:projectId/documents",
