@@ -7,10 +7,7 @@ import {
 } from "@uw/contracts";
 import type { AuthService } from "@uw/auth";
 import type { ProjectService } from "@uw/core";
-import {
-  requireOwner,
-  type SessionCookieConfig,
-} from "../middleware/auth.js";
+import { requireOwner, type SessionCookieConfig } from "../middleware/auth.js";
 import { mapDomainError, parseRequest } from "../middleware/validate.js";
 
 interface ProjectRouterDependencies {
