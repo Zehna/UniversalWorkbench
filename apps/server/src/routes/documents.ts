@@ -32,7 +32,10 @@ export function createDocumentsRouter(deps: DocumentRouterDependencies) {
     try {
       const owner = ownerFromLocals(res.locals);
       const projectId = parseRequest(IdSchema, req.params.projectId);
-      const documents = await deps.documentService.listNotes(owner.id, projectId);
+      const documents = await deps.documentService.listNotes(
+        owner.id,
+        projectId,
+      );
       res.json({ documents });
     } catch (error) {
       next(mapDomainError(error));

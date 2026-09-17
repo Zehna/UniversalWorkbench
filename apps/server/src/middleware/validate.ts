@@ -36,12 +36,21 @@ export function mapDomainError(error: unknown): unknown {
     case "ArtifactNotFoundError":
       return new HttpError(404, "NOT_FOUND", "Resource not found");
     case "RevisionConflictError": {
-      const currentRevisionId = (error as Error & {
-        currentRevisionId?: unknown;
-      }).currentRevisionId;
-      return new HttpError(409, "REVISION_CONFLICT", "Document revision conflict", {
-        ...(typeof currentRevisionId === "string" ? { currentRevisionId } : {}),
-      });
+      const currentRevisionId = (
+        error as Error & {
+          currentRevisionId?: unknown;
+        }
+      ).currentRevisionId;
+      return new HttpError(
+        409,
+        "REVISION_CONFLICT",
+        "Document revision conflict",
+        {
+          ...(typeof currentRevisionId === "string"
+            ? { currentRevisionId }
+            : {}),
+        },
+      );
     }
     default:
       return error;

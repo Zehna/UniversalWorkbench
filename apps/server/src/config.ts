@@ -9,11 +9,7 @@ const ConfigSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
-  SESSION_TTL_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(604800),
+  SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(604800),
   ARTIFACTS_DIR: z.string().min(1).default("./data/artifacts"),
 });
 

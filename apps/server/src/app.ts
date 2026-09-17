@@ -5,10 +5,7 @@ import type { ArtifactService } from "@uw/artifacts";
 import type { ErrorEnvelope } from "@uw/contracts";
 import type { ProjectService } from "@uw/core";
 import type { DocumentService } from "@uw/documents";
-import {
-  createAuthRouter,
-  type SessionCookieOptions,
-} from "./routes/auth.js";
+import { createAuthRouter, type SessionCookieOptions } from "./routes/auth.js";
 import { createArtifactsRouter } from "./routes/artifacts.js";
 import { createDocumentsRouter } from "./routes/documents.js";
 import { createHealthRouter } from "./routes/health.js";
@@ -79,18 +76,14 @@ function errorEnvelope(
   };
 }
 
-function hasAuthDependencies(
-  deps: AppDependencies,
-): deps is AppDependencies & {
+function hasAuthDependencies(deps: AppDependencies): deps is AppDependencies & {
   authService: AuthService;
   sessionCookie: SessionCookieOptions;
 } {
   return Boolean(deps.authService && deps.sessionCookie);
 }
 
-function hasDataDependencies(
-  deps: AppDependencies,
-): deps is AppDependencies & {
+function hasDataDependencies(deps: AppDependencies): deps is AppDependencies & {
   authService: AuthService;
   sessionCookie: SessionCookieOptions;
   projectService: ProjectService;
@@ -99,9 +92,9 @@ function hasDataDependencies(
 } {
   return Boolean(
     hasAuthDependencies(deps) &&
-      deps.projectService &&
-      deps.documentService &&
-      deps.artifactService,
+    deps.projectService &&
+    deps.documentService &&
+    deps.artifactService,
   );
 }
 
@@ -124,11 +117,17 @@ export function createApp(deps: AppDependencies) {
     };
     app.use(
       "/projects/:projectId/documents",
-      createDocumentsRouter({ ...common, documentService: deps.documentService }),
+      createDocumentsRouter({
+        ...common,
+        documentService: deps.documentService,
+      }),
     );
     app.use(
       "/projects/:projectId/artifacts",
-      createArtifactsRouter({ ...common, artifactService: deps.artifactService }),
+      createArtifactsRouter({
+        ...common,
+        artifactService: deps.artifactService,
+      }),
     );
     app.use(
       "/projects",
@@ -161,7 +160,8 @@ export function createApp(deps: AppDependencies) {
 
     if (status >= 400 && status < 500) {
       const fallbackCode = status === 400 ? "BAD_REQUEST" : "BAD_REQUEST";
-      const fallbackMessage = status === 400 ? "Invalid request body" : "Invalid request";
+      const fallbackMessage =
+        status === 400 ? "Invalid request body" : "Invalid request";
       const body = errorEnvelope(
         errorCode(error, fallbackCode),
         errorMessage(error, fallbackMessage),
