@@ -1,0 +1,43 @@
+name: Normalize Task 8 implementation
+
+on:
+  push:
+    branches:
+      - phase-1-project-data-core
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-1-project-data-core
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm install --package-lock-only --ignore-scripts
+      - run: >-
+          npx prettier --write
+          apps/server/src/app.ts
+          apps/server/src/composition.ts
+          apps/server/src/config.ts
+          apps/server/src/middleware/validate.ts
+          apps/server/src/routes/projects.ts
+          apps/server/src/routes/documents.ts
+          apps/server/src/routes/artifacts.ts
+          apps/server/package.json
+      - name: Commit normalized files
+        run: |
+          if [ -z "$(git status --porcelain -- package-lock.json apps/server)" ]; then
+            echo "Nothing to normalize"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json apps/server
+          git commit -m "chore: normalize task 8 dependencies and formatting"
+          git push origin HEAD:phase-1-project-data-core

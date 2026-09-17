@@ -11,10 +11,14 @@
     "dev": "npm run build -w @uw/auth && npm run build -w @uw/database && tsx watch src/index.ts"
   },
   "dependencies": {
+    "@uw/artifacts": "*",
     "@uw/auth": "*",
     "@uw/contracts": "*",
+    "@uw/core": "*",
     "@uw/database": "*",
+    "@uw/documents": "*",
     "@uw/shared": "*",
+    "@uw/storage": "*",
     "express": "^5.2.1",
     "zod": "^4.0.0"
   },
