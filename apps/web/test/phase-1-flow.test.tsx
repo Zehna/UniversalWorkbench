@@ -43,6 +43,50 @@ afterEach(() => {
 });
 
 describe("Phase 1 PWA flow", () => {
+  it("shows login and keeps the password transient when login fails", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+
+        if (url.endsWith("/setup/status")) {
+          return jsonResponse({ initialized: true });
+        }
+        if (url.endsWith("/auth/session")) {
+          return jsonResponse(
+            { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+            401,
+          );
+        }
+        if (url.endsWith("/auth/login") && method === "POST") {
+          return jsonResponse(
+            { error: { code: "INVALID_CREDENTIALS", message: "Invalid credentials" } },
+            401,
+          );
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /sign in/i }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/username/i), {
+      target: { value: "owner" },
+    });
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
+      target: { value: "wrong-password-value" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText(/invalid credentials/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toHaveValue("");
+  });
+
   it("sets up the owner, creates a project and note, then preserves local text on revision conflict", async () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -56,16 +100,16 @@ describe("Phase 1 PWA flow", () => {
           return jsonResponse({ owner: OWNER }, 201);
         }
         if (url.endsWith("/projects") && method === "GET") {
-          return jsonResponse([]);
+          return jsonResponse({ projects: [] });
         }
         if (url.endsWith("/projects") && method === "POST") {
-          return jsonResponse(PROJECT, 201);
+          return jsonResponse({ project: PROJECT }, 201);
         }
         if (
           url.endsWith(`/projects/${PROJECT.id}/documents`) &&
           method === "GET"
         ) {
-          return jsonResponse([]);
+          return jsonResponse({ documents: [] });
         }
         if (
           url.endsWith(`/projects/${PROJECT.id}/documents`) &&
