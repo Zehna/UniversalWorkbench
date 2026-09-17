@@ -3,10 +3,7 @@ import type { OwnerPublic } from "@uw/contracts";
 import { IdSchema } from "@uw/contracts";
 import type { AuthService } from "@uw/auth";
 import type { ArtifactService } from "@uw/artifacts";
-import {
-  requireOwner,
-  type SessionCookieConfig,
-} from "../middleware/auth.js";
+import { requireOwner, type SessionCookieConfig } from "../middleware/auth.js";
 import { mapDomainError, parseRequest } from "../middleware/validate.js";
 
 interface ArtifactRouterDependencies {
@@ -20,10 +17,7 @@ function ownerFromLocals(locals: Record<string, unknown>): OwnerPublic {
 }
 
 function projectIdFromParams(params: object): string {
-  return parseRequest(
-    IdSchema,
-    (params as Record<string, unknown>).projectId,
-  );
+  return parseRequest(IdSchema, (params as Record<string, unknown>).projectId);
 }
 
 export function createArtifactsRouter(deps: ArtifactRouterDependencies) {
