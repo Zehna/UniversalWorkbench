@@ -45,9 +45,12 @@ async function parseBody(response: Response): Promise<unknown> {
 function apiError(response: Response, body: unknown): ApiError {
   const error = isRecord(body) && isRecord(body.error) ? body.error : {};
   const code = typeof error.code === "string" ? error.code : "REQUEST_FAILED";
-  const message = typeof error.message === "string" ? error.message : "Request failed";
+  const message =
+    typeof error.message === "string" ? error.message : "Request failed";
   const details = Object.fromEntries(
-    Object.entries(error).filter(([key]) => key !== "code" && key !== "message"),
+    Object.entries(error).filter(
+      ([key]) => key !== "code" && key !== "message",
+    ),
   );
   return new ApiError(response.status, code, message, details);
 }
@@ -74,13 +77,17 @@ function record(body: unknown): Record<string, unknown> {
 export const api = {
   async setupStatus(): Promise<boolean> {
     const body = record(await request("/setup/status"));
-    if (typeof body.initialized !== "boolean") throw new Error("Invalid setup status response");
+    if (typeof body.initialized !== "boolean")
+      throw new Error("Invalid setup status response");
     return body.initialized;
   },
 
   async setupOwner(input: SetupOwnerRequest): Promise<OwnerPublic> {
     const body = record(
-      await request("/setup/owner", { method: "POST", body: JSON.stringify(input) }),
+      await request("/setup/owner", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
     );
     return OwnerPublicSchema.parse(body.owner);
   },
@@ -92,37 +99,51 @@ export const api = {
 
   async login(input: LoginRequest): Promise<OwnerPublic> {
     const body = record(
-      await request("/auth/login", { method: "POST", body: JSON.stringify(input) }),
+      await request("/auth/login", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
     );
     return OwnerPublicSchema.parse(body.owner);
   },
 
   async listProjects(): Promise<Project[]> {
     const body = record(await request("/projects"));
-    if (!Array.isArray(body.projects)) throw new Error("Invalid project list response");
+    if (!Array.isArray(body.projects))
+      throw new Error("Invalid project list response");
     return body.projects.map((project) => ProjectSchema.parse(project));
   },
 
   async createProject(input: CreateProjectRequest): Promise<Project> {
     const body = record(
-      await request("/projects", { method: "POST", body: JSON.stringify(input) }),
+      await request("/projects", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
     );
     return ProjectSchema.parse(body.project);
   },
 
   async listDocuments(projectId: string): Promise<NoteDocument[]> {
     const body = record(await request(`/projects/${projectId}/documents`));
-    if (!Array.isArray(body.documents)) throw new Error("Invalid document list response");
+    if (!Array.isArray(body.documents))
+      throw new Error("Invalid document list response");
     return body.documents.map((document) => NoteDocumentSchema.parse(document));
   },
 
-  async getDocument(projectId: string, documentId: string): Promise<NoteDocumentView> {
+  async getDocument(
+    projectId: string,
+    documentId: string,
+  ): Promise<NoteDocumentView> {
     return NoteDocumentViewSchema.parse(
       await request(`/projects/${projectId}/documents/${documentId}`),
     );
   },
 
-  async createNote(projectId: string, input: CreateNoteRequest): Promise<NoteDocumentView> {
+  async createNote(
+    projectId: string,
+    input: CreateNoteRequest,
+  ): Promise<NoteDocumentView> {
     return NoteDocumentViewSchema.parse(
       await request(`/projects/${projectId}/documents`, {
         method: "POST",

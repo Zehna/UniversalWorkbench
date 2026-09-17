@@ -40,15 +40,27 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
 
   return (
     <section>
-      <button type="button" onClick={onBack}>Back to projects</button>
+      <button type="button" onClick={onBack}>
+        Back to projects
+      </button>
       <h2>{project.name}</h2>
       <div>
         <h3>Notes</h3>
-        <button type="button" onClick={() => { setCreating(true); setSelected(undefined); }}>
+        <button
+          type="button"
+          onClick={() => {
+            setCreating(true);
+            setSelected(undefined);
+          }}
+        >
           New Note
         </button>
         {documents.map((document) => (
-          <button key={document.id} type="button" onClick={() => void selectDocument(document)}>
+          <button
+            key={document.id}
+            type="button"
+            onClick={() => void selectDocument(document)}
+          >
             {document.title}
           </button>
         ))}

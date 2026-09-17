@@ -18,7 +18,11 @@ export function ProjectList() {
       })
       .catch((cause) => {
         if (active) {
-          setError(cause instanceof ApiError ? cause.message : "Unable to load projects");
+          setError(
+            cause instanceof ApiError
+              ? cause.message
+              : "Unable to load projects",
+          );
         }
       });
     return () => {
@@ -35,12 +39,16 @@ export function ProjectList() {
       setName("");
       setSelected(project);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Unable to create project");
+      setError(
+        cause instanceof ApiError ? cause.message : "Unable to create project",
+      );
     }
   }
 
   if (selected) {
-    return <ProjectWorkspace project={selected} onBack={() => setSelected(null)} />;
+    return (
+      <ProjectWorkspace project={selected} onBack={() => setSelected(null)} />
+    );
   }
 
   return (
@@ -49,14 +57,22 @@ export function ProjectList() {
       <form onSubmit={createProject}>
         <label>
           Project name
-          <input required value={name} onChange={(event) => setName(event.target.value)} />
+          <input
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         </label>
         <button type="submit">Create Project</button>
       </form>
       {error ? <p role="alert">{error}</p> : null}
       {projects.length === 0 ? <p>No projects yet.</p> : null}
       {projects.map((project) => (
-        <button key={project.id} type="button" onClick={() => setSelected(project)}>
+        <button
+          key={project.id}
+          type="button"
+          onClick={() => setSelected(project)}
+        >
           {project.name}
         </button>
       ))}

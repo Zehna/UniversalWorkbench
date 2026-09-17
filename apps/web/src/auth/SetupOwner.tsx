@@ -21,7 +21,9 @@ export function SetupOwner({ onReady }: SetupOwnerProps) {
       setPassword("");
       onReady(owner);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Unable to create owner");
+      setError(
+        cause instanceof ApiError ? cause.message : "Unable to create owner",
+      );
       setPassword("");
     } finally {
       setBusy(false);

@@ -40,7 +40,11 @@ export function AuthGate({ children }: AuthGateProps) {
           throw cause;
         }
       } catch {
-        if (active) setState({ kind: "error", message: "Unable to connect to Workbench" });
+        if (active)
+          setState({
+            kind: "error",
+            message: "Unable to connect to Workbench",
+          });
       }
     })();
     return () => {
@@ -50,7 +54,9 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (state.kind === "checking") return <p role="status">Loading Workbench…</p>;
   if (state.kind === "setup") {
-    return <SetupOwner onReady={(owner) => setState({ kind: "ready", owner })} />;
+    return (
+      <SetupOwner onReady={(owner) => setState({ kind: "ready", owner })} />
+    );
   }
   if (state.kind === "login") {
     return <Login onReady={(owner) => setState({ kind: "ready", owner })} />;

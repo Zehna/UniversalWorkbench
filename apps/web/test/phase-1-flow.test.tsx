@@ -54,13 +54,23 @@ describe("Phase 1 PWA flow", () => {
         }
         if (url.endsWith("/auth/session")) {
           return jsonResponse(
-            { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+            {
+              error: {
+                code: "UNAUTHORIZED",
+                message: "Authentication required",
+              },
+            },
             401,
           );
         }
         if (url.endsWith("/auth/login") && method === "POST") {
           return jsonResponse(
-            { error: { code: "INVALID_CREDENTIALS", message: "Invalid credentials" } },
+            {
+              error: {
+                code: "INVALID_CREDENTIALS",
+                message: "Invalid credentials",
+              },
+            },
             401,
           );
         }

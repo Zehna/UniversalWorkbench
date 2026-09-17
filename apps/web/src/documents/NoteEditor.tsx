@@ -44,7 +44,9 @@ export function NoteEditor({ projectId, initial, onSaved }: NoteEditorProps) {
       if (cause instanceof ApiError && cause.status === 409) {
         setConflict(true);
       } else {
-        setError(cause instanceof ApiError ? cause.message : "Unable to save note");
+        setError(
+          cause instanceof ApiError ? cause.message : "Unable to save note",
+        );
       }
     } finally {
       setBusy(false);
@@ -61,7 +63,9 @@ export function NoteEditor({ projectId, initial, onSaved }: NoteEditorProps) {
       setConflict(false);
       onSaved(current);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Unable to reload note");
+      setError(
+        cause instanceof ApiError ? cause.message : "Unable to reload note",
+      );
     }
   }
 
@@ -69,20 +73,32 @@ export function NoteEditor({ projectId, initial, onSaved }: NoteEditorProps) {
     <form onSubmit={save}>
       <label>
         Note title
-        <input required value={title} onChange={(event) => setTitle(event.target.value)} />
+        <input
+          required
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+        />
       </label>
       <label>
         Note body
-        <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={12} />
+        <textarea
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={12}
+        />
       </label>
       {conflict ? (
         <div role="alert">
           <p>A newer revision exists. Your local edit has been preserved.</p>
-          <button type="button" onClick={reloadCurrent}>Reload current</button>
+          <button type="button" onClick={reloadCurrent}>
+            Reload current
+          </button>
         </div>
       ) : null}
       {error ? <p role="alert">{error}</p> : null}
-      <button type="submit" disabled={busy}>{busy ? "Saving…" : "Save Note"}</button>
+      <button type="submit" disabled={busy}>
+        {busy ? "Saving…" : "Save Note"}
+      </button>
     </form>
   );
 }
