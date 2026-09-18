@@ -3,11 +3,7 @@ import { IdSchema, IsoDateTimeSchema } from "./common.js";
 
 export const DecimalCursorSchema = z.string().regex(/^(0|[1-9]\d*)$/);
 
-export const SyncEntityTypeSchema = z.enum([
-  "project",
-  "document",
-  "artifact",
-]);
+export const SyncEntityTypeSchema = z.enum(["project", "document", "artifact"]);
 
 export const SyncActionSchema = z.enum([
   "project.create",
