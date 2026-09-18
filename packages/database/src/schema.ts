@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  bigserial,
   check,
   integer,
   jsonb,
@@ -148,3 +149,95 @@ export const actionAudit = pgTable("action_audit", {
     .notNull()
     .defaultNow(),
 });
+
+export const syncDevices = pgTable("sync_devices", {
+  id: uuid("id").primaryKey(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => ownerAccounts.id),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+export const syncOperations = pgTable(
+  "sync_operations",
+  {
+    id: uuid("id").primaryKey(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => ownerAccounts.id),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => syncDevices.id),
+    projectId: uuid("project_id"),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    action: text("action").notNull(),
+    baseRevision: text("base_revision"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    outcome: text("outcome").notNull(),
+    resultRevision: text("result_revision"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    check(
+      "sync_operations_outcome_check",
+      sql`${table.outcome} in ('applied', 'conflict')`,
+    ),
+  ],
+);
+
+export const syncChanges = pgTable(
+  "sync_changes",
+  {
+    cursor: bigserial("cursor", { mode: "bigint" }).primaryKey(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => ownerAccounts.id),
+    operationId: uuid("operation_id")
+      .notNull()
+      .references(() => syncOperations.id)
+      .unique(),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    kind: text("kind").notNull(),
+    revision: text("revision"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    check(
+      "sync_changes_kind_check",
+      sql`${table.kind} in ('upsert', 'tombstone', 'conflict')`,
+    ),
+  ],
+);
+
+export const syncTombstones = pgTable(
+  "sync_tombstones",
+  {
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => ownerAccounts.id),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    projectId: uuid("project_id"),
+    operationId: uuid("operation_id")
+      .notNull()
+      .references(() => syncOperations.id)
+      .unique(),
+    cursor: bigint("cursor", { mode: "bigint" })
+      .notNull()
+      .references(() => syncChanges.cursor),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    unique("sync_tombstones_owner_entity_unique").on(
+      table.ownerId,
+      table.entityType,
+      table.entityId,
+    ),
+  ],
+);

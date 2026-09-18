@@ -19,6 +19,7 @@
   "dependencies": {
     "@uw/artifacts": "*",
     "@uw/auth": "*",
+    "@uw/contracts": "*",
     "@uw/core": "*",
     "@uw/documents": "*",
     "@uw/storage": "*",
