@@ -59,7 +59,7 @@ async function request(path: string, init: RequestInit = {}): Promise<unknown> {
   const headers = new Headers(init.headers);
   if (init.body !== undefined) headers.set("content-type", "application/json");
 
-  const response = await fetch(path, {
+  const response = await fetch(`/api${path}`, {
     ...init,
     headers,
     credentials: "include",
