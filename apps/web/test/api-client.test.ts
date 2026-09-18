@@ -1,9 +1,28 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api } from "../src/api/client";
+import { ApiError, api } from "../src/api/client";
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+
+  it("wraps non-JSON proxy errors as a structured ApiError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<html>bad gateway</html>", {
+          status: 502,
+          headers: { "content-type": "text/html" },
+        }),
+      ),
+    );
+
+    await expect(api.setupStatus()).rejects.toMatchObject({
+      name: "ApiError",
+      status: 502,
+      code: "REQUEST_FAILED",
+      message: "Request failed",
+    } satisfies Partial<ApiError>);
+  });
 });
 
 describe("API client routing", () => {
