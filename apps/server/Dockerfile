@@ -53,12 +53,15 @@ COPY --from=build /app/packages/core/package.json ./packages/core/package.json
 COPY --from=build /app/packages/core/dist ./packages/core/dist
 COPY --from=build /app/packages/database/package.json ./packages/database/package.json
 COPY --from=build /app/packages/database/dist ./packages/database/dist
+COPY --from=build /app/packages/database/drizzle ./packages/database/drizzle
 COPY --from=build /app/packages/documents/package.json ./packages/documents/package.json
 COPY --from=build /app/packages/documents/dist ./packages/documents/dist
 COPY --from=build /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/storage/package.json ./packages/storage/package.json
 COPY --from=build /app/packages/storage/dist ./packages/storage/dist
+
+RUN mkdir -p /app/data/artifacts && chown -R node:node /app/data
 
 USER node
 EXPOSE 3000
