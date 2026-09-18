@@ -23,7 +23,9 @@ jobs:
       - name: Generate Drizzle migration
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
-        run: npx drizzle-kit generate --config=packages/database/drizzle.config.ts --name=phase2_sync
+        run: |
+          npx drizzle-kit generate --config=packages/database/drizzle.config.ts --name=phase2_sync
+          test -f packages/database/drizzle/0001_phase2_sync.sql
       - run: >-
           npx prettier --write
           packages/database/src/schema.ts
