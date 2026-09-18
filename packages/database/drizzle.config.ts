@@ -9,7 +9,10 @@ if (!databaseUrl) {
 
 const packageDirectory = fileURLToPath(new URL(".", import.meta.url));
 const relativeToCwd = (path: string) =>
-  relative(process.cwd(), resolve(packageDirectory, path)).replaceAll("\\", "/");
+  relative(process.cwd(), resolve(packageDirectory, path)).replaceAll(
+    "\\",
+    "/",
+  );
 
 export default defineConfig({
   dialect: "postgresql",
