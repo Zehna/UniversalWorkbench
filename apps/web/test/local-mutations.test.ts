@@ -22,8 +22,6 @@ import {
 
 const OWNER_ID = "11111111-1111-4111-8111-111111111111";
 const PROJECT_ID = "22222222-2222-4222-8222-222222222222";
-const DOCUMENT_ID = "33333333-3333-4333-8333-333333333333";
-const REVISION_ID = "44444444-4444-4444-8444-444444444444";
 const NOW = "2026-09-18T18:00:00.000Z";
 
 const device = {
@@ -115,29 +113,6 @@ function existingProject(): Project {
     schemaVersion: 1,
     createdAt: NOW,
     updatedAt: NOW,
-  };
-}
-
-function existingNote(): NoteDocumentView {
-  return {
-    document: {
-      id: DOCUMENT_ID,
-      projectId: PROJECT_ID,
-      kind: "note",
-      title: "Note",
-      currentRevisionId: REVISION_ID,
-      createdAt: NOW,
-      updatedAt: NOW,
-    },
-    revision: {
-      id: REVISION_ID,
-      documentId: DOCUMENT_ID,
-      revisionNumber: 1,
-      parentRevisionId: null,
-      content: { body: "before" },
-      metadata: {},
-      createdAt: NOW,
-    },
   };
 }
 
