@@ -13,7 +13,9 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function operation(input: Omit<SyncOperation, "id" | "createdAt">): SyncOperation {
+function operation(
+  input: Omit<SyncOperation, "id" | "createdAt">,
+): SyncOperation {
   return {
     id: crypto.randomUUID(),
     createdAt: nowIso(),
