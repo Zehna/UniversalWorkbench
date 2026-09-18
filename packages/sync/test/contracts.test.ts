@@ -22,7 +22,9 @@ function validOperation() {
 
 describe("@uw/sync boundary", () => {
   it("reuses the runtime operation contract", () => {
-    expect(SyncOperationSchema.parse(validOperation())).toEqual(validOperation());
+    expect(SyncOperationSchema.parse(validOperation())).toEqual(
+      validOperation(),
+    );
   });
 
   it("reuses the WebSocket client message contract", () => {
