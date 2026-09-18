@@ -55,7 +55,9 @@ export interface SyncRepository {
     ownerId: string,
     operationId: string,
   ): Promise<StoredSyncOperation | null>;
-  persistAppliedOperation(input: PersistAppliedOperationInput): Promise<SyncChange>;
+  persistAppliedOperation(
+    input: PersistAppliedOperationInput,
+  ): Promise<SyncChange>;
   persistConflict(input: PersistConflictInput): Promise<SyncChange>;
   listChanges(
     ownerId: string,
@@ -217,7 +219,11 @@ async function persistOutcome(
     );
 
     if (!insertedOperation.rows[0]) {
-      const replay = await findChange(client, input.ownerId, input.operation.id);
+      const replay = await findChange(
+        client,
+        input.ownerId,
+        input.operation.id,
+      );
       if (!replay) {
         throw new Error("Sync operation exists without a persisted change");
       }
