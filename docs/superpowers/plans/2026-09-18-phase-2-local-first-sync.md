@@ -31,6 +31,7 @@
 ### Task 1: Sync contracts and package boundary
 
 **Files:**
+
 - Create: `packages/contracts/src/sync.ts`
 - Modify: `packages/contracts/src/index.ts`
 - Create: `packages/sync/package.json`
@@ -42,7 +43,9 @@
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Produces:
+
 ```ts
 type SyncEntityType = "project" | "document" | "artifact";
 type SyncAction =
@@ -84,7 +87,12 @@ type ClientSyncMessage =
 
 type ServerSyncMessage =
   | { type: "READY"; deviceId: string; cursor: string }
-  | { type: "ACK_OPERATION"; operationId: string; cursor: string; revision: string | null }
+  | {
+      type: "ACK_OPERATION";
+      operationId: string;
+      cursor: string;
+      revision: string | null;
+    }
   | { type: "REMOTE_OPERATION"; change: SyncChange }
   | { type: "CONFLICT"; operationId: string; change: SyncChange }
   | { type: "PONG"; nonce: string }
@@ -132,6 +140,7 @@ Use Zod discriminated unions. `cursor` is a decimal string so browser JSON never
 - [ ] **Step 4: Run GREEN**
 
 Run:
+
 ```bash
 npm run typecheck -w @uw/contracts
 npm run test -w @uw/contracts
@@ -153,6 +162,7 @@ git commit -m "feat: define phase 2 sync contracts"
 ### Task 2: PostgreSQL device, operation, cursor, and tombstone schema
 
 **Files:**
+
 - Modify: `packages/database/src/schema.ts`
 - Modify: `packages/database/src/index.ts`
 - Create: `packages/database/src/repositories/sync.ts`
@@ -162,6 +172,7 @@ git commit -m "feat: define phase 2 sync contracts"
 - Generate: `packages/database/drizzle/meta/0001_snapshot.json`
 
 **Interfaces:**
+
 ```ts
 interface SyncRepository {
   registerDevice(input: {
@@ -175,15 +186,25 @@ interface SyncRepository {
   touchDevice(ownerId: string, deviceId: string, now: Date): Promise<void>;
   revokeDevice(ownerId: string, deviceId: string, now: Date): Promise<void>;
 
-  findOperation(ownerId: string, operationId: string): Promise<StoredSyncOperation | null>;
-  persistAppliedOperation(input: PersistAppliedOperationInput): Promise<SyncChange>;
+  findOperation(
+    ownerId: string,
+    operationId: string,
+  ): Promise<StoredSyncOperation | null>;
+  persistAppliedOperation(
+    input: PersistAppliedOperationInput,
+  ): Promise<SyncChange>;
   persistConflict(input: PersistConflictInput): Promise<SyncChange>;
-  listChanges(ownerId: string, afterCursor: string, limit: number): Promise<SyncChange[]>;
+  listChanges(
+    ownerId: string,
+    afterCursor: string,
+    limit: number,
+  ): Promise<SyncChange[]>;
   getLatestCursor(ownerId: string): Promise<string>;
 }
 ```
 
 Server tables:
+
 - `sync_devices(id, owner_id, name, created_at, last_seen_at, revoked_at)`
 - `sync_operations(id, owner_id, device_id, project_id, entity_type, entity_id, action, base_revision, payload, outcome, result_revision, created_at)`
 - `sync_changes(cursor BIGSERIAL, owner_id, operation_id UNIQUE, entity_type, entity_id, kind, revision, payload, created_at)`
@@ -200,13 +221,17 @@ it("deduplicates operations by owner + operation ID", async () => {
 
 it("returns strictly increasing owner cursors", async () => {
   const a = await repository.persistAppliedOperation(appliedInput());
-  const b = await repository.persistAppliedOperation(appliedInput({ id: crypto.randomUUID() }));
+  const b = await repository.persistAppliedOperation(
+    appliedInput({ id: crypto.randomUUID() }),
+  );
   expect(BigInt(b.cursor)).toBeGreaterThan(BigInt(a.cursor));
 });
 
 it("marks revoked devices and prevents them being treated as active", async () => {
   await repository.revokeDevice(ownerId, deviceId, now);
-  expect((await repository.getDevice(ownerId, deviceId))?.revokedAt).not.toBeNull();
+  expect(
+    (await repository.getDevice(ownerId, deviceId))?.revokedAt,
+  ).not.toBeNull();
 });
 ```
 
@@ -219,6 +244,7 @@ Expected: FAIL because the Phase 2 tables/repository are missing.
 - [ ] **Step 3: Add Drizzle schema and generate migration**
 
 Run:
+
 ```bash
 npm run drizzle:generate -w @uw/database
 ```
@@ -232,6 +258,7 @@ Review generated SQL. The migration must be additive; no destructive rewrite of 
 - [ ] **Step 5: Run migration/integration GREEN twice**
 
 Run:
+
 ```bash
 npm run test -w @uw/database -- sync-schema.integration.test.ts
 npm run test -w @uw/database -- sync-schema.integration.test.ts
@@ -251,6 +278,7 @@ git commit -m "feat: add durable sync persistence"
 ### Task 3: Browser LocalStore and SQLite WASM/OPFS backend
 
 **Files:**
+
 - Create: `apps/web/src/local/store.ts`
 - Create: `apps/web/src/local/schema.ts`
 - Create: `apps/web/src/local/sqlite-worker.ts`
@@ -264,6 +292,7 @@ git commit -m "feat: add durable sync persistence"
 - Modify: `package.json`
 
 **Interfaces:**
+
 ```ts
 interface LocalStore {
   transaction<T>(fn: (tx: LocalTransaction) => Promise<T>): Promise<T>;
@@ -292,7 +321,9 @@ SQLite local tables:
 - [ ] **Step 1: Add real-browser RED test**
 
 ```ts
-test("persists local project state across page reload using OPFS", async ({ page }) => {
+test("persists local project state across page reload using OPFS", async ({
+  page,
+}) => {
   await page.goto("/__phase2-test");
   await page.evaluate(() => window.__phase2.createProjectOffline("Offline"));
   await page.reload();
@@ -317,6 +348,7 @@ The worker owns the connection for its lifetime and executes each mutation trans
 - [ ] **Step 4: Emit COOP/COEP in dev and Docker web servers**
 
 Vite dev headers and Nginx responses must include:
+
 ```text
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
@@ -325,6 +357,7 @@ Cross-Origin-Embedder-Policy: require-corp
 - [ ] **Step 5: Run real Chromium GREEN**
 
 Run:
+
 ```bash
 npm run build -w @uw/web
 npx playwright test apps/web/e2e/local-opfs.spec.ts --project=chromium
@@ -344,12 +377,14 @@ git commit -m "feat: add browser sqlite opfs local store"
 ### Task 4: IndexedDB fallback and atomic local mutation journal
 
 **Files:**
+
 - Create: `apps/web/src/local/indexeddb-store.ts`
 - Create: `apps/web/src/local/mutations.ts`
 - Create: `apps/web/test/local-mutations.test.ts`
 - Modify: `apps/web/src/local/open-local-store.ts`
 
 **Interfaces:**
+
 ```ts
 createProjectLocally(store, device, input): Promise<Project>
 updateProjectLocally(store, device, project, input): Promise<Project>
@@ -364,12 +399,16 @@ Every function must perform canonical local state change + `pending_operations` 
 ```ts
 it("does not keep a local project if operation append fails", async () => {
   const store = failingStore({ failOnAppend: true });
-  await expect(createProjectLocally(store, device, { name: "A" })).rejects.toThrow();
+  await expect(
+    createProjectLocally(store, device, { name: "A" }),
+  ).rejects.toThrow();
   expect(await store.listProjects()).toEqual([]);
 });
 
 it("creates stable local IDs that are referenced by its pending operation", async () => {
-  const project = await createProjectLocally(store, device, { name: "Offline" });
+  const project = await createProjectLocally(store, device, {
+    name: "Offline",
+  });
   const [op] = await store.listPendingOperations(10);
   expect(op.entityId).toBe(project.id);
 });
@@ -386,6 +425,7 @@ Use UUIDs locally. Note update operations carry the current `revision.id` as `ba
 - [ ] **Step 4: Run GREEN**
 
 Run:
+
 ```bash
 npm run test -w @uw/web -- local-mutations.test.ts
 npm run typecheck -w @uw/web
@@ -403,6 +443,7 @@ git commit -m "feat: add atomic offline mutation journal"
 ### Task 5: Device registration, revocation, and HTTP recovery API
 
 **Files:**
+
 - Create: `packages/sync/src/service.ts`
 - Modify: `packages/sync/src/index.ts`
 - Create: `apps/server/src/routes/sync.ts`
@@ -412,6 +453,7 @@ git commit -m "feat: add atomic offline mutation journal"
 - Create: `apps/server/test/sync-http.integration.test.ts`
 
 **Routes:**
+
 - `POST /sync/devices` — register current browser device.
 - `GET /sync/devices` — list owner devices.
 - `DELETE /sync/devices/:deviceId` — revoke a device.
@@ -435,7 +477,9 @@ it("rejects operations from a revoked device", async () => {
 
 it("returns changes strictly after the supplied cursor", async () => {
   const response = await authed(agent).get("/sync/changes?cursor=1");
-  expect(response.body.changes.every((c: SyncChange) => BigInt(c.cursor) > 1n)).toBe(true);
+  expect(
+    response.body.changes.every((c: SyncChange) => BigInt(c.cursor) > 1n),
+  ).toBe(true);
 });
 ```
 
@@ -463,6 +507,7 @@ git commit -m "feat: add device and sync recovery api"
 ### Task 6: Server operation apply engine, conflicts, and tombstones
 
 **Files:**
+
 - Create: `packages/sync/src/apply.ts`
 - Create: `packages/sync/src/conflict.ts`
 - Create: `packages/sync/test/apply.test.ts`
@@ -473,6 +518,7 @@ git commit -m "feat: add device and sync recovery api"
 - Create: `packages/database/test/sync-apply.integration.test.ts`
 
 **Rules:**
+
 - Project rows gain monotonically increasing `sync_revision BIGINT NOT NULL DEFAULT 0`.
 - Note conflict token is the current document revision ID.
 - Artifact metadata is server-to-client create-only in Phase 2.
@@ -518,6 +564,7 @@ Project update is `WHERE id = ... AND sync_revision = baseRevision`, increments 
 - [ ] **Step 4: Run GREEN twice against PostgreSQL**
 
 Run:
+
 ```bash
 npm run test -w @uw/sync
 npm run test -w @uw/database -- sync-apply.integration.test.ts
@@ -536,6 +583,7 @@ git commit -m "feat: add conflict-safe sync apply engine"
 ### Task 7: Durable WebSocket transport with ACK/cursor recovery
 
 **Files:**
+
 - Create: `apps/server/src/sync/websocket.ts`
 - Create: `apps/server/src/sync/session.ts`
 - Modify: `apps/server/src/index.ts`
@@ -544,6 +592,7 @@ git commit -m "feat: add conflict-safe sync apply engine"
 - Create: `apps/server/test/sync-websocket.integration.test.ts`
 
 **Interfaces:**
+
 ```ts
 attachSyncWebSocketServer(input: {
   httpServer: Server;
@@ -557,6 +606,7 @@ attachSyncWebSocketServer(input: {
 - [ ] **Step 1: Write RED WS tests**
 
 Tests use `ws` as a Node test client:
+
 - unauthenticated upgrade rejected;
 - wrong Origin rejected;
 - revoked device receives ERROR then close;
@@ -578,11 +628,13 @@ Use the existing session cookie parser. Do not accept bearer credentials in URL 
 - [ ] **Step 4: Implement protocol ordering**
 
 On HELLO:
+
 1. validate active device;
 2. send READY with current cursor;
 3. stream changes after client cursor in ascending cursor order.
 
 On PUSH_OPERATION:
+
 1. validate message;
 2. apply idempotently;
 3. persist before sending ACK/CONFLICT;
@@ -604,6 +656,7 @@ git commit -m "feat: add durable websocket sync transport"
 ### Task 8: Browser sync coordinator and explicit sync status UX
 
 **Files:**
+
 - Create: `apps/web/src/sync/client.ts`
 - Create: `apps/web/src/sync/coordinator.ts`
 - Create: `apps/web/src/sync/status.ts`
@@ -616,6 +669,7 @@ git commit -m "feat: add durable websocket sync transport"
 - Create: `apps/web/test/sync-coordinator.test.ts`
 
 **State:**
+
 ```ts
 type SyncStatus =
   | { state: "local-only" }
@@ -647,6 +701,7 @@ it("does not delete local text when the server reports a conflict", async () => 
 - [ ] **Step 2: Implement startup flow**
 
 After authenticated session:
+
 1. open local store;
 2. load/generate device identity;
 3. register device over HTTP if not registered;
@@ -666,6 +721,7 @@ Conflict list exposes current server summary + preserved local payload and a `Re
 - [ ] **Step 5: Run GREEN**
 
 Run:
+
 ```bash
 npm run test -w @uw/web
 npm run typecheck -w @uw/web
@@ -684,6 +740,7 @@ git commit -m "feat: add local-first sync coordinator"
 ### Task 9: Multi-device, reconnect, fallback, and chaos browser tests
 
 **Files:**
+
 - Create: `apps/web/e2e/sync-two-device.spec.ts`
 - Create: `apps/web/e2e/sync-offline-reconnect.spec.ts`
 - Create: `apps/web/e2e/sync-indexeddb-fallback.spec.ts`
@@ -695,7 +752,9 @@ git commit -m "feat: add local-first sync coordinator"
 - [ ] **Step 1: Two-device RED test**
 
 ```ts
-test("offline note edit syncs to a second device after reconnect", async ({ browser }) => {
+test("offline note edit syncs to a second device after reconnect", async ({
+  browser,
+}) => {
   const phone = await browser.newContext();
   const laptop = await browser.newContext();
   // both authenticate to the same test owner
@@ -723,6 +782,7 @@ Start PWA without cross-origin isolation or force OPFS capability probe false. A
 - [ ] **Step 5: Add CI browser job**
 
 CI installs Chromium once:
+
 ```bash
 npx playwright install chromium --with-deps
 npm run e2e:sync
@@ -740,6 +800,7 @@ git commit -m "test: verify multi-device local-first sync"
 ### Task 10: Phase 2 deployment, diagnostics, docs, and final gate
 
 **Files:**
+
 - Modify: `deploy/docker/nginx.conf`
 - Modify: `deploy/docker/compose.yml` only if WebSocket proxy settings require it
 - Modify: `scripts/smoke-http.mjs`
@@ -749,6 +810,7 @@ git commit -m "test: verify multi-device local-first sync"
 - Modify: `.github/workflows/ci.yml` only for permanent Phase 2 gates
 
 **Diagnostics output (never secrets):**
+
 ```ts
 interface SyncDiagnostics {
   deviceId: string;
@@ -765,6 +827,7 @@ interface SyncDiagnostics {
 - [ ] **Step 1: Extend Docker smoke**
 
 The canonical smoke must:
+
 1. create owner;
 2. register two devices;
 3. push project create from device A;
@@ -783,6 +846,7 @@ The canonical smoke must:
 - [ ] **Step 3: Document architecture and fallback behavior**
 
 `docs/architecture/phase-2.md` documents:
+
 - local tables;
 - operation lifecycle `pending -> sent -> acked/conflict`;
 - cursor semantics;

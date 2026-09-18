@@ -37,7 +37,9 @@ describe("phase 2 sync contracts", () => {
   });
 
   it("accepts a valid pending sync operation", () => {
-    expect(SyncOperationSchema.parse(validOperation())).toEqual(validOperation());
+    expect(SyncOperationSchema.parse(validOperation())).toEqual(
+      validOperation(),
+    );
   });
 
   it("round-trips client WebSocket messages through a discriminated union", () => {
