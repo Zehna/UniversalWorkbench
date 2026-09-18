@@ -32,7 +32,6 @@ jobs:
           apps/web/src/local/sqlite-store.ts
           apps/web/src/local/open-local-store.ts
           apps/web/vite.config.ts
-          apps/web/nginx.conf
           apps/web/src/main.tsx
       - name: Commit normalized files
         run: |
