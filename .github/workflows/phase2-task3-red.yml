@@ -1,0 +1,19 @@
+name: Phase 2 Task 3 RED
+
+on:
+  push:
+    branches:
+      - phase-2-local-first-sync
+
+jobs:
+  local-opfs-red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm install --ignore-scripts
+      - run: npx playwright install chromium --with-deps
+      - run: npm run build -w @uw/web
+      - run: npx playwright test apps/web/e2e/local-opfs.spec.ts --project=chromium

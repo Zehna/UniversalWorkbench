@@ -13,7 +13,8 @@
   "dependencies": {
     "@uw/contracts": "*",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "@sqlite.org/sqlite-wasm": "3.53.4-build1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.0",
