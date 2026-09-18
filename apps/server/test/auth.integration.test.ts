@@ -82,6 +82,19 @@ async function setupOwner(app: ReturnType<typeof createTestApp>) {
   });
 }
 
+function expectCorrelatedError(
+  response: request.Response,
+  status: number,
+  code: string,
+) {
+  expect(response.status).toBe(status);
+  expect(response.headers["x-request-id"]).toMatch(/^[0-9a-f-]{36}$/);
+  expect(response.body.error).toMatchObject({
+    code,
+    requestId: response.headers["x-request-id"],
+  });
+}
+
 beforeEach(async () => {
   now = new Date("2026-09-16T04:00:00.000Z");
   await resetDatabaseSchemas();
@@ -229,5 +242,35 @@ describe("built-in owner authentication", () => {
       .get("/auth/session")
       .set("Cookie", cookie);
     expect(expired.status).toBe(401);
+  });
+});
+
+
+describe("request-correlated auth errors", () => {
+  it("includes the response request ID on setup and login 4xx envelopes", async () => {
+    const app = createTestApp();
+
+    const invalidSetup = await request(app).post("/setup/owner").send({
+      username: "x",
+      password: "short",
+    });
+    expectCorrelatedError(invalidSetup, 400, "BAD_REQUEST");
+
+    await setupOwner(app);
+
+    const duplicateSetup = await setupOwner(app);
+    expectCorrelatedError(duplicateSetup, 409, "ALREADY_INITIALIZED");
+
+    const invalidLogin = await request(app).post("/auth/login").send({
+      username: "x",
+      password: "short",
+    });
+    expectCorrelatedError(invalidLogin, 400, "BAD_REQUEST");
+
+    const badCredentials = await request(app).post("/auth/login").send({
+      username: "owner",
+      password: "definitely-wrong-password",
+    });
+    expectCorrelatedError(badCredentials, 401, "INVALID_CREDENTIALS");
   });
 });
