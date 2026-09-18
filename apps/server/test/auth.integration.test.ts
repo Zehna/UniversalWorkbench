@@ -245,7 +245,6 @@ describe("built-in owner authentication", () => {
   });
 });
 
-
 describe("request-correlated auth errors", () => {
   it("includes the response request ID on setup and login 4xx envelopes", async () => {
     const app = createTestApp();
