@@ -1,0 +1,33 @@
+name: Normalize Task 10 Smoke
+
+on:
+  push:
+    branches:
+      - phase-1-project-data-core
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-1-project-data-core
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm ci
+      - run: npx prettier --write scripts/smoke-http.mjs
+      - name: Commit normalized smoke
+        run: |
+          if [ -z "$(git status --porcelain -- scripts/smoke-http.mjs)" ]; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/smoke-http.mjs
+          git commit -m "style: normalize phase 1 deployment smoke"
+          git push origin HEAD:phase-1-project-data-core
