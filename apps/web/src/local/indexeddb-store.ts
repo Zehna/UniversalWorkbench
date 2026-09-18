@@ -89,7 +89,9 @@ function openDatabase(): Promise<IDBDatabase> {
         database.createObjectStore(STORES.pending, { keyPath: "operationId" });
       }
       if (!database.objectStoreNames.contains(STORES.conflicts)) {
-        database.createObjectStore(STORES.conflicts, { keyPath: "operationId" });
+        database.createObjectStore(STORES.conflicts, {
+          keyPath: "operationId",
+        });
       }
       if (!database.objectStoreNames.contains(STORES.tombstones)) {
         database.createObjectStore(STORES.tombstones, {
@@ -197,7 +199,8 @@ function applyRemoteChangeToTransaction(
     const pendingStore = transaction.objectStore(STORES.pending);
     const pendingRequest = pendingStore.get(change.operationId);
     pendingRequest.onsuccess = () => {
-      const current = pendingRequest.result as PendingOperationRecord | undefined;
+      const current = pendingRequest.result as
+        PendingOperationRecord | undefined;
       if (!current) return;
       pendingStore.put({ ...current, status: "conflict" });
     };
@@ -379,13 +382,11 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
             left.createdAt.localeCompare(right.createdAt) ||
             left.operationId.localeCompare(right.operationId),
         )
-        .map(
-          (record): LocalConflictRecord => ({
-            operationId: record.operationId,
-            change: structuredClone(record.change),
-            createdAt: record.createdAt,
-          }),
-        );
+        .map((record): LocalConflictRecord => ({
+          operationId: record.operationId,
+          change: structuredClone(record.change),
+          createdAt: record.createdAt,
+        }));
     },
 
     async close() {
