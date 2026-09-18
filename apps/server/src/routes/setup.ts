@@ -6,6 +6,11 @@ import {
   type SessionCookieConfig,
 } from "../middleware/auth.js";
 
+function requestIdDetails(locals: Record<string, unknown>) {
+  const requestId = locals.requestId;
+  return typeof requestId === "string" ? { requestId } : {};
+}
+
 export function createSetupRouter(
   authService: AuthService,
   sessionCookie: SessionCookieConfig,
@@ -24,7 +29,11 @@ export function createSetupRouter(
     const parsed = SetupOwnerRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({
-        error: { code: "BAD_REQUEST", message: "Invalid setup request" },
+        error: {
+          code: "BAD_REQUEST",
+          message: "Invalid setup request",
+          ...requestIdDetails(res.locals),
+        },
       });
       return;
     }
@@ -39,6 +48,7 @@ export function createSetupRouter(
           error: {
             code: "ALREADY_INITIALIZED",
             message: "Owner account is already initialized",
+            ...requestIdDetails(res.locals),
           },
         });
         return;
