@@ -8,6 +8,7 @@ import type {
 
 export interface LocalDeviceRecord {
   id: string;
+  ownerId: string;
   label: string | null;
   createdAt: string;
 }

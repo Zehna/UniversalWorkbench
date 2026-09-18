@@ -13,17 +13,12 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function operationId(): string {
-  return crypto.randomUUID();
-}
-
-function assertProjectOwner(
-  device: LocalDeviceRecord,
-  project: Project,
-): void {
-  if (device.ownerId !== project.ownerId) {
-    throw new Error("Local device owner does not match project owner");
-  }
+function operation(input: Omit<SyncOperation, "id" | "createdAt">): SyncOperation {
+  return {
+    id: crypto.randomUUID(),
+    createdAt: nowIso(),
+    ...input,
+  };
 }
 
 export async function createProjectLocally(
@@ -31,35 +26,31 @@ export async function createProjectLocally(
   device: LocalDeviceRecord,
   input: CreateProjectRequest,
 ): Promise<Project> {
-  const now = nowIso();
-  const projectId = crypto.randomUUID();
+  const timestamp = nowIso();
   const project: Project = {
-    id: projectId,
+    id: crypto.randomUUID(),
     ownerId: device.ownerId,
     name: input.name,
     description: input.description ?? null,
     schemaVersion: 1,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: timestamp,
+    updatedAt: timestamp,
   };
-  const operation: SyncOperation = {
-    id: operationId(),
+  const pending = operation({
     deviceId: device.id,
-    projectId,
+    projectId: project.id,
     entityType: "project",
-    entityId: projectId,
+    entityId: project.id,
     action: "project.create",
     baseRevision: null,
-    payload: { ...input },
-    createdAt: now,
-  };
-
-  await store.transaction(async (tx) => {
-    await tx.upsertProject(project);
-    await tx.appendOperation(operation);
+    payload: structuredClone(input),
   });
 
-  return project;
+  return store.transaction(async (tx) => {
+    await tx.upsertProject(project);
+    await tx.appendOperation(pending);
+    return project;
+  });
 }
 
 export async function updateProjectLocally(
@@ -69,34 +60,29 @@ export async function updateProjectLocally(
   baseRevision: string,
   input: UpdateProjectRequest,
 ): Promise<Project> {
-  assertProjectOwner(device, project);
-  const now = nowIso();
   const updated: Project = {
     ...project,
     ...(input.name !== undefined ? { name: input.name } : {}),
     ...(input.description !== undefined
       ? { description: input.description }
       : {}),
-    updatedAt: now,
+    updatedAt: nowIso(),
   };
-  const operation: SyncOperation = {
-    id: operationId(),
+  const pending = operation({
     deviceId: device.id,
     projectId: project.id,
     entityType: "project",
     entityId: project.id,
     action: "project.update",
     baseRevision,
-    payload: { ...input },
-    createdAt: now,
-  };
-
-  await store.transaction(async (tx) => {
-    await tx.upsertProject(updated);
-    await tx.appendOperation(operation);
+    payload: structuredClone(input),
   });
 
-  return updated;
+  return store.transaction(async (tx) => {
+    await tx.upsertProject(updated);
+    await tx.appendOperation(pending);
+    return updated;
+  });
 }
 
 export async function createNoteLocally(
@@ -105,18 +91,18 @@ export async function createNoteLocally(
   projectId: string,
   input: CreateNoteRequest,
 ): Promise<NoteDocumentView> {
-  const now = nowIso();
+  const timestamp = nowIso();
   const documentId = crypto.randomUUID();
   const revisionId = crypto.randomUUID();
-  const note: NoteDocumentView = {
+  const view: NoteDocumentView = {
     document: {
       id: documentId,
       projectId,
       kind: "note",
       title: input.title,
       currentRevisionId: revisionId,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: timestamp,
+      updatedAt: timestamp,
     },
     revision: {
       id: revisionId,
@@ -125,77 +111,64 @@ export async function createNoteLocally(
       parentRevisionId: null,
       content: { body: input.body },
       metadata: {},
-      createdAt: now,
+      createdAt: timestamp,
     },
   };
-  const operation: SyncOperation = {
-    id: operationId(),
+  const pending = operation({
     deviceId: device.id,
     projectId,
     entityType: "document",
     entityId: documentId,
     action: "document.create",
     baseRevision: null,
-    payload: { ...input },
-    createdAt: now,
-  };
-
-  await store.transaction(async (tx) => {
-    await tx.upsertNote(note);
-    await tx.appendOperation(operation);
+    payload: structuredClone(input),
   });
 
-  return note;
+  return store.transaction(async (tx) => {
+    await tx.upsertNote(view);
+    await tx.appendOperation(pending);
+    return view;
+  });
 }
 
 export async function updateNoteLocally(
   store: LocalStore,
   device: LocalDeviceRecord,
-  current: NoteDocumentView,
+  view: NoteDocumentView,
   input: UpdateNoteRequest,
 ): Promise<NoteDocumentView> {
-  if (input.baseRevisionId !== current.revision.id) {
-    throw new Error("Local note base revision is stale");
-  }
-
-  const now = nowIso();
+  const timestamp = nowIso();
   const revisionId = crypto.randomUUID();
   const updated: NoteDocumentView = {
     document: {
-      ...current.document,
+      ...view.document,
       title: input.title,
       currentRevisionId: revisionId,
-      updatedAt: now,
+      updatedAt: timestamp,
     },
     revision: {
       id: revisionId,
-      documentId: current.document.id,
-      revisionNumber: current.revision.revisionNumber + 1,
-      parentRevisionId: current.revision.id,
+      documentId: view.document.id,
+      revisionNumber: view.revision.revisionNumber + 1,
+      parentRevisionId: view.revision.id,
       content: { body: input.body },
-      metadata: structuredClone(current.revision.metadata),
-      createdAt: now,
+      metadata: {},
+      createdAt: timestamp,
     },
   };
-  const operation: SyncOperation = {
-    id: operationId(),
+  const pending = operation({
     deviceId: device.id,
-    projectId: current.document.projectId,
+    projectId: view.document.projectId,
     entityType: "document",
-    entityId: current.document.id,
+    entityId: view.document.id,
     action: "document.update",
-    baseRevision: current.revision.id,
-    payload: {
-      title: input.title,
-      body: input.body,
-    },
-    createdAt: now,
-  };
-
-  await store.transaction(async (tx) => {
-    await tx.upsertNote(updated);
-    await tx.appendOperation(operation);
+    baseRevision: view.revision.id,
+    payload: { title: input.title, body: input.body },
   });
 
-  return updated;
+  return store.transaction(async (tx) => {
+    await tx.upsertNote(updated);
+    await tx.appendOperation(pending);
+    return updated;
+  });
 }
