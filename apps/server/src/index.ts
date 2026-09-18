@@ -1,14 +1,9 @@
-import {
-  checkDatabaseReady,
-  closeDatabasePool,
-  createDatabasePool,
-} from "@uw/database";
-import { createApp } from "./app.js";
+import { closeDatabasePool } from "@uw/database";
+import { composeApplication } from "./composition.js";
 import { loadConfig } from "./config.js";
 
 const config = loadConfig(process.env);
-const pool = createDatabasePool(config.databaseUrl);
-const app = createApp({ databaseReady: () => checkDatabaseReady(pool) });
+const { app, pool } = composeApplication(config);
 const server = app.listen(config.port, "0.0.0.0", () => {
   console.log(`Universal Workbench API listening on port ${config.port}`);
 });

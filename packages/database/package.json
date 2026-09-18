@@ -10,11 +10,18 @@
     }
   },
   "scripts": {
+    "pretest": "npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/documents && npm run build -w @uw/artifacts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "build": "tsup src/index.ts --format esm --dts --clean"
+    "typecheck": "npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/documents && npm run build -w @uw/artifacts && tsc --noEmit",
+    "build": "npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/documents && npm run build -w @uw/artifacts && tsup src/index.ts --format esm --dts --clean",
+    "migrate": "drizzle-kit migrate --config=drizzle.config.ts"
   },
   "dependencies": {
+    "@uw/artifacts": "*",
+    "@uw/auth": "*",
+    "@uw/core": "*",
+    "@uw/documents": "*",
+    "@uw/storage": "*",
     "drizzle-orm": "0.45.2",
     "pg": "^8.16.0"
   },

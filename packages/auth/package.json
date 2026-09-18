@@ -1,0 +1,25 @@
+{
+  "name": "@uw/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "pretest": "npm run build -w @uw/contracts && npm run build -w @uw/shared",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "npm run build -w @uw/contracts && npm run build -w @uw/shared && tsc --noEmit",
+    "build": "npm run build -w @uw/contracts && npm run build -w @uw/shared && tsup src/index.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@uw/contracts": "*",
+    "@uw/shared": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@uw/artifacts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "pretest": "npm run build -w @uw/core && npm run build -w @uw/storage",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "npm run build -w @uw/core && npm run build -w @uw/storage && tsc --noEmit",
+    "build": "npm run build -w @uw/core && npm run build -w @uw/storage && tsup src/index.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@uw/contracts": "*",
+    "@uw/core": "*",
+    "@uw/shared": "*",
+    "@uw/storage": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  }
+}
