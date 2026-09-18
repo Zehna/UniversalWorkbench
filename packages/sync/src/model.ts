@@ -2,11 +2,7 @@ import type { SyncChange, SyncOperation } from "@uw/contracts";
 
 export const INITIAL_SYNC_CURSOR = "0" as const;
 
-export type LocalOperationStatus =
-  | "pending"
-  | "sent"
-  | "acked"
-  | "conflict";
+export type LocalOperationStatus = "pending" | "sent" | "acked" | "conflict";
 
 export interface LocalOperationRecord {
   operation: SyncOperation;
