@@ -117,14 +117,14 @@ export async function createSqliteLocalStore(): Promise<LocalStore> {
     getDevice() {
       return rpc.call<LocalDeviceRecord | null>({ type: "getDevice" });
     },
-    setDevice(device) {
-      return rpc.call<null>({ type: "setDevice", device });
+    async setDevice(device) {
+      await rpc.call<null>({ type: "setDevice", device });
     },
     getCursor() {
       return rpc.call<string>({ type: "getCursor" });
     },
-    setCursor(cursor) {
-      return rpc.call<null>({ type: "setCursor", cursor });
+    async setCursor(cursor) {
+      await rpc.call<null>({ type: "setCursor", cursor });
     },
     listProjects() {
       return rpc.call<Project[]>({ type: "listProjects" });
@@ -135,15 +135,15 @@ export async function createSqliteLocalStore(): Promise<LocalStore> {
         limit,
       });
     },
-    markOperationAcked(operationId, cursor) {
-      return rpc.call<null>({
+    async markOperationAcked(operationId, cursor) {
+      await rpc.call<null>({
         type: "markOperationAcked",
         operationId,
         cursor,
       });
     },
-    applyRemoteChange(change) {
-      return rpc.call<null>({ type: "applyRemoteChange", change });
+    async applyRemoteChange(change) {
+      await rpc.call<null>({ type: "applyRemoteChange", change });
     },
     listConflicts() {
       return rpc.call<LocalConflictRecord[]>({ type: "listConflicts" });
