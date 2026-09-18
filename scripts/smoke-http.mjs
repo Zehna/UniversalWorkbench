@@ -166,10 +166,9 @@ if (
 }
 
 const revisions = await expectJson(
-  await fetch(
-    api(`/projects/${projectId}/documents/${documentId}/revisions`),
-    { headers: { cookie } },
-  ),
+  await fetch(api(`/projects/${projectId}/documents/${documentId}/revisions`), {
+    headers: { cookie },
+  }),
   200,
   "revision listing",
 );
