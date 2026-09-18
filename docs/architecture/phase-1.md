@@ -20,6 +20,8 @@ A fresh installation is uninitialized. The setup endpoint creates exactly one ow
 
 Protected project, document, and artifact routes resolve the owner from the server-side session. Client-supplied owner IDs are never trusted.
 
+Passwords are stored only as Argon2id hash material. Session cookies carry raw tokens to the client, while PostgreSQL stores only SHA-256 token digests. Authentication errors and shared error envelopes do not echo passwords or session tokens.
+
 ## Project and note data flow
 
 Projects are the top-level ownership boundary. Notes are mutable documents whose content is represented by immutable revisions.
@@ -27,6 +29,14 @@ Projects are the top-level ownership boundary. Notes are mutable documents whose
 A note update carries `baseRevisionId`. The document service compares that revision with the current revision before writing. A stale base produces `REVISION_CONFLICT` with HTTP 409, preserving both the server state and the client's unsaved draft.
 
 The Phase 1 PWA mirrors this contract: it keeps the current base revision in memory, surfaces a conflict notice, and only replaces local text when the user explicitly reloads the current server revision.
+
+## Action Layer and audit boundary
+
+State-changing project, document, and artifact APIs delegate to domain services. Domain mutations run through the Action Layer in the order authorize → mutate → audit.
+
+Audit rows record action identity, actor/project/target IDs, trace IDs, changed field names, and bounded operational metadata. They deliberately do not record note bodies, project descriptions, artifact metadata values, plaintext passwords, or session tokens.
+
+Owner setup/login/logout remain inside the auth service boundary; routers do not write directly to PostgreSQL repositories.
 
 ## Artifact storage
 
@@ -68,3 +78,33 @@ The Docker smoke is intentionally stateful and runs against an ephemeral stack. 
 8. the protected project route returns HTTP 401 afterward.
 
 The CI teardown removes volumes after the run, so every smoke begins from a clean deployment.
+
+## Final Phase 1 gate
+
+A clean Phase 1 candidate must pass all of the following before merge:
+
+```text
+npm ci                                      PASS
+npm audit --omit=dev --audit-level=high     PASS
+npm run verify:workspaces                   PASS
+npm run format:check                        PASS
+npm run lint                                PASS
+npm run typecheck                           PASS
+npm test                                    PASS
+npm run build                               PASS
+node scripts/verify-pwa.mjs                 PASS
+PostgreSQL fresh migration                  PASS
+Auth integration                            PASS
+Project authorization                       PASS
+Document revision/conflict                  PASS
+Artifact storage integration                 PASS
+Docker Phase 1 vertical smoke               PASS
+```
+
+The Phase 1 test suite also verifies that plaintext passwords are not stored, raw session tokens are not persisted, cross-owner/project reads are concealed, stale note writes do not mutate state, and action audits omit user content payloads.
+
+## Phase 2 boundary
+
+Phase 1 intentionally contains no browser SQLite/OPFS local database, durable operation journal, device identity, WebSocket sync, sync cursors/ACKs, tombstones, or cross-device conflict synchronization.
+
+Those capabilities belong to **Phase 2 — Local-First and Sync**. Tools/workflows/provenance remain Phase 3; AI and Universal Send To remain Phase 4; arbitrary upload hardening, backup/restore drills, and broader private-release hardening remain Phase 5.
