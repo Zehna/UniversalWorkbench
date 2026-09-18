@@ -9,6 +9,11 @@ import {
   type SessionCookieConfig,
 } from "../middleware/auth.js";
 
+function requestIdDetails(locals: Record<string, unknown>) {
+  const requestId = locals.requestId;
+  return typeof requestId === "string" ? { requestId } : {};
+}
+
 export function createAuthRouter(
   authService: AuthService,
   sessionCookie: SessionCookieConfig,
@@ -19,7 +24,11 @@ export function createAuthRouter(
     const parsed = LoginRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({
-        error: { code: "BAD_REQUEST", message: "Invalid login request" },
+        error: {
+          code: "BAD_REQUEST",
+          message: "Invalid login request",
+          ...requestIdDetails(res.locals),
+        },
       });
       return;
     }
@@ -34,6 +43,7 @@ export function createAuthRouter(
           error: {
             code: "INVALID_CREDENTIALS",
             message: "Invalid credentials",
+            ...requestIdDetails(res.locals),
           },
         });
         return;
