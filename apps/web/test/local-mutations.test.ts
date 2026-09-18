@@ -237,8 +237,8 @@ describe("atomic local mutations", () => {
     });
     expect(updated.revision.parentRevisionId).toBe(created.revision.id);
     expect(updated.revision.revisionNumber).toBe(2);
-    expect((await store.getNote(created.document.id))?.revision.content.body).toBe(
-      "second",
-    );
+    expect(
+      (await store.getNote(created.document.id))?.revision.content.body,
+    ).toBe("second");
   });
 });
