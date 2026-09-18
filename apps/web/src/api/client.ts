@@ -39,7 +39,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 async function parseBody(response: Response): Promise<unknown> {
   if (response.status === 204) return undefined;
-  return response.json();
+
+  const text = await response.text();
+  if (text.length === 0) return undefined;
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
 }
 
 function apiError(response: Response, body: unknown): ApiError {
