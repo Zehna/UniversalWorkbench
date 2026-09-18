@@ -98,7 +98,12 @@ describe("Phase 2 sync persistence", () => {
     const repository = createPostgresSyncRepository(pool);
     const deviceId = randomUUID();
     const now = new Date("2026-09-18T12:00:00.000Z");
-    await repository.registerDevice({ id: deviceId, ownerId, name: "Phone", now });
+    await repository.registerDevice({
+      id: deviceId,
+      ownerId,
+      name: "Phone",
+      now,
+    });
 
     const syncOperation = operation(deviceId);
     const input = {
@@ -129,7 +134,12 @@ describe("Phase 2 sync persistence", () => {
     const repository = createPostgresSyncRepository(pool);
     const deviceId = randomUUID();
     const now = new Date("2026-09-18T12:00:00.000Z");
-    await repository.registerDevice({ id: deviceId, ownerId, name: "Laptop", now });
+    await repository.registerDevice({
+      id: deviceId,
+      ownerId,
+      name: "Laptop",
+      now,
+    });
 
     const firstOperation = operation(deviceId);
     const first = await repository.persistAppliedOperation({
@@ -168,7 +178,12 @@ describe("Phase 2 sync persistence", () => {
     const repository = createPostgresSyncRepository(pool);
     const deviceId = randomUUID();
     const now = new Date("2026-09-18T12:00:00.000Z");
-    await repository.registerDevice({ id: deviceId, ownerId, name: "Tablet", now });
+    await repository.registerDevice({
+      id: deviceId,
+      ownerId,
+      name: "Tablet",
+      now,
+    });
 
     const syncOperation = operation(deviceId, {
       entityType: "document",
