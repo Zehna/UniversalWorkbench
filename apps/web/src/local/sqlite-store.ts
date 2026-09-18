@@ -1,8 +1,4 @@
-import type {
-  Project,
-  SyncChange,
-  SyncOperation,
-} from "@uw/contracts";
+import type { Project, SyncChange, SyncOperation } from "@uw/contracts";
 import type {
   LocalConflictRecord,
   LocalDeviceRecord,
@@ -52,7 +48,9 @@ class WorkerRpc {
       if (response.ok) {
         waiter.resolve(response.value);
       } else {
-        waiter.reject(new Error(response.error ?? "SQLite worker request failed"));
+        waiter.reject(
+          new Error(response.error ?? "SQLite worker request failed"),
+        );
       }
     };
     this.worker.onerror = (event) => {
@@ -81,7 +79,10 @@ function createTransactionCollector(): {
   const mutations: LocalMutation[] = [];
   const transaction: LocalTransaction = {
     async upsertProject(project) {
-      mutations.push({ type: "upsertProject", project: structuredClone(project) });
+      mutations.push({
+        type: "upsertProject",
+        project: structuredClone(project),
+      });
     },
     async upsertNote(note) {
       mutations.push({ type: "upsertNote", note: structuredClone(note) });
@@ -129,7 +130,10 @@ export async function createSqliteLocalStore(): Promise<LocalStore> {
       return rpc.call<Project[]>({ type: "listProjects" });
     },
     listPendingOperations(limit) {
-      return rpc.call<SyncOperation[]>({ type: "listPendingOperations", limit });
+      return rpc.call<SyncOperation[]>({
+        type: "listPendingOperations",
+        limit,
+      });
     },
     markOperationAcked(operationId, cursor) {
       return rpc.call<null>({

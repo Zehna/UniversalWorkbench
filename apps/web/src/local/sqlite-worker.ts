@@ -8,10 +8,7 @@ import type {
   SyncChange,
   SyncOperation,
 } from "@uw/contracts";
-import {
-  LOCAL_DATABASE_FILENAME,
-  LOCAL_SCHEMA_SQL,
-} from "./schema";
+import { LOCAL_DATABASE_FILENAME, LOCAL_SCHEMA_SQL } from "./schema";
 import type {
   LocalConflictRecord,
   LocalDeviceRecord,
@@ -247,10 +244,9 @@ function removeEntity(change: SyncChange): void {
     return;
   }
   if (change.entityType === "document") {
-    execute(
-      "DELETE FROM document_revisions WHERE document_id = ?",
-      [change.entityId],
-    );
+    execute("DELETE FROM document_revisions WHERE document_id = ?", [
+      change.entityId,
+    ]);
     execute("DELETE FROM documents WHERE id = ?", [change.entityId]);
     return;
   }
@@ -409,13 +405,11 @@ async function handle(request: WorkerRequest): Promise<unknown> {
         `SELECT operation_id, change_json, created_at
            FROM conflicts
           ORDER BY created_at, operation_id`,
-      ).map(
-        (row): LocalConflictRecord => ({
-          operationId: row.operation_id,
-          change: parseJson<SyncChange>(row.change_json),
-          createdAt: row.created_at,
-        }),
-      );
+      ).map((row): LocalConflictRecord => ({
+        operationId: row.operation_id,
+        change: parseJson<SyncChange>(row.change_json),
+        createdAt: row.created_at,
+      }));
     case "close":
       database?.close();
       database = null;
@@ -434,7 +428,8 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
       const response: WorkerResponse = {
         id: request.id,
         ok: false,
-        error: error instanceof Error ? error.message : "Unknown worker failure",
+        error:
+          error instanceof Error ? error.message : "Unknown worker failure",
       };
       self.postMessage(response);
     });

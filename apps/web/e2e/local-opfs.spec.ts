@@ -32,7 +32,8 @@ test("persists local project state across page reload using OPFS", async ({
           }
         ).__phase2;
 
-        if (!phase2) throw new Error("Phase 2 local test bridge is unavailable");
+        if (!phase2)
+          throw new Error("Phase 2 local test bridge is unavailable");
         return phase2.projectNames();
       }),
     )
