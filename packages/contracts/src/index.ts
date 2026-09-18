@@ -5,3 +5,4 @@ export * from "./document.js";
 export * from "./error.js";
 export * from "./health.js";
 export * from "./project.js";
+export * from "./sync.js";\n
