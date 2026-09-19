@@ -9,10 +9,7 @@ import {
   type Project,
   type SyncOperation,
 } from "@uw/contracts";
-import type {
-  SyncEntityApplyResult,
-  SyncProjectStore,
-} from "@uw/sync";
+import type { SyncEntityApplyResult, SyncProjectStore } from "@uw/sync";
 import type { Pool, QueryResultRow } from "pg";
 
 interface ProjectRow extends QueryResultRow {
@@ -77,9 +74,7 @@ async function currentSyncProject(
   return result.rows[0] ?? null;
 }
 
-function conflictFromProject(
-  row: ProjectRow | null,
-): SyncEntityApplyResult {
+function conflictFromProject(row: ProjectRow | null): SyncEntityApplyResult {
   return {
     status: "conflict",
     currentRevision: row ? String(row.sync_revision) : null,
@@ -260,7 +255,10 @@ export function createPostgresSyncProjectStore(pool: Pool): SyncProjectStore {
       }
 
       const input = UpdateProjectRequestSchema.parse(operation.payload);
-      const assignments = ["sync_revision = sync_revision + 1", "updated_at = now()"];
+      const assignments = [
+        "sync_revision = sync_revision + 1",
+        "updated_at = now()",
+      ];
       const values: unknown[] = [ownerId, operation.entityId, baseRevision];
 
       if (input.name !== undefined) {

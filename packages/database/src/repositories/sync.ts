@@ -1,8 +1,4 @@
-import type {
-  SyncChange,
-  SyncEntityType,
-  SyncOperation,
-} from "@uw/contracts";
+import type { SyncChange, SyncEntityType, SyncOperation } from "@uw/contracts";
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 
 import type {
@@ -304,7 +300,9 @@ export function createPostgresSyncRepository(pool: Pool): SyncRepository {
         [ownerId, entityType, entityId],
       );
       const row = result.rows[0];
-      return row ? ({ cursor: row.cursor } satisfies SyncTombstoneRecord) : null;
+      return row
+        ? ({ cursor: row.cursor } satisfies SyncTombstoneRecord)
+        : null;
     },
 
     async findOperation(ownerId, operationId) {

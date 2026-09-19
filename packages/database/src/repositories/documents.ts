@@ -12,10 +12,7 @@ import {
   type NoteDocumentView,
   type SyncOperation,
 } from "@uw/contracts";
-import type {
-  SyncDocumentStore,
-  SyncEntityApplyResult,
-} from "@uw/sync";
+import type { SyncDocumentStore, SyncEntityApplyResult } from "@uw/sync";
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 
 interface NoteRow extends QueryResultRow {
@@ -413,7 +410,6 @@ export function createPostgresDocumentRepository(
   };
 }
 
-
 interface SyncLockedDocumentRow extends QueryResultRow {
   id: string;
   project_id: string;
@@ -527,7 +523,9 @@ export function createPostgresSyncDocumentStore(pool: Pool): SyncDocumentStore {
         operation.entityType !== "document" ||
         !operation.action.startsWith("document.")
       ) {
-        throw new Error("Document sync store received a non-document operation");
+        throw new Error(
+          "Document sync store received a non-document operation",
+        );
       }
 
       const projectId = operation.projectId;
