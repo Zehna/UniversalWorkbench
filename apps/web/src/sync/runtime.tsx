@@ -35,7 +35,7 @@ export async function createBrowserCoordinator(
 
 interface SyncRuntimeProps {
   owner: OwnerPublic;
-  factory?: SyncCoordinatorFactory;
+  factory?: SyncCoordinatorFactory | undefined;
   children: ReactNode;
 }
 

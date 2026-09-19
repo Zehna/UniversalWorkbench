@@ -6,7 +6,7 @@ import { useSyncRuntime } from "../sync/runtime";
 interface NoteEditorProps {
   projectId: string;
   initial?: NoteDocumentView;
-  conflict?: LocalConflictRecord;
+  conflict?: LocalConflictRecord | undefined;
   onSaved(view: NoteDocumentView): void;
 }
 
