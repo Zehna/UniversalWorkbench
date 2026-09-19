@@ -4,10 +4,7 @@ import {
   type ServerSyncMessage,
   type SyncChange,
 } from "@uw/contracts";
-import {
-  SyncDeviceRejectedError,
-  type SyncService,
-} from "@uw/sync";
+import { SyncDeviceRejectedError, type SyncService } from "@uw/sync";
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocket, WebSocketServer } from "ws";
@@ -149,7 +146,11 @@ export function attachSyncWebSocketServer(
         }
 
         if (isBinary) {
-          closeWithError(socket, "INVALID_MESSAGE", "Binary messages are not supported");
+          closeWithError(
+            socket,
+            "INVALID_MESSAGE",
+            "Binary messages are not supported",
+          );
           return;
         }
 
@@ -171,17 +172,33 @@ export function attachSyncWebSocketServer(
 
         if (message.type === "HELLO") {
           if (context.deviceId) {
-            closeWithError(socket, "HELLO_ALREADY_RECEIVED", "HELLO may only be sent once");
+            closeWithError(
+              socket,
+              "HELLO_ALREADY_RECEIVED",
+              "HELLO may only be sent once",
+            );
             return;
           }
 
-          if (!(await activeDevice(syncService, context.ownerId, message.deviceId))) {
-            closeWithError(socket, "DEVICE_REJECTED", "Sync device is not active");
+          if (
+            !(await activeDevice(
+              syncService,
+              context.ownerId,
+              message.deviceId,
+            ))
+          ) {
+            closeWithError(
+              socket,
+              "DEVICE_REJECTED",
+              "Sync device is not active",
+            );
             return;
           }
 
           context.deviceId = message.deviceId;
-          const latestCursor = await syncService.getLatestCursor(context.ownerId);
+          const latestCursor = await syncService.getLatestCursor(
+            context.ownerId,
+          );
           sendMessage(socket, {
             type: "READY",
             deviceId: message.deviceId,
@@ -204,8 +221,14 @@ export function attachSyncWebSocketServer(
           return;
         }
 
-        if (!(await activeDevice(syncService, context.ownerId, context.deviceId))) {
-          closeWithError(socket, "DEVICE_REJECTED", "Sync device is not active");
+        if (
+          !(await activeDevice(syncService, context.ownerId, context.deviceId))
+        ) {
+          closeWithError(
+            socket,
+            "DEVICE_REJECTED",
+            "Sync device is not active",
+          );
           return;
         }
 
@@ -215,7 +238,9 @@ export function attachSyncWebSocketServer(
         }
 
         if (message.type === "SYNC_REQUEST") {
-          const latestCursor = await syncService.getLatestCursor(context.ownerId);
+          const latestCursor = await syncService.getLatestCursor(
+            context.ownerId,
+          );
           await replayChanges(
             syncService,
             context.ownerId,
@@ -286,10 +311,7 @@ export function attachSyncWebSocketServer(
     head: Buffer,
   ): void => {
     void (async () => {
-      const pathname = new URL(
-        request.url ?? "/",
-        "http://localhost",
-      ).pathname;
+      const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
       if (pathname !== "/sync/socket") {
         writeUpgradeFailure(socket, 404, "Not Found");
         return;
