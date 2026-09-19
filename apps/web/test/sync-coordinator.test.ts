@@ -181,7 +181,9 @@ class MemoryStore implements LocalStore {
   }
 }
 
-function network(overrides: Partial<SyncNetworkClient> = {}): SyncNetworkClient {
+function network(
+  overrides: Partial<SyncNetworkClient> = {},
+): SyncNetworkClient {
   return {
     registerDevice: vi.fn().mockResolvedValue(undefined),
     listChanges: vi.fn().mockResolvedValue([]),
