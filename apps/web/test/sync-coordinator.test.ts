@@ -188,7 +188,7 @@ function network(
   return {
     registerDevice: vi.fn().mockResolvedValue(undefined),
     listChanges: vi.fn().mockResolvedValue([]),
-    pushOperations: vi.fn().mockImplementation(async (operations) =>
+    pushOperations: vi.fn().mockImplementation(async (operations: SyncOperation[]) =>
       operations.map((operation) => ({
         operationId: operation.id,
         change: {
