@@ -12,6 +12,7 @@ COPY packages/database/package.json packages/database/package.json
 COPY packages/documents/package.json packages/documents/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/storage/package.json packages/storage/package.json
+COPY packages/sync/package.json packages/sync/package.json
 RUN npm ci
 
 COPY tsconfig.base.json ./
@@ -24,6 +25,7 @@ COPY packages/database packages/database
 COPY packages/documents packages/documents
 COPY packages/shared packages/shared
 COPY packages/storage packages/storage
+COPY packages/sync packages/sync
 RUN npm run build -w @uw/contracts \
   && npm run build -w @uw/shared \
   && npm run build -w @uw/storage \
@@ -31,6 +33,7 @@ RUN npm run build -w @uw/contracts \
   && npm run build -w @uw/core \
   && npm run build -w @uw/documents \
   && npm run build -w @uw/artifacts \
+  && npm run build -w @uw/sync \
   && npm run build -w @uw/database \
   && npm run build -w @uw/server \
   && npm prune --omit=dev
@@ -60,6 +63,8 @@ COPY --from=build /app/packages/shared/package.json ./packages/shared/package.js
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/storage/package.json ./packages/storage/package.json
 COPY --from=build /app/packages/storage/dist ./packages/storage/dist
+COPY --from=build /app/packages/sync/package.json ./packages/sync/package.json
+COPY --from=build /app/packages/sync/dist ./packages/sync/dist
 
 RUN mkdir -p /app/data/artifacts && chown -R node:node /app/data
 
