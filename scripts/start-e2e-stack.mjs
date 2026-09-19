@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
 
 const databaseUrl =
   process.env.TEST_DATABASE_URL ??
@@ -36,7 +37,7 @@ async function waitFor(url, timeoutMs = 120_000) {
     } catch (error) {
       lastError = error;
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await delay(250);
   }
   throw lastError ?? new Error(`Timed out waiting for ${url}`);
 }
