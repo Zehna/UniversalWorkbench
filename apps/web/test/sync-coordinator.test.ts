@@ -180,8 +180,7 @@ class MemoryStore implements LocalStore {
     if (change.entityType === "document" && change.kind === "upsert") {
       const value = change.payload.note as NoteDocumentView | undefined;
       const workflow = change.payload.workflow as
-        | WorkflowDocumentView
-        | undefined;
+        WorkflowDocumentView | undefined;
       if (value) this.notes.set(value.document.id, structuredClone(value));
       if (workflow) {
         this.workflows.set(workflow.document.id, structuredClone(workflow));
