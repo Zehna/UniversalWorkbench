@@ -59,7 +59,7 @@ export const projects = pgTable("projects", {
   schemaVersion: integer("schema_version").notNull().default(1),
   syncRevision: bigint("sync_revision", { mode: "bigint" })
     .notNull()
-    .default(0n),
+    .default(sql`0`),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
