@@ -76,21 +76,15 @@ describe("ToolRegistry", () => {
 
   it("does not fall back when the requested version is absent", () => {
     const registry = new ToolRegistry();
-    registry.register(
-      definition("builtin.text.template", "2"),
-      runner("v2"),
-    );
+    registry.register(definition("builtin.text.template", "2"), runner("v2"));
 
-    expect(() =>
-      registry.resolve("builtin.text.template", "1"),
-    ).toThrow(ToolNotFoundError);
+    expect(() => registry.resolve("builtin.text.template", "1")).toThrow(
+      ToolNotFoundError,
+    );
   });
 
   it("calculates required capability coverage without granting extras", () => {
-    const required = [
-      "network.public",
-      "project.artifacts.write",
-    ] as const;
+    const required = ["network.public", "project.artifacts.write"] as const;
     const granted = new Set(["network.public"] as const);
 
     expect(hasRequiredCapabilities(required, granted)).toBe(false);
