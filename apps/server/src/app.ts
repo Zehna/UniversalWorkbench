@@ -5,6 +5,7 @@ import type { ArtifactService } from "@uw/artifacts";
 import type { ErrorEnvelope } from "@uw/contracts";
 import type { ProjectService } from "@uw/core";
 import type { DocumentService } from "@uw/documents";
+import type { SyncService } from "@uw/sync";
 import type { SessionCookieConfig } from "./middleware/auth.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { createAuthRouter } from "./routes/auth.js";
@@ -13,6 +14,7 @@ import { createDocumentsRouter } from "./routes/documents.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createProjectsRouter } from "./routes/projects.js";
 import { createSetupRouter } from "./routes/setup.js";
+import { createSyncRouter } from "./routes/sync.js";
 
 export interface AppDependencies {
   databaseReady(): Promise<boolean>;
@@ -21,6 +23,7 @@ export interface AppDependencies {
   projectService?: ProjectService;
   documentService?: DocumentService;
   artifactService?: ArtifactService;
+  syncService?: SyncService;
 }
 
 function requestIdFromLocals(
@@ -117,6 +120,17 @@ export function createApp(deps: AppDependencies) {
   if (hasAuthDependencies(deps)) {
     app.use("/setup", createSetupRouter(deps.authService, deps.sessionCookie));
     app.use("/auth", createAuthRouter(deps.authService, deps.sessionCookie));
+  }
+
+  if (hasAuthDependencies(deps) && deps.syncService) {
+    app.use(
+      "/sync",
+      createSyncRouter({
+        authService: deps.authService,
+        sessionCookie: deps.sessionCookie,
+        syncService: deps.syncService,
+      }),
+    );
   }
 
   if (hasDataDependencies(deps)) {

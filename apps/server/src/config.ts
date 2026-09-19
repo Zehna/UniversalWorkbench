@@ -11,6 +11,18 @@ const ConfigSchema = z.object({
     .transform((value) => value === "true"),
   SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(604800),
   ARTIFACTS_DIR: z.string().min(1).default("./data/artifacts"),
+  TRUSTED_ORIGINS: z
+    .string()
+    .min(1)
+    .default(
+      "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173",
+    )
+    .transform((value) =>
+      value
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter((origin) => origin.length > 0),
+    ),
 });
 
 export interface ServerConfig {
@@ -21,6 +33,7 @@ export interface ServerConfig {
   sessionCookieSecure: boolean;
   sessionTtlSeconds: number;
   artifactsDir: string;
+  trustedOrigins: string[];
 }
 
 export function loadConfig(
@@ -35,5 +48,6 @@ export function loadConfig(
     sessionCookieSecure: parsed.SESSION_COOKIE_SECURE,
     sessionTtlSeconds: parsed.SESSION_TTL_SECONDS,
     artifactsDir: parsed.ARTIFACTS_DIR,
+    trustedOrigins: parsed.TRUSTED_ORIGINS,
   };
 }

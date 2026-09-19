@@ -2,19 +2,24 @@
 
 Universal Workbench is a local-first, self-hosted-first workspace for connecting tools without losing project context or provenance.
 
-The current implementation boundary is **Phase 1 — Project and Data Core**. Phase 1 adds a private single-owner workbench with authenticated projects, revision-safe notes, immutable artifacts, a mobile-first PWA flow, explicit PostgreSQL migrations, and a Docker deployment smoke.
+The current implementation boundary is **Phase 2 — Local-First & Sync**. The browser now writes project and note state locally first, persists pending operations across reloads, synchronizes through authenticated device-bound HTTP/WebSocket transports, and preserves local edits through conflict resolution.
 
-## Phase 1 capabilities
+## Phase 2 capabilities
 
-- first-run owner setup, login, session validation, logout, and owner-only authorization;
-- project creation, listing, reading, and updates;
-- note creation and revision-safe editing with stale-write conflict detection;
-- immutable artifact metadata and bytes behind a storage abstraction;
-- PostgreSQL persistence with Drizzle migrations applied explicitly before app startup;
-- action auditing for project, document, and artifact mutations without storing content payloads;
-- React + Vite PWA UX for owner setup/login, project selection, and note editing;
-- Docker Compose reference deployment with PostgreSQL, one-shot migration, app, web, and persistent artifact storage;
-- CI gates for formatting, linting, type checking, tests, production build, PWA verification, PostgreSQL integration, and Docker smoke.
+- first-run single-owner setup, login, session validation, logout, and owner-only authorization;
+- project and revisioned-note data core from Phase 1;
+- browser-local persistence with SQLite WASM + OPFS when available;
+- durable IndexedDB fallback when OPFS/SQLite is unavailable;
+- local-first project/note mutation with durable pending-operation journal;
+- client-generated device identity with server registration and revocation;
+- monotonic sync cursors and idempotent operation replay;
+- HTTP catch-up as the durable recovery path;
+- authenticated WebSocket HELLO/READY, ACK, replay, and remote-operation transport;
+- stale-write conflict preservation with explicit keep-local or use-server resolution;
+- durable tombstones preventing stale offline resurrection;
+- sync status and non-secret diagnostics;
+- canonical Docker Compose deployment with PostgreSQL, migrations, Express, nginx/PWA, OPFS isolation headers, and WebSocket proxying;
+- permanent CI gates covering Chromium multi-device/offline/fallback/conflict/chaos behavior and Docker vertical smoke.
 
 ## Stack
 
@@ -22,16 +27,17 @@ The current implementation boundary is **Phase 1 — Project and Data Core**. Ph
 - npm workspaces
 - TypeScript
 - React + Vite PWA
-- Express API
+- SQLite WASM + OPFS / IndexedDB fallback
+- Express API + WebSocket transport
 - PostgreSQL + Drizzle
-- Vitest
+- Vitest + Playwright
 - Docker Compose
 
 ## Repository layout
 
 ```text
-apps/web            PWA client
-apps/server         Express application
+apps/web            local-first PWA client and browser persistence
+apps/server         Express API and sync WebSocket transport
 packages/auth       owner authentication and sessions
 packages/contracts  shared runtime contracts
 packages/core       Action Layer and project domain
@@ -39,6 +45,7 @@ packages/documents  revisioned note domain
 packages/artifacts  immutable artifact domain
 packages/storage    artifact storage abstraction
 packages/database   PostgreSQL repositories and migrations
+packages/sync       durable sync service and conflict policy
 packages/shared     deterministic shared primitives
 deploy/docker       canonical self-host deployment
 docs                architecture, runbooks, specs, and plans
@@ -46,8 +53,8 @@ docs                architecture, runbooks, specs, and plans
 
 ## Next boundary
 
-**Phase 2 owns local-first state and synchronization**: browser SQLite WASM + OPFS, durable operation journal, device identity, WebSocket synchronization, cursors/ACKs, tombstones, and conflict synchronization.
+**Phase 3 owns Tool & Workflow execution**: typed tool contracts, execution records, linear-first DAG-capable workflows, permissions, and the first reusable `Send to...` paths.
 
-Workflow/tool execution, AI providers, MCP, arbitrary uploads, and broader private-release hardening remain intentionally deferred to later phases.
+AI providers, MCP/plugin expansion, broader upload ingestion, and later private-release hardening remain deferred to their roadmap phases.
 
-See `docs/runbooks/local-development.md` for startup and verification commands, `docs/architecture/phase-1.md` for the current architecture, and `docs/superpowers/specs/2026-09-15-universal-workbench-design.md` for the approved product blueprint.
+See `docs/runbooks/local-development.md` for startup and verification commands, `docs/architecture/phase-2.md` for the current architecture, and `docs/superpowers/specs/2026-09-15-universal-workbench-design.md` for the approved product blueprint.

@@ -1,0 +1,26 @@
+{
+  "name": "@uw/sync",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "pretest": "npm run build -w @uw/contracts && npm run build -w @uw/shared && npm run build -w @uw/core",
+    "test": "vitest run",
+    "typecheck": "npm run build -w @uw/contracts && npm run build -w @uw/shared && npm run build -w @uw/core && tsc --noEmit",
+    "build": "npm run build -w @uw/contracts && npm run build -w @uw/shared && npm run build -w @uw/core && tsup src/index.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@uw/contracts": "*",
+    "@uw/shared": "*",
+    "@uw/core": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  }
+}

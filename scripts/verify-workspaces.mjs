@@ -11,6 +11,7 @@ const expected = new Map([
   ["packages/documents/package.json", "@uw/documents"],
   ["packages/shared/package.json", "@uw/shared"],
   ["packages/storage/package.json", "@uw/storage"],
+  ["packages/sync/package.json", "@uw/sync"],
 ]);
 
 let failed = false;

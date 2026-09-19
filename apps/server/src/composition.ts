@@ -10,8 +10,12 @@ import {
   createPostgresAuthRepository,
   createPostgresDocumentRepository,
   createPostgresProjectRepository,
+  createPostgresSyncDocumentStore,
+  createPostgresSyncProjectStore,
+  createPostgresSyncRepository,
 } from "@uw/database";
 import { SystemClock, UuidGenerator } from "@uw/shared";
+import { createSyncOperationApplier, createSyncService } from "@uw/sync";
 import { createLocalFilesystemStorage } from "@uw/storage";
 import { createApp } from "./app.js";
 import type { ServerConfig } from "./config.js";
@@ -52,6 +56,20 @@ export function composeApplication(config: ServerConfig) {
     idGenerator,
   });
 
+  const syncRepository = createPostgresSyncRepository(pool);
+  const syncService = createSyncService({
+    repository: syncRepository,
+    applier: createSyncOperationApplier({
+      repository: syncRepository,
+      projects: createPostgresSyncProjectStore(pool),
+      documents: createPostgresSyncDocumentStore(pool),
+      audit,
+      clock,
+      idGenerator,
+    }),
+    clock,
+  });
+
   const app = createApp({
     databaseReady: () => checkDatabaseReady(pool),
     authService,
@@ -63,7 +81,8 @@ export function composeApplication(config: ServerConfig) {
     projectService,
     documentService,
     artifactService,
+    syncService,
   });
 
-  return { app, pool };
+  return { app, pool, authService, syncService };
 }

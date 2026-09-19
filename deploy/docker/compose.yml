@@ -46,6 +46,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://workbench:workbench@postgres:5432/workbench}
       ARTIFACTS_DIR: /app/data/artifacts
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
     depends_on:
       postgres:
         condition: service_healthy

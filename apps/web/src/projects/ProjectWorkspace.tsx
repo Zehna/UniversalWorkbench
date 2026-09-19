@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import type { NoteDocument, NoteDocumentView, Project } from "@uw/contracts";
-import { api } from "../api/client";
+import type { NoteDocumentView, Project } from "@uw/contracts";
+import type { LocalConflictRecord } from "../local/store";
 import { NoteEditor } from "../documents/NoteEditor";
+import { useSyncRuntime } from "../sync/runtime";
 
 interface ProjectWorkspaceProps {
   project: Project;
@@ -9,34 +10,62 @@ interface ProjectWorkspaceProps {
 }
 
 export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
-  const [documents, setDocuments] = useState<NoteDocument[]>([]);
+  const { coordinator, status } = useSyncRuntime();
+  const [notes, setNotes] = useState<NoteDocumentView[]>([]);
+  const [conflicts, setConflicts] = useState<LocalConflictRecord[]>([]);
   const [selected, setSelected] = useState<NoteDocumentView | undefined>();
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    void api.listDocuments(project.id).then((items) => {
-      if (active) setDocuments(items);
-    });
+    void Promise.all([
+      coordinator.listNotes(project.id),
+      coordinator.listConflicts(),
+    ])
+      .then(([nextNotes, nextConflicts]) => {
+        if (!active) return;
+        setNotes(nextNotes);
+        setConflicts(
+          nextConflicts.filter(
+            (conflict) =>
+              conflict.change.entityType === "document" &&
+              nextNotes.some(
+                (note) => note.document.id === conflict.change.entityId,
+              ),
+          ),
+        );
+      })
+      .catch((cause) => {
+        if (active) {
+          setError(
+            cause instanceof Error ? cause.message : "Unable to load workspace",
+          );
+        }
+      });
+
     return () => {
       active = false;
     };
-  }, [project.id]);
-
-  async function selectDocument(document: NoteDocument) {
-    const view = await api.getDocument(project.id, document.id);
-    setSelected(view);
-    setCreating(false);
-  }
+  }, [coordinator, project.id, status]);
 
   function saved(view: NoteDocumentView) {
     setSelected(view);
     setCreating(false);
-    setDocuments((current) => {
-      const without = current.filter((item) => item.id !== view.document.id);
-      return [...without, view.document];
+    setNotes((current) => {
+      const without = current.filter(
+        (item) => item.document.id !== view.document.id,
+      );
+      return [...without, view];
     });
+    void coordinator.listConflicts().then(setConflicts);
   }
+
+  const selectedConflict = selected
+    ? conflicts.find(
+        (conflict) => conflict.change.entityId === selected.document.id,
+      )
+    : undefined;
 
   return (
     <section>
@@ -44,6 +73,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
         Back to projects
       </button>
       <h2>{project.name}</h2>
+      {error ? <p role="alert">{error}</p> : null}
       <div>
         <h3>Notes</h3>
         <button
@@ -55,13 +85,16 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
         >
           New Note
         </button>
-        {documents.map((document) => (
+        {notes.map((note) => (
           <button
-            key={document.id}
+            key={note.document.id}
             type="button"
-            onClick={() => void selectDocument(document)}
+            onClick={() => {
+              setSelected(note);
+              setCreating(false);
+            }}
           >
-            {document.title}
+            {note.document.title}
           </button>
         ))}
       </div>
@@ -70,6 +103,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
           key={selected.document.id}
           projectId={project.id}
           initial={selected}
+          conflict={selectedConflict}
           onSaved={saved}
         />
       ) : creating ? (
