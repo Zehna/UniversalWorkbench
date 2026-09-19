@@ -1,0 +1,34 @@
+name: Phase 2 Task 8 RED Format
+
+on:
+  push:
+    branches:
+      - phase-2-local-first-sync
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-2-local-first-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm ci
+      - run: npx prettier --write apps/web/test/sync-coordinator.test.ts
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then
+            echo "Already formatted"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/test/sync-coordinator.test.ts
+          git commit -m "style: format sync coordinator red tests"
+          git push origin HEAD:phase-2-local-first-sync
