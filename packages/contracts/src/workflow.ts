@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { JsonObjectSchema } from "./context.js";
-import {
-  ToolPortNameSchema,
-  ToolReferenceSchema,
-} from "./tool.js";
+import { ToolPortNameSchema, ToolReferenceSchema } from "./tool.js";
 
 export const WorkflowNodeIdSchema = z.string().trim().min(1).max(128);
 
@@ -43,9 +40,5 @@ export const WorkflowDefinitionV1Schema = z.object({
 
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
 export type WorkflowEdge = z.infer<typeof WorkflowEdgeSchema>;
-export type WorkflowOutputBinding = z.infer<
-  typeof WorkflowOutputBindingSchema
->;
-export type WorkflowDefinitionV1 = z.infer<
-  typeof WorkflowDefinitionV1Schema
->;
+export type WorkflowOutputBinding = z.infer<typeof WorkflowOutputBindingSchema>;
+export type WorkflowDefinitionV1 = z.infer<typeof WorkflowDefinitionV1Schema>;

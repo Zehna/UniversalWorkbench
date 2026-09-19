@@ -1,16 +1,8 @@
 import { z } from "zod";
-import {
-  IdSchema,
-  SchemaVersionSchema,
-} from "./common.js";
+import { IdSchema, SchemaVersionSchema } from "./common.js";
 
 export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([

@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { IdSchema, IsoDateTimeSchema } from "./common.js";
 import { JsonValueSchema } from "./context.js";
-import {
-  ToolCapabilitySchema,
-  ToolReferenceSchema,
-} from "./tool.js";
+import { ToolCapabilitySchema, ToolReferenceSchema } from "./tool.js";
 
 export const ExecutionKindSchema = z.enum(["tool", "workflow"]);
 
