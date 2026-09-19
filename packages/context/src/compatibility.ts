@@ -1,7 +1,4 @@
-import type {
-  ContextType,
-  ToolInputPort,
-} from "@uw/contracts";
+import type { ContextType, ToolInputPort } from "@uw/contracts";
 
 export type ContextPort = ToolInputPort;
 

@@ -1,7 +1,4 @@
-import type {
-  ContextType,
-  ToolInputPort,
-} from "@uw/contracts";
+import type { ContextType, ToolInputPort } from "@uw/contracts";
 import { acceptsContext } from "./compatibility.js";
 
 function adapterKey(from: ContextType, to: ContextType): string {

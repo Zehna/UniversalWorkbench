@@ -10,10 +10,7 @@ import type {
   RegisteredTool,
   ToolRunner,
 } from "./contract.js";
-import {
-  DuplicateToolRegistrationError,
-  ToolNotFoundError,
-} from "./errors.js";
+import { DuplicateToolRegistrationError, ToolNotFoundError } from "./errors.js";
 
 function registrationKey(id: string, version: string): string {
   return `${id}@${version}`;
@@ -23,16 +20,12 @@ export class ToolRegistry {
   readonly #tools = new Map<string, RegisteredTool>();
 
   constructor(
-    readonly compatibility: ContextCompatibilityRegistry =
-      new ContextCompatibilityRegistry(),
+    readonly compatibility: ContextCompatibilityRegistry = new ContextCompatibilityRegistry(),
   ) {}
 
   register(definition: ToolDefinition, runner: ToolRunner): void {
     const parsedDefinition = ToolDefinitionSchema.parse(definition);
-    const key = registrationKey(
-      parsedDefinition.id,
-      parsedDefinition.version,
-    );
+    const key = registrationKey(parsedDefinition.id, parsedDefinition.version);
 
     if (this.#tools.has(key)) {
       throw new DuplicateToolRegistrationError(
