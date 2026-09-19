@@ -4,10 +4,7 @@ import type {
   WorkflowDefinitionV1,
   WorkflowDocumentView,
 } from "@uw/contracts";
-import type {
-  NoteDocumentSummary,
-  WorkflowDocumentSummary,
-} from "./model.js";
+import type { NoteDocumentSummary, WorkflowDocumentSummary } from "./model.js";
 
 export interface CreateNoteRecordInput {
   ownerId: string;

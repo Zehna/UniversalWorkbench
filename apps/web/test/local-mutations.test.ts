@@ -35,7 +35,10 @@ class MemoryLocalStore implements LocalStore {
   readonly backend = "indexeddb" as const;
   private projects = new Map<string, Project>();
   private notes = new Map<string, NoteDocumentView>();
-  private workflows = new Map<string, import("@uw/contracts").WorkflowDocumentView>();
+  private workflows = new Map<
+    string,
+    import("@uw/contracts").WorkflowDocumentView
+  >();
   private operations = new Map<string, SyncOperation>();
   readonly failOnAppend: boolean;
 

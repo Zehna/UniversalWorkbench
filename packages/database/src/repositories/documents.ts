@@ -709,10 +709,7 @@ interface SyncLockedDocumentRow extends QueryResultRow {
   created_at: Date;
   deleted_at: Date | null;
   revision_number: number | null;
-  content:
-    | { body?: unknown }
-    | { kind?: unknown; workflow?: unknown }
-    | null;
+  content: { body?: unknown } | { kind?: unknown; workflow?: unknown } | null;
 }
 
 function syncDocumentConflict(
@@ -753,7 +750,8 @@ function syncDocumentConflict(
             id: current.id,
             title: current.title,
             body:
-              current.content && "body" in current.content &&
+              current.content &&
+              "body" in current.content &&
               typeof current.content.body === "string"
                 ? current.content.body
                 : "",
@@ -860,7 +858,6 @@ function workflowViewFromSyncInput(input: {
     },
   };
 }
-
 
 export function createPostgresSyncDocumentStore(pool: Pool): SyncDocumentStore {
   return {

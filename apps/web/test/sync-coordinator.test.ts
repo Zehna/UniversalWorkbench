@@ -73,7 +73,10 @@ class MemoryStore implements LocalStore {
   private cursor = "0";
   private projects = new Map<string, Project>();
   private notes = new Map<string, NoteDocumentView>();
-  private workflows = new Map<string, import("@uw/contracts").WorkflowDocumentView>();
+  private workflows = new Map<
+    string,
+    import("@uw/contracts").WorkflowDocumentView
+  >();
   private pending = new Map<string, SyncOperation>();
   private conflicts = new Map<string, LocalConflictRecord>();
 
@@ -179,8 +182,7 @@ class MemoryStore implements LocalStore {
     if (change.entityType === "document" && change.kind === "upsert") {
       const value = change.payload.note as NoteDocumentView | undefined;
       const workflow = change.payload.workflow as
-        | import("@uw/contracts").WorkflowDocumentView
-        | undefined;
+        import("@uw/contracts").WorkflowDocumentView | undefined;
       if (value) this.notes.set(value.document.id, structuredClone(value));
       if (workflow) {
         this.workflows.set(workflow.document.id, structuredClone(workflow));

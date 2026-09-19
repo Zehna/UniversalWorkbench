@@ -351,7 +351,9 @@ function mapWorkflowJoin(row: WorkflowJoinRow): WorkflowDocumentView {
     revisionNumber: row.revision_number,
     parentRevisionId: row.parent_revision_id,
     content: parseJson<WorkflowDocumentRevision["content"]>(row.content_json),
-    metadata: parseJson<WorkflowDocumentRevision["metadata"]>(row.metadata_json),
+    metadata: parseJson<WorkflowDocumentRevision["metadata"]>(
+      row.metadata_json,
+    ),
     createdAt: row.revision_created_at,
   };
   return { document, revision };
@@ -455,8 +457,7 @@ function applyRemoteChange(change: SyncChange): void {
     } else if (change.entityType === "document") {
       const note = change.payload.note as NoteDocumentView | undefined;
       const workflow = change.payload.workflow as
-        | WorkflowDocumentView
-        | undefined;
+        WorkflowDocumentView | undefined;
       const view = workflow ?? note;
       if (view) upsertDocumentView(view);
     } else {

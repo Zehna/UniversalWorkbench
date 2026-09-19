@@ -248,8 +248,7 @@ function applyRemoteChangeToTransaction(
   } else if (change.entityType === "document") {
     const note = change.payload.note as NoteDocumentView | undefined;
     const workflow = change.payload.workflow as
-      | WorkflowDocumentView
-      | undefined;
+      WorkflowDocumentView | undefined;
     const view = workflow ?? note;
     if (view) {
       transaction.objectStore(STORES.documents).put(view.document);
@@ -340,9 +339,9 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
         STORES.documents,
         "readonly",
       );
-      const documents = await requestResult<(NoteDocument | WorkflowDocument)[]>(
-        documentTransaction.objectStore(STORES.documents).getAll(),
-      );
+      const documents = await requestResult<
+        (NoteDocument | WorkflowDocument)[]
+      >(documentTransaction.objectStore(STORES.documents).getAll());
       const matching = documents
         .filter(
           (document): document is NoteDocument =>
@@ -403,9 +402,9 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
         STORES.documents,
         "readonly",
       );
-      const documents = await requestResult<(NoteDocument | WorkflowDocument)[]>(
-        documentTransaction.objectStore(STORES.documents).getAll(),
-      );
+      const documents = await requestResult<
+        (NoteDocument | WorkflowDocument)[]
+      >(documentTransaction.objectStore(STORES.documents).getAll());
       const matching = documents
         .filter(
           (document): document is WorkflowDocument =>
