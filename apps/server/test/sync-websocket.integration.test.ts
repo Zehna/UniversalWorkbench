@@ -163,6 +163,39 @@ function nextJson(socket: WebSocket): Promise<Record<string, unknown>> {
   });
 }
 
+function nextJsonMessages(
+  socket: WebSocket,
+  count: number,
+): Promise<Record<string, unknown>[]> {
+  return new Promise((resolve, reject) => {
+    const messages: Record<string, unknown>[] = [];
+
+    const cleanupListeners = () => {
+      socket.off("message", onMessage);
+      socket.off("error", onError);
+    };
+    const onError = (error: Error) => {
+      cleanupListeners();
+      reject(error);
+    };
+    const onMessage = (data: Parameters<WebSocket["on"]>[1] extends (...args: infer A) => unknown ? A[0] : never) => {
+      try {
+        messages.push(JSON.parse(data.toString()) as Record<string, unknown>);
+        if (messages.length === count) {
+          cleanupListeners();
+          resolve(messages);
+        }
+      } catch (error) {
+        cleanupListeners();
+        reject(error);
+      }
+    };
+
+    socket.on("message", onMessage);
+    socket.on("error", onError);
+  });
+}
+
 function closed(socket: WebSocket): Promise<number> {
   return new Promise((resolve) => {
     socket.once("close", (code) => resolve(code));
@@ -258,16 +291,22 @@ describe("sync WebSocket transport", () => {
     const socket = connect(harness.url, { cookie: "raw-token" });
     await opened(socket);
 
-    expect(await hello(socket, "5")).toEqual({
+    const replayPromise = nextJsonMessages(socket, 3);
+    socket.send(
+      JSON.stringify({ type: "HELLO", deviceId: DEVICE_ID, cursor: "5" }),
+    );
+    const [ready, firstChange, secondChange] = await replayPromise;
+
+    expect(ready).toEqual({
       type: "READY",
       deviceId: DEVICE_ID,
       cursor: "7",
     });
-    expect(await nextJson(socket)).toEqual({
+    expect(firstChange).toEqual({
       type: "REMOTE_OPERATION",
       change: missed[0],
     });
-    expect(await nextJson(socket)).toEqual({
+    expect(secondChange).toEqual({
       type: "REMOTE_OPERATION",
       change: missed[1],
     });

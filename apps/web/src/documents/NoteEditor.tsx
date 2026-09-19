@@ -16,12 +16,15 @@ export function NoteEditor({ projectId, initial, onSaved }: NoteEditorProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const initialDocumentId = initial?.document.id;
+  const initialRevisionId = initial?.revision.id;
+
   useEffect(() => {
     setView(initial);
     setTitle(initial?.document.title ?? "");
     setBody(initial?.revision.content.body ?? "");
     setConflict(false);
-  }, [initial]);
+  }, [initialDocumentId, initialRevisionId]);
 
   async function save(event: FormEvent) {
     event.preventDefault();
