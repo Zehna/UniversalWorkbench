@@ -150,9 +150,7 @@ function createUiCoordinator(): SyncCoordinator {
     },
     async updateNote(view, input) {
       revision += 1;
-      const note = notes.find(
-        (item) => item.document.id === view.document.id,
-      );
+      const note = notes.find((item) => item.document.id === view.document.id);
       if (!note) throw new Error("Note not found");
       const revisionId = `77777777-7777-4777-8777-77777777777${revision}`;
       note.document.title = input.title;

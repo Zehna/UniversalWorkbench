@@ -63,9 +63,11 @@ function cursorAfter(left: string, right: string): boolean {
   return BigInt(left) > BigInt(right);
 }
 
-function serverNoteSnapshot(
-  conflict: LocalConflictRecord,
-): { title: string; body: string; currentRevisionId: string } {
+function serverNoteSnapshot(conflict: LocalConflictRecord): {
+  title: string;
+  body: string;
+  currentRevisionId: string;
+} {
   const current = conflict.change.payload.current;
   if (typeof current !== "object" || current === null) {
     throw new Error("Conflict does not contain a server note snapshot");

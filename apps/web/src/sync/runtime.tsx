@@ -8,10 +8,7 @@ import {
 import type { OwnerPublic } from "@uw/contracts";
 import { openLocalStore } from "../local/open-local-store";
 import { createBrowserSyncClient } from "./client";
-import {
-  createSyncCoordinator,
-  type SyncCoordinator,
-} from "./coordinator";
+import { createSyncCoordinator, type SyncCoordinator } from "./coordinator";
 import type { SyncStatus } from "./status";
 
 export type SyncCoordinatorFactory = (
