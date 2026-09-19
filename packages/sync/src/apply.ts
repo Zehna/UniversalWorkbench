@@ -1,5 +1,10 @@
 import type { SyncOperation } from "@uw/contracts";
-import { executeAction, type AuditRepository } from "@uw/core";
+import {
+  executeAction,
+  type ActionContext,
+  type AuditRecordInput,
+  type AuditRepository,
+} from "@uw/core";
 import type { Clock, IdGenerator } from "@uw/shared";
 import {
   createConflictPayload,
@@ -95,36 +100,50 @@ export function createSyncOperationApplier(
         );
       }
 
+      const projectId = projectIdForOperation(operation);
+      const context: ActionContext =
+        projectId === undefined
+          ? { actorId: ownerId, traceId: operation.id }
+          : { actorId: ownerId, traceId: operation.id, projectId };
+
       const result = await executeAction({
         name: `sync.${operation.action}`,
         input: operation,
-        context: {
-          actorId: ownerId,
-          traceId: operation.id,
-          ...(projectIdForOperation(operation)
-            ? { projectId: projectIdForOperation(operation) }
-            : {}),
-        },
+        context,
         authorize: async () => undefined,
         run: () => store.apply(ownerId, operation),
         audit: async (applied) => {
           if (applied.status !== "applied") return;
-          await audit.record({
-            id: idGenerator.next(),
-            actorId: ownerId,
-            ...(projectIdForOperation(operation)
-              ? { projectId: projectIdForOperation(operation) }
-              : {}),
-            action: `sync.${operation.action}`,
-            targetType: operation.entityType,
-            targetId: operation.entityId,
-            traceId: operation.id,
-            metadata: {
-              deviceId: operation.deviceId,
-              operationId: operation.id,
-            },
-            createdAt: clock.now(),
-          });
+          const auditInput: AuditRecordInput =
+            projectId === undefined
+              ? {
+                  id: idGenerator.next(),
+                  actorId: ownerId,
+                  action: `sync.${operation.action}`,
+                  targetType: operation.entityType,
+                  targetId: operation.entityId,
+                  traceId: operation.id,
+                  metadata: {
+                    deviceId: operation.deviceId,
+                    operationId: operation.id,
+                  },
+                  createdAt: clock.now(),
+                }
+              : {
+                  id: idGenerator.next(),
+                  actorId: ownerId,
+                  projectId,
+                  action: `sync.${operation.action}`,
+                  targetType: operation.entityType,
+                  targetId: operation.entityId,
+                  traceId: operation.id,
+                  metadata: {
+                    deviceId: operation.deviceId,
+                    operationId: operation.id,
+                  },
+                  createdAt: clock.now(),
+                };
+          await audit.record(auditInput);
         },
       });
 
