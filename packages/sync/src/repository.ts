@@ -1,4 +1,8 @@
-import type { SyncChange, SyncOperation } from "@uw/contracts";
+import type {
+  SyncChange,
+  SyncEntityType,
+  SyncOperation,
+} from "@uw/contracts";
 
 export interface DeviceRecord {
   id: string;
@@ -14,6 +18,10 @@ export interface StoredSyncOperation {
   operation: SyncOperation;
   outcome: "applied" | "conflict";
   resultRevision: string | null;
+}
+
+export interface SyncTombstoneRecord {
+  cursor: string;
 }
 
 export interface PersistAppliedOperationInput {
@@ -55,6 +63,12 @@ export interface SyncRepository {
     ownerId: string,
     operationId: string,
   ): Promise<StoredSyncOperation | null>;
+  findChange(ownerId: string, operationId: string): Promise<SyncChange | null>;
+  findTombstone(
+    ownerId: string,
+    entityType: SyncEntityType,
+    entityId: string,
+  ): Promise<SyncTombstoneRecord | null>;
   persistAppliedOperation(
     input: PersistAppliedOperationInput,
   ): Promise<SyncChange>;

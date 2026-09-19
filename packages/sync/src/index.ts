@@ -18,6 +18,8 @@ export type {
   SyncOperation,
 } from "@uw/contracts";
 
+export * from "./apply.js";
+export * from "./conflict.js";
 export * from "./model.js";
 
 export * from "./repository.js";
