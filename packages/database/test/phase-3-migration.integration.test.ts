@@ -54,14 +54,16 @@ describe("Phase 3 execution persistence migration", () => {
         where table_schema = 'public'
           and table_name = any($1::text[])
         order by table_name`,
-      [[
-        "execution_outputs",
-        "execution_queue",
-        "execution_receipts",
-        "execution_steps",
-        "executions",
-        "provenance_edges",
-      ]],
+      [
+        [
+          "execution_outputs",
+          "execution_queue",
+          "execution_receipts",
+          "execution_steps",
+          "executions",
+          "provenance_edges",
+        ],
+      ],
     );
 
     expect(result.rows.map((row) => row.table_name)).toEqual([

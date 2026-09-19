@@ -1,7 +1,4 @@
-import type {
-  ExecutionStatus,
-  StepExecutionStatus,
-} from "@uw/contracts";
+import type { ExecutionStatus, StepExecutionStatus } from "@uw/contracts";
 
 const terminalExecutionStatuses = new Set<ExecutionStatus>([
   "succeeded",
@@ -10,7 +7,10 @@ const terminalExecutionStatuses = new Set<ExecutionStatus>([
   "timed_out",
 ]);
 
-const executionTransitions: Record<ExecutionStatus, ReadonlySet<ExecutionStatus>> = {
+const executionTransitions: Record<
+  ExecutionStatus,
+  ReadonlySet<ExecutionStatus>
+> = {
   queued: new Set(["running", "cancelled"]),
   running: new Set(["succeeded", "failed", "cancelled", "timed_out"]),
   succeeded: new Set(),
@@ -33,9 +33,7 @@ const stepTransitions: Record<
   timed_out: new Set(),
 };
 
-export function isTerminalExecutionStatus(
-  status: ExecutionStatus,
-): boolean {
+export function isTerminalExecutionStatus(status: ExecutionStatus): boolean {
   return terminalExecutionStatuses.has(status);
 }
 

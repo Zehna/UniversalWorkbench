@@ -22,6 +22,13 @@
       "when": 1789804724218,
       "tag": "0002_phase2_entity_sync_revision",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789839478907,
+      "tag": "0003_phase3_execution",
+      "breakpoints": true
     }
   ]
 }

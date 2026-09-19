@@ -248,7 +248,6 @@ export const syncTombstones = pgTable(
   ],
 );
 
-
 export const executions = pgTable(
   "executions",
   {
@@ -282,10 +281,7 @@ export const executions = pgTable(
       .defaultNow(),
   },
   (table) => [
-    check(
-      "executions_kind_check",
-      sql`${table.kind} in ('tool', 'workflow')`,
-    ),
+    check("executions_kind_check", sql`${table.kind} in ('tool', 'workflow')`),
     check(
       "executions_status_check",
       sql`${table.status} in ('queued', 'running', 'succeeded', 'failed', 'cancelled', 'timed_out')`,
