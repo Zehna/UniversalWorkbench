@@ -1,0 +1,31 @@
+name: Normalize Phase 2 Task 5 RED tests
+
+on:
+  push:
+    branches:
+      - phase-2-local-first-sync
+
+permissions:
+  contents: write
+
+jobs:
+  normalize-red-tests:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-2-local-first-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm ci
+      - run: npx prettier --write packages/sync/test/service.test.ts apps/server/test/sync-http.integration.test.ts
+      - name: Commit formatting and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/sync/test/service.test.ts apps/server/test/sync-http.integration.test.ts
+          git rm .github/workflows/format-phase2-task5-red.yml
+          git commit -m "chore: format phase 2 task 5 red tests"
+          git push origin HEAD:phase-2-local-first-sync
