@@ -1,6 +1,7 @@
 import type {
   NoteDocumentView,
   Project,
+  WorkflowDocumentView,
   SyncChange,
   SyncOperation,
 } from "@uw/contracts";
@@ -29,6 +30,8 @@ type WorkerCommand =
   | { type: "listProjects" }
   | { type: "listNotes"; projectId: string }
   | { type: "getNote"; documentId: string }
+  | { type: "listWorkflows"; projectId: string }
+  | { type: "getWorkflow"; documentId: string }
   | { type: "listPendingOperations"; limit: number }
   | { type: "markOperationAcked"; operationId: string; cursor: string }
   | { type: "applyRemoteChange"; change: SyncChange }
@@ -95,6 +98,12 @@ function createTransactionCollector(): {
     async upsertNote(note) {
       mutations.push({ type: "upsertNote", note: structuredClone(note) });
     },
+    async upsertWorkflow(workflow) {
+      mutations.push({
+        type: "upsertWorkflow",
+        workflow: structuredClone(workflow),
+      });
+    },
     async putTombstone(tombstone) {
       mutations.push({
         type: "putTombstone",
@@ -143,6 +152,18 @@ export async function createSqliteLocalStore(): Promise<LocalStore> {
     },
     getNote(documentId) {
       return rpc.call<NoteDocumentView | null>({ type: "getNote", documentId });
+    },
+    listWorkflows(projectId) {
+      return rpc.call<WorkflowDocumentView[]>({
+        type: "listWorkflows",
+        projectId,
+      });
+    },
+    getWorkflow(documentId) {
+      return rpc.call<WorkflowDocumentView | null>({
+        type: "getWorkflow",
+        documentId,
+      });
     },
     listPendingOperations(limit) {
       return rpc.call<SyncOperation[]>({

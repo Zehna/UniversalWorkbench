@@ -7,6 +7,9 @@ import type {
   NoteDocument,
   NoteDocumentView,
   Project,
+  WorkflowDocument,
+  WorkflowDocumentRevision,
+  WorkflowDocumentView,
   SyncChange,
   SyncOperation,
 } from "@uw/contracts";
@@ -44,6 +47,8 @@ type WorkerRequest =
   | { id: number; type: "listProjects" }
   | { id: number; type: "listNotes"; projectId: string }
   | { id: number; type: "getNote"; documentId: string }
+  | { id: number; type: "listWorkflows"; projectId: string }
+  | { id: number; type: "getWorkflow"; documentId: string }
   | { id: number; type: "listPendingOperations"; limit: number }
   | {
       id: number;
@@ -132,7 +137,9 @@ function upsertProject(project: Project): void {
   );
 }
 
-function upsertNote(view: NoteDocumentView): void {
+function upsertDocumentView(
+  view: NoteDocumentView | WorkflowDocumentView,
+): void {
   const { document, revision } = view;
   execute(
     `INSERT INTO document_revisions (
@@ -208,7 +215,10 @@ function applyMutation(mutation: LocalMutation): void {
       upsertProject(mutation.project);
       return;
     case "upsertNote":
-      upsertNote(mutation.note);
+      upsertDocumentView(mutation.note);
+      return;
+    case "upsertWorkflow":
+      upsertDocumentView(mutation.workflow);
       return;
     case "putTombstone":
       putTombstone(mutation.tombstone);
@@ -304,6 +314,7 @@ function listNotes(projectId: string): NoteDocumentView[] {
   return queryRows<NoteJoinRow>(
     `${NOTE_JOIN_SELECT}
       WHERE d.project_id = ?
+        AND d.kind = 'note'
       ORDER BY d.created_at, d.id`,
     [projectId],
   ).map(mapNoteJoin);
@@ -313,10 +324,58 @@ function getNote(documentId: string): NoteDocumentView | null {
   const [row] = queryRows<NoteJoinRow>(
     `${NOTE_JOIN_SELECT}
       WHERE d.id = ?
+        AND d.kind = 'note'
       LIMIT 1`,
     [documentId],
   );
   return row ? mapNoteJoin(row) : null;
+}
+
+interface WorkflowJoinRow extends Omit<NoteJoinRow, "kind"> {
+  kind: "workflow";
+}
+
+function mapWorkflowJoin(row: WorkflowJoinRow): WorkflowDocumentView {
+  const document: WorkflowDocument = {
+    id: row.document_id,
+    projectId: row.project_id,
+    kind: "workflow",
+    title: row.title,
+    currentRevisionId: row.current_revision_id,
+    createdAt: row.document_created_at,
+    updatedAt: row.document_updated_at,
+  };
+  const revision: WorkflowDocumentRevision = {
+    id: row.revision_id,
+    documentId: row.document_id,
+    revisionNumber: row.revision_number,
+    parentRevisionId: row.parent_revision_id,
+    content: parseJson<WorkflowDocumentRevision["content"]>(row.content_json),
+    metadata: parseJson<WorkflowDocumentRevision["metadata"]>(row.metadata_json),
+    createdAt: row.revision_created_at,
+  };
+  return { document, revision };
+}
+
+function listWorkflows(projectId: string): WorkflowDocumentView[] {
+  return queryRows<WorkflowJoinRow>(
+    `${NOTE_JOIN_SELECT}
+      WHERE d.project_id = ?
+        AND d.kind = 'workflow'
+      ORDER BY d.created_at, d.id`,
+    [projectId],
+  ).map(mapWorkflowJoin);
+}
+
+function getWorkflow(documentId: string): WorkflowDocumentView | null {
+  const [row] = queryRows<WorkflowJoinRow>(
+    `${NOTE_JOIN_SELECT}
+      WHERE d.id = ?
+        AND d.kind = 'workflow'
+      LIMIT 1`,
+    [documentId],
+  );
+  return row ? mapWorkflowJoin(row) : null;
 }
 
 function removeEntity(change: SyncChange): void {
@@ -395,7 +454,11 @@ function applyRemoteChange(change: SyncChange): void {
       if (project) upsertProject(project);
     } else if (change.entityType === "document") {
       const note = change.payload.note as NoteDocumentView | undefined;
-      if (note) upsertNote(note);
+      const workflow = change.payload.workflow as
+        | WorkflowDocumentView
+        | undefined;
+      const view = workflow ?? note;
+      if (view) upsertDocumentView(view);
     } else {
       const artifact = change.payload.artifact as Artifact | undefined;
       if (artifact) upsertArtifact(artifact);
@@ -460,6 +523,10 @@ async function handle(request: WorkerRequest): Promise<unknown> {
       return listNotes(request.projectId);
     case "getNote":
       return getNote(request.documentId);
+    case "listWorkflows":
+      return listWorkflows(request.projectId);
+    case "getWorkflow":
+      return getWorkflow(request.documentId);
     case "listPendingOperations":
       return queryRows<{ operation_json: string }>(
         `SELECT operation_json

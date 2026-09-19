@@ -1,6 +1,7 @@
-import type { NoteDocument } from "@uw/contracts";
+import type { NoteDocument, WorkflowDocument } from "@uw/contracts";
 
 export type NoteDocumentSummary = NoteDocument;
+export type WorkflowDocumentSummary = WorkflowDocument;
 
 export class DocumentNotFoundError extends Error {
   constructor(documentId: string) {

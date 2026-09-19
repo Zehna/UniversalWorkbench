@@ -7,11 +7,16 @@ import type {
   SyncChange,
   SyncOperation,
   UpdateNoteRequest,
+  CreateWorkflowRequest,
+  UpdateWorkflowRequest,
+  WorkflowDocumentView,
 } from "@uw/contracts";
 import {
   createNoteLocally,
   createProjectLocally,
   updateNoteLocally,
+  createWorkflowLocally,
+  updateWorkflowLocally,
 } from "../local/mutations";
 import type {
   LocalConflictRecord,
@@ -48,6 +53,8 @@ export interface SyncCoordinator {
   listProjects(): Promise<Project[]>;
   listNotes(projectId: string): Promise<NoteDocumentView[]>;
   getNote(documentId: string): Promise<NoteDocumentView | null>;
+  listWorkflows(projectId: string): Promise<WorkflowDocumentView[]>;
+  getWorkflow(documentId: string): Promise<WorkflowDocumentView | null>;
   listConflicts(): Promise<LocalConflictRecord[]>;
   resolveNoteConflict(
     operationId: string,
@@ -62,6 +69,14 @@ export interface SyncCoordinator {
     view: NoteDocumentView,
     input: UpdateNoteRequest,
   ): Promise<NoteDocumentView>;
+  createWorkflow(
+    projectId: string,
+    input: CreateWorkflowRequest,
+  ): Promise<WorkflowDocumentView>;
+  updateWorkflow(
+    view: WorkflowDocumentView,
+    input: UpdateWorkflowRequest,
+  ): Promise<WorkflowDocumentView>;
   handleServerMessage(message: ServerSyncMessage): Promise<void>;
 }
 
@@ -396,6 +411,14 @@ export function createSyncCoordinator(
       return store.getNote(documentId);
     },
 
+    listWorkflows(projectId) {
+      return store.listWorkflows(projectId);
+    },
+
+    getWorkflow(documentId) {
+      return store.getWorkflow(documentId);
+    },
+
     listConflicts() {
       return store.listConflicts();
     },
@@ -469,6 +492,25 @@ export function createSyncCoordinator(
       const note = await updateNoteLocally(store, device, view, input);
       await drainPending();
       return note;
+    },
+
+    async createWorkflow(projectId, input) {
+      device ??= await ensureDevice();
+      const workflow = await createWorkflowLocally(
+        store,
+        device,
+        projectId,
+        input,
+      );
+      await drainPending();
+      return workflow;
+    },
+
+    async updateWorkflow(view, input) {
+      device ??= await ensureDevice();
+      const workflow = await updateWorkflowLocally(store, device, view, input);
+      await drainPending();
+      return workflow;
     },
 
     handleServerMessage,

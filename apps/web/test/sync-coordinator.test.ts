@@ -73,12 +73,14 @@ class MemoryStore implements LocalStore {
   private cursor = "0";
   private projects = new Map<string, Project>();
   private notes = new Map<string, NoteDocumentView>();
+  private workflows = new Map<string, import("@uw/contracts").WorkflowDocumentView>();
   private pending = new Map<string, SyncOperation>();
   private conflicts = new Map<string, LocalConflictRecord>();
 
   async transaction<T>(fn: (tx: LocalTransaction) => Promise<T>): Promise<T> {
     const projects = new Map(this.projects);
     const notes = new Map(this.notes);
+    const workflows = new Map(this.workflows);
     const pending = new Map(this.pending);
 
     const tx: LocalTransaction = {
@@ -87,6 +89,9 @@ class MemoryStore implements LocalStore {
       },
       async upsertNote(value) {
         notes.set(value.document.id, structuredClone(value));
+      },
+      async upsertWorkflow(value) {
+        workflows.set(value.document.id, structuredClone(value));
       },
       async putTombstone() {},
       async appendOperation(operation) {
@@ -97,6 +102,7 @@ class MemoryStore implements LocalStore {
     const result = await fn(tx);
     this.projects = projects;
     this.notes = notes;
+    this.workflows = workflows;
     this.pending = pending;
     return result;
   }
@@ -132,6 +138,17 @@ class MemoryStore implements LocalStore {
     return value ? structuredClone(value) : null;
   }
 
+  async listWorkflows(projectId: string) {
+    return [...this.workflows.values()]
+      .filter((value) => value.document.projectId === projectId)
+      .map((value) => structuredClone(value));
+  }
+
+  async getWorkflow(documentId: string) {
+    const value = this.workflows.get(documentId);
+    return value ? structuredClone(value) : null;
+  }
+
   async listPendingOperations(limit: number) {
     return [...this.pending.values()]
       .slice(0, limit)
@@ -161,7 +178,13 @@ class MemoryStore implements LocalStore {
 
     if (change.entityType === "document" && change.kind === "upsert") {
       const value = change.payload.note as NoteDocumentView | undefined;
+      const workflow = change.payload.workflow as
+        | import("@uw/contracts").WorkflowDocumentView
+        | undefined;
       if (value) this.notes.set(value.document.id, structuredClone(value));
+      if (workflow) {
+        this.workflows.set(workflow.document.id, structuredClone(workflow));
+      }
     }
 
     this.cursor = change.cursor;

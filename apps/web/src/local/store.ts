@@ -1,6 +1,7 @@
 import type {
   NoteDocumentView,
   Project,
+  WorkflowDocumentView,
   SyncChange,
   SyncEntityType,
   SyncOperation,
@@ -32,12 +33,14 @@ export interface LocalConflictRecord {
 export type LocalMutation =
   | { type: "upsertProject"; project: Project }
   | { type: "upsertNote"; note: NoteDocumentView }
+  | { type: "upsertWorkflow"; workflow: WorkflowDocumentView }
   | { type: "putTombstone"; tombstone: LocalTombstone }
   | { type: "appendOperation"; operation: SyncOperation };
 
 export interface LocalTransaction {
   upsertProject(project: Project): Promise<void>;
   upsertNote(note: NoteDocumentView): Promise<void>;
+  upsertWorkflow(workflow: WorkflowDocumentView): Promise<void>;
   putTombstone(tombstone: LocalTombstone): Promise<void>;
   appendOperation(operation: SyncOperation): Promise<void>;
 }
@@ -52,6 +55,8 @@ export interface LocalStore {
   listProjects(): Promise<Project[]>;
   listNotes(projectId: string): Promise<NoteDocumentView[]>;
   getNote(documentId: string): Promise<NoteDocumentView | null>;
+  listWorkflows(projectId: string): Promise<WorkflowDocumentView[]>;
+  getWorkflow(documentId: string): Promise<WorkflowDocumentView | null>;
   listPendingOperations(limit: number): Promise<SyncOperation[]>;
   markOperationAcked(operationId: string, cursor: string): Promise<void>;
   applyRemoteChange(change: SyncChange): Promise<void>;

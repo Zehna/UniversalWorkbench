@@ -35,6 +35,7 @@ class MemoryLocalStore implements LocalStore {
   readonly backend = "indexeddb" as const;
   private projects = new Map<string, Project>();
   private notes = new Map<string, NoteDocumentView>();
+  private workflows = new Map<string, import("@uw/contracts").WorkflowDocumentView>();
   private operations = new Map<string, SyncOperation>();
   readonly failOnAppend: boolean;
 
@@ -45,6 +46,7 @@ class MemoryLocalStore implements LocalStore {
   async transaction<T>(fn: (tx: LocalTransaction) => Promise<T>): Promise<T> {
     const projects = new Map(this.projects);
     const notes = new Map(this.notes);
+    const workflows = new Map(this.workflows);
     const operations = new Map(this.operations);
 
     const tx: LocalTransaction = {
@@ -53,6 +55,9 @@ class MemoryLocalStore implements LocalStore {
       },
       async upsertNote(note) {
         notes.set(note.document.id, structuredClone(note));
+      },
+      async upsertWorkflow(workflow) {
+        workflows.set(workflow.document.id, structuredClone(workflow));
       },
       async putTombstone() {},
       appendOperation: async (operation) => {
@@ -64,6 +69,7 @@ class MemoryLocalStore implements LocalStore {
     const result = await fn(tx);
     this.projects = projects;
     this.notes = notes;
+    this.workflows = workflows;
     this.operations = operations;
     return result;
   }
@@ -88,6 +94,16 @@ class MemoryLocalStore implements LocalStore {
     return [...this.notes.values()]
       .filter((value) => value.document.projectId === projectId)
       .map((value) => structuredClone(value));
+  }
+
+  async listWorkflows(projectId: string) {
+    return [...this.workflows.values()]
+      .filter((value) => value.document.projectId === projectId)
+      .map((value) => structuredClone(value));
+  }
+
+  async getWorkflow(documentId: string) {
+    return structuredClone(this.workflows.get(documentId) ?? null);
   }
 
   async listPendingOperations(limit: number) {

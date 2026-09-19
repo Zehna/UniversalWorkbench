@@ -4,6 +4,9 @@ import type {
   NoteDocument,
   NoteDocumentView,
   Project,
+  WorkflowDocument,
+  WorkflowDocumentRevision,
+  WorkflowDocumentView,
   SyncChange,
   SyncOperation,
 } from "@uw/contracts";
@@ -126,6 +129,12 @@ function createTransactionCollector(): {
       async upsertNote(note) {
         mutations.push({ type: "upsertNote", note: structuredClone(note) });
       },
+      async upsertWorkflow(workflow) {
+        mutations.push({
+          type: "upsertWorkflow",
+          workflow: structuredClone(workflow),
+        });
+      },
       async putTombstone(tombstone) {
         mutations.push({
           type: "putTombstone",
@@ -154,6 +163,12 @@ function applyMutation(
   if (mutation.type === "upsertNote") {
     transaction.objectStore(STORES.documents).put(mutation.note.document);
     transaction.objectStore(STORES.revisions).put(mutation.note.revision);
+    return;
+  }
+
+  if (mutation.type === "upsertWorkflow") {
+    transaction.objectStore(STORES.documents).put(mutation.workflow.document);
+    transaction.objectStore(STORES.revisions).put(mutation.workflow.revision);
     return;
   }
 
@@ -232,9 +247,13 @@ function applyRemoteChangeToTransaction(
     if (project) transaction.objectStore(STORES.projects).put(project);
   } else if (change.entityType === "document") {
     const note = change.payload.note as NoteDocumentView | undefined;
-    if (note) {
-      transaction.objectStore(STORES.documents).put(note.document);
-      transaction.objectStore(STORES.revisions).put(note.revision);
+    const workflow = change.payload.workflow as
+      | WorkflowDocumentView
+      | undefined;
+    const view = workflow ?? note;
+    if (view) {
+      transaction.objectStore(STORES.documents).put(view.document);
+      transaction.objectStore(STORES.revisions).put(view.revision);
     }
   } else {
     const artifact = change.payload.artifact as Artifact | undefined;
@@ -321,11 +340,14 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
         STORES.documents,
         "readonly",
       );
-      const documents = await requestResult<NoteDocument[]>(
+      const documents = await requestResult<(NoteDocument | WorkflowDocument)[]>(
         documentTransaction.objectStore(STORES.documents).getAll(),
       );
       const matching = documents
-        .filter((document) => document.projectId === projectId)
+        .filter(
+          (document): document is NoteDocument =>
+            document.projectId === projectId && document.kind === "note",
+        )
         .sort(
           (left, right) =>
             left.createdAt.localeCompare(right.createdAt) ||
@@ -357,10 +379,10 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
         STORES.documents,
         "readonly",
       );
-      const document = await requestResult<NoteDocument | undefined>(
-        documentTransaction.objectStore(STORES.documents).get(documentId),
-      );
-      if (!document) return null;
+      const document = await requestResult<
+        NoteDocument | WorkflowDocument | undefined
+      >(documentTransaction.objectStore(STORES.documents).get(documentId));
+      if (!document || document.kind !== "note") return null;
 
       const revisionTransaction = database.transaction(
         STORES.revisions,
@@ -373,6 +395,75 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
       );
       return revision
         ? ({ document, revision } satisfies NoteDocumentView)
+        : null;
+    },
+
+    async listWorkflows(projectId) {
+      const documentTransaction = database.transaction(
+        STORES.documents,
+        "readonly",
+      );
+      const documents = await requestResult<(NoteDocument | WorkflowDocument)[]>(
+        documentTransaction.objectStore(STORES.documents).getAll(),
+      );
+      const matching = documents
+        .filter(
+          (document): document is WorkflowDocument =>
+            document.projectId === projectId && document.kind === "workflow",
+        )
+        .sort(
+          (left, right) =>
+            left.createdAt.localeCompare(right.createdAt) ||
+            left.id.localeCompare(right.id),
+        );
+
+      const views = await Promise.all(
+        matching.map(async (document) => {
+          const revisionTransaction = database.transaction(
+            STORES.revisions,
+            "readonly",
+          );
+          const revision = await requestResult<
+            WorkflowDocumentRevision | undefined
+          >(
+            revisionTransaction
+              .objectStore(STORES.revisions)
+              .get(document.currentRevisionId),
+          );
+          return revision
+            ? ({ document, revision } satisfies WorkflowDocumentView)
+            : null;
+        }),
+      );
+
+      return views.filter(
+        (view): view is WorkflowDocumentView => view !== null,
+      );
+    },
+
+    async getWorkflow(documentId) {
+      const documentTransaction = database.transaction(
+        STORES.documents,
+        "readonly",
+      );
+      const document = await requestResult<
+        NoteDocument | WorkflowDocument | undefined
+      >(documentTransaction.objectStore(STORES.documents).get(documentId));
+      if (!document || document.kind !== "workflow") return null;
+
+      const revisionTransaction = database.transaction(
+        STORES.revisions,
+        "readonly",
+      );
+      const revision = await requestResult<
+        WorkflowDocumentRevision | undefined
+      >(
+        revisionTransaction
+          .objectStore(STORES.revisions)
+          .get(document.currentRevisionId),
+      );
+      return revision
+        ? ({ document, revision } satisfies WorkflowDocumentView)
         : null;
     },
 

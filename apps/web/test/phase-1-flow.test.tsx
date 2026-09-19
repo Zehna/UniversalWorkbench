@@ -84,6 +84,12 @@ function createUiCoordinator(): SyncCoordinator {
         notes.find((note) => note.document.id === documentId) ?? null,
       );
     },
+    async listWorkflows() {
+      return [];
+    },
+    async getWorkflow() {
+      return null;
+    },
     async listConflicts() {
       return structuredClone(conflicts);
     },
@@ -200,6 +206,12 @@ function createUiCoordinator(): SyncCoordinator {
       });
       publish({ state: "conflict", pending: 0, conflicts: 1 });
       return structuredClone(note);
+    },
+    async createWorkflow() {
+      throw new Error("workflow UI is not part of this test");
+    },
+    async updateWorkflow() {
+      throw new Error("workflow UI is not part of this test");
     },
     async handleServerMessage() {},
   };
