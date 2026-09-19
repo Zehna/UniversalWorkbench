@@ -44,6 +44,7 @@ export interface SyncService {
     cursor: string,
     limit: number,
   ): Promise<SyncChange[]>;
+  getLatestCursor(ownerId: string): Promise<string>;
   pushOperations(
     ownerId: string,
     operations: SyncOperation[],
@@ -91,6 +92,10 @@ export function createSyncService(
 
     listChanges(ownerId, cursor, limit) {
       return repository.listChanges(ownerId, cursor, limit);
+    },
+
+    getLatestCursor(ownerId) {
+      return repository.getLatestCursor(ownerId);
     },
 
     async pushOperations(ownerId, operations) {
