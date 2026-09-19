@@ -206,7 +206,7 @@ Its output envelope contains:
 {
   status: number;
   headers: Record<string, string>;
-  url: string;              // final sanitized URL
+  url: string; // final sanitized URL
   bodyArtifactId: string;
   bodyMimeType: string;
   bodySizeBytes: number;

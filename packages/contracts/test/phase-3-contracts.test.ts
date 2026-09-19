@@ -61,9 +61,7 @@ describe("Phase 3 contracts", () => {
       WorkflowDefinitionV1Schema.parse({
         schemaVersion: 1,
         name: "Broken",
-        nodes: [
-          { id: "a", tool: { id: "builtin.json.select" }, config: {} },
-        ],
+        nodes: [{ id: "a", tool: { id: "builtin.json.select" }, config: {} }],
         edges: [],
         outputs: [],
       }),

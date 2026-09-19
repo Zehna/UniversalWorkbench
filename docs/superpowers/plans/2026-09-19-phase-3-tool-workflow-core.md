@@ -39,6 +39,7 @@
 ### Task 1: Phase 3 Workspaces and Runtime Contracts
 
 **Files:**
+
 - Create: `packages/context/package.json`
 - Create: `packages/context/tsconfig.json`
 - Create: `packages/context/src/index.ts`
@@ -61,6 +62,7 @@
 - Test: `packages/contracts/test/phase-3-contracts.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `IdSchema`, `IsoDateTimeSchema`, Zod, JSON-safe metadata.
 - Produces:
   - `ContextEnvelopeSchema`, `ContextTypeSchema`, `ContextCapabilitySchema`
@@ -264,6 +266,7 @@ git commit -m "feat: establish phase 3 execution contracts"
 ### Task 2: Context Bus, Tool Contract, and Deterministic Registry
 
 **Files:**
+
 - Create: `packages/context/src/envelope.ts`
 - Create: `packages/context/src/compatibility.ts`
 - Create: `packages/context/src/registry.ts`
@@ -277,6 +280,7 @@ git commit -m "feat: establish phase 3 execution contracts"
 - Modify: `packages/tools/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 context/tool contracts.
 - Produces:
   - `ContextCompatibilityRegistry`
@@ -382,6 +386,7 @@ git commit -m "feat: add context bus and tool registry"
 ### Task 3: Workflow Model, DAG Validation, Bindings, and Planning
 
 **Files:**
+
 - Create: `packages/workflow/src/model.ts`
 - Create: `packages/workflow/src/validate.ts`
 - Create: `packages/workflow/src/bindings.ts`
@@ -392,6 +397,7 @@ git commit -m "feat: add context bus and tool registry"
 - Modify: `packages/workflow/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 Workflow contracts and Task 2 `ToolRegistry`.
 - Produces:
   - `validateWorkflowDefinition(definition, registry, allowedCapabilities, budget)`
@@ -418,7 +424,12 @@ Review Focus cycle case:
 
 ```ts
 it("rejects a cycle even when every port type is compatible", () => {
-  const result = validateWorkflowDefinition(cyclicDefinition, registry, allowed, budget);
+  const result = validateWorkflowDefinition(
+    cyclicDefinition,
+    registry,
+    allowed,
+    budget,
+  );
   expect(result.ok).toBe(false);
   expect(result.errors).toContainEqual(
     expect.objectContaining({ code: "WORKFLOW_CYCLE" }),
@@ -492,6 +503,7 @@ git commit -m "feat: validate and plan typed workflows"
 ### Task 4: Generalize Revisioned Documents and Local-First Sync for Workflows
 
 **Files:**
+
 - Modify: `packages/contracts/src/document.ts`
 - Modify: `packages/contracts/src/sync.ts`
 - Modify: `packages/documents/src/model.ts`
@@ -510,6 +522,7 @@ git commit -m "feat: validate and plan typed workflows"
 - Test: `apps/web/test/workflow-local-mutations.test.ts`
 
 **Interfaces:**
+
 - Consumes: `WorkflowDefinitionV1` from Task 1 and validator from Task 3.
 - Produces:
   - `DocumentKind = "note" | "workflow"`
@@ -617,6 +630,7 @@ git commit -m "feat: add local-first workflow documents"
 ### Task 5: Durable Execution Domain and PostgreSQL Schema
 
 **Files:**
+
 - Create: `packages/execution/src/model.ts`
 - Create: `packages/execution/src/repository.ts`
 - Create: `packages/execution/src/receipt.ts`
@@ -629,6 +643,7 @@ git commit -m "feat: add local-first workflow documents"
 - Create: `packages/database/test/phase-3-migration.integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 execution contracts.
 - Produces:
   - `ExecutionRepository`
@@ -716,6 +731,7 @@ git commit -m "feat: add durable execution schema"
 ### Task 6: PostgreSQL Execution Repositories, Idempotent Enqueue, Receipts, and Provenance
 
 **Files:**
+
 - Create: `packages/database/src/repositories/executions.ts`
 - Create: `packages/database/src/repositories/execution-receipts.ts`
 - Create: `packages/database/src/repositories/provenance.ts`
@@ -726,6 +742,7 @@ git commit -m "feat: add durable execution schema"
 - Modify: `packages/execution/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: Task 5 repository ports/schema.
 - Produces:
   - `createPostgresExecutionRepository(pool)`
@@ -785,6 +802,7 @@ git commit -m "feat: persist executions receipts and provenance"
 ### Task 7: PostgreSQL Queue with Claim, Lease, Reclaim, and Worker-Safe Completion
 
 **Files:**
+
 - Create: `packages/execution/src/queue.ts`
 - Create: `packages/database/src/repositories/execution-queue.ts`
 - Modify: `packages/database/src/index.ts`
@@ -792,6 +810,7 @@ git commit -m "feat: persist executions receipts and provenance"
 - Modify: `packages/execution/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: Task 5 queue schema.
 - Produces:
   - `ExecutionQueue`
@@ -854,6 +873,7 @@ git commit -m "feat: add postgres execution queue"
 ### Task 8: Retry Taxonomy, Budgets, Cancellation, and Engine State Machine
 
 **Files:**
+
 - Create: `packages/execution/src/retry.ts`
 - Create: `packages/execution/src/engine.ts`
 - Create: `packages/execution/src/worker.ts`
@@ -864,6 +884,7 @@ git commit -m "feat: add postgres execution queue"
 - Create: `packages/execution/test/worker.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 2 Tool Registry, Task 6 repositories, Task 7 queue.
 - Produces:
   - `classifyToolFailure(error, retryContext)`
@@ -877,8 +898,13 @@ Pin taxonomy:
 
 ```ts
 expect(classify({ code: "UPSTREAM_5XX", method: "GET" }).retryable).toBe(true);
-expect(classify({ code: "NETWORK_TRANSIENT", method: "POST", ambiguous: true }).retryable).toBe(false);
-expect(classify({ code: "UNSAFE_EGRESS", method: "GET" }).retryable).toBe(false);
+expect(
+  classify({ code: "NETWORK_TRANSIENT", method: "POST", ambiguous: true })
+    .retryable,
+).toBe(false);
+expect(classify({ code: "UNSAFE_EGRESS", method: "GET" }).retryable).toBe(
+  false,
+);
 ```
 
 Also test max attempts = 3, bounded Retry-After, output bytes, HTTP request count, total attempts, and cancellation before retry.
@@ -940,6 +966,7 @@ git commit -m "feat: add execution engine retry and budgets"
 ### Task 9: Safe Public HTTP Transport and `builtin.http.request@1`
 
 **Files:**
+
 - Create: `packages/tools/src/builtin/http/policy.ts`
 - Create: `packages/tools/src/builtin/http/dns.ts`
 - Create: `packages/tools/src/builtin/http/transport.ts`
@@ -951,6 +978,7 @@ git commit -m "feat: add execution engine retry and budgets"
 - Modify: `packages/tools/package.json`
 
 **Interfaces:**
+
 - Consumes: Task 2 ToolRunner contract and Artifact service adapter supplied at composition time.
 - Produces:
   - `SafeEgressPolicy.validateUrl(url)`
@@ -1049,6 +1077,7 @@ git commit -m "feat: add safe public http tool"
 ### Task 10: JSON, Text, Note Built-ins and Output Persistence
 
 **Files:**
+
 - Create: `packages/tools/src/builtin/json/parse.ts`
 - Create: `packages/tools/src/builtin/json/select.ts`
 - Create: `packages/tools/src/builtin/text/template.ts`
@@ -1061,6 +1090,7 @@ git commit -m "feat: add safe public http tool"
 - Test: `packages/execution/test/step-idempotency.test.ts`
 
 **Interfaces:**
+
 - Consumes: ToolRunner, ArtifactService, DocumentService.
 - Produces built-ins:
   - `builtin.json.parse@1`
@@ -1128,6 +1158,7 @@ git commit -m "feat: add json text and note tools"
 ### Task 11: Workflow Service and Execution Orchestration
 
 **Files:**
+
 - Create: `packages/workflow/src/service.ts`
 - Create: `packages/workflow/test/service.test.ts`
 - Modify: `packages/workflow/src/index.ts`
@@ -1135,6 +1166,7 @@ git commit -m "feat: add json text and note tools"
 - Create: `packages/execution/test/workflow-engine.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 3 validator/planner, Task 4 canonical workflow guard, Task 6 ExecutionService, Task 8 engine.
 - Produces:
   - `WorkflowService.validateRevision(...)`
@@ -1205,6 +1237,7 @@ git commit -m "feat: orchestrate durable workflow runs"
 ### Task 12: Runtime Modes, Composition Root, Worker Lifecycle, and Protected HTTP API
 
 **Files:**
+
 - Modify: `apps/server/src/config.ts`
 - Modify: `apps/server/src/composition.ts`
 - Modify: `apps/server/src/index.ts`
@@ -1220,6 +1253,7 @@ git commit -m "feat: orchestrate durable workflow runs"
 - Modify: `apps/server/package.json`
 
 **Interfaces:**
+
 - Consumes: all Phase 3 services/runners.
 - Produces:
   - `APP_MODE: "all" | "api" | "worker"`
@@ -1300,6 +1334,7 @@ git commit -m "feat: expose phase 3 execution runtime"
 ### Task 13: Linear-First Workflow UI and Context Compatibility UX
 
 **Files:**
+
 - Create: `apps/web/src/workflows/WorkflowList.tsx`
 - Create: `apps/web/src/workflows/WorkflowEditor.tsx`
 - Create: `apps/web/src/workflows/WorkflowStepEditor.tsx`
@@ -1314,6 +1349,7 @@ git commit -m "feat: expose phase 3 execution runtime"
 - Test: `apps/web/test/context-targets.test.tsx`
 
 **Interfaces:**
+
 - Consumes: workflow local-store API from Task 4 and server API from Task 12.
 - Produces:
   - mobile list-first workflow editor;
@@ -1329,7 +1365,9 @@ Pin keyboard/button operation without drag:
 
 ```ts
 fireEvent.click(screen.getByRole("button", { name: /move step up/i }));
-expect(screen.getAllByTestId("workflow-step")[0]).toHaveTextContent("JSON Select");
+expect(screen.getAllByTestId("workflow-step")[0]).toHaveTextContent(
+  "JSON Select",
+);
 ```
 
 Test incompatible tools absent from next-step choices.
@@ -1383,6 +1421,7 @@ git commit -m "feat: add linear workflow editor and run history"
 ### Task 14: Golden Workflows, Browser E2E, Worker Process Verification, and Docker Vertical Smoke
 
 **Files:**
+
 - Create: `packages/execution/test/golden-workflows.integration.test.ts`
 - Create: `apps/web/e2e/workflow-golden.spec.ts`
 - Create: `scripts/start-phase3-e2e-fixture.mjs`
@@ -1393,6 +1432,7 @@ git commit -m "feat: add linear workflow editor and run history"
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Consumes: completed Phase 3 runtime.
 - Produces permanent acceptance gates for all four golden workflows and deployment/runtime modes.
 
@@ -1482,6 +1522,7 @@ git commit -m "test: add phase 3 golden workflow gates"
 ### Task 15: Phase 3 Final Documentation, Security Review, and Release Gate
 
 **Files:**
+
 - Create: `docs/architecture/phase-3.md`
 - Modify: `README.md`
 - Modify: `docs/runbooks/local-development.md`
@@ -1489,6 +1530,7 @@ git commit -m "test: add phase 3 golden workflow gates"
 - No product feature expansion.
 
 **Interfaces:**
+
 - Consumes: the completed Phase 3 branch.
 - Produces: final evidence, documented runtime modes, HTTP egress policy, execution troubleshooting, and PR-ready branch.
 
