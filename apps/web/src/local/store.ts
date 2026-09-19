@@ -53,5 +53,6 @@ export interface LocalStore {
   markOperationAcked(operationId: string, cursor: string): Promise<void>;
   applyRemoteChange(change: SyncChange): Promise<void>;
   listConflicts(): Promise<LocalConflictRecord[]>;
+  clearConflict(operationId: string): Promise<void>;
   close(): Promise<void>;
 }

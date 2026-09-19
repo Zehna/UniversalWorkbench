@@ -33,6 +33,7 @@ type WorkerCommand =
   | { type: "markOperationAcked"; operationId: string; cursor: string }
   | { type: "applyRemoteChange"; change: SyncChange }
   | { type: "listConflicts" }
+  | { type: "clearConflict"; operationId: string }
   | { type: "close" };
 
 class WorkerRpc {
@@ -160,6 +161,9 @@ export async function createSqliteLocalStore(): Promise<LocalStore> {
     },
     listConflicts() {
       return rpc.call<LocalConflictRecord[]>({ type: "listConflicts" });
+    },
+    async clearConflict(operationId) {
+      await rpc.call<null>({ type: "clearConflict", operationId });
     },
     async close() {
       try {

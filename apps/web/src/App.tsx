@@ -1,5 +1,11 @@
 import { AuthGate } from "./auth/AuthGate";
 import { ProjectList } from "./projects/ProjectList";
+import {
+  SyncRuntime,
+  type SyncCoordinatorFactory,
+  useSyncRuntime,
+} from "./sync/runtime";
+import { SyncStatusBadge } from "./sync/SyncStatusBadge";
 
 const shellStyle = {
   minHeight: "100vh",
@@ -18,13 +24,33 @@ const cardStyle = {
   background: "#181818",
 } as const;
 
-export function App() {
+function Workbench() {
+  const { status } = useSyncRuntime();
+  return (
+    <>
+      <SyncStatusBadge status={status} />
+      <ProjectList />
+    </>
+  );
+}
+
+export function App({
+  syncFactory,
+}: {
+  syncFactory?: SyncCoordinatorFactory;
+} = {}) {
   return (
     <main style={shellStyle}>
       <section style={cardStyle} aria-labelledby="workbench-title">
-        <p>Phase 1 Project &amp; Data Core</p>
+        <p>Phase 2 Local-first Sync</p>
         <h1 id="workbench-title">Universal Workbench</h1>
-        <AuthGate>{() => <ProjectList />}</AuthGate>
+        <AuthGate>
+          {(owner) => (
+            <SyncRuntime owner={owner} factory={syncFactory}>
+              <Workbench />
+            </SyncRuntime>
+          )}
+        </AuthGate>
       </section>
     </main>
   );

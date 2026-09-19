@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { Project } from "@uw/contracts";
-import { ApiError, api } from "../api/client";
+import { useSyncRuntime } from "../sync/runtime";
 import { ProjectWorkspace } from "./ProjectWorkspace";
 
 export function ProjectList() {
+  const { coordinator, status } = useSyncRuntime();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selected, setSelected] = useState<Project | null>(null);
   const [name, setName] = useState("");
@@ -11,7 +12,7 @@ export function ProjectList() {
 
   useEffect(() => {
     let active = true;
-    void api
+    void coordinator
       .listProjects()
       .then((items) => {
         if (active) setProjects(items);
@@ -19,28 +20,29 @@ export function ProjectList() {
       .catch((cause) => {
         if (active) {
           setError(
-            cause instanceof ApiError
-              ? cause.message
-              : "Unable to load projects",
+            cause instanceof Error ? cause.message : "Unable to load projects",
           );
         }
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [coordinator, status]);
 
   async function createProject(event: FormEvent) {
     event.preventDefault();
     setError(null);
     try {
-      const project = await api.createProject({ name });
-      setProjects((current) => [...current, project]);
+      const project = await coordinator.createProject({ name });
+      setProjects((current) => [
+        ...current.filter((item) => item.id !== project.id),
+        project,
+      ]);
       setName("");
       setSelected(project);
     } catch (cause) {
       setError(
-        cause instanceof ApiError ? cause.message : "Unable to create project",
+        cause instanceof Error ? cause.message : "Unable to create project",
       );
     }
   }

@@ -103,6 +103,8 @@ class MemoryLocalStore implements LocalStore {
     return [];
   }
 
+  async clearConflict() {}
+
   async close() {}
 
   async getNote(documentId: string) {

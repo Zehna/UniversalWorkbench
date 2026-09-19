@@ -53,6 +53,7 @@ type WorkerRequest =
     }
   | { id: number; type: "applyRemoteChange"; change: SyncChange }
   | { id: number; type: "listConflicts" }
+  | { id: number; type: "clearConflict"; operationId: string }
   | { id: number; type: "close" };
 
 interface WorkerResponse {
@@ -494,6 +495,14 @@ async function handle(request: WorkerRequest): Promise<unknown> {
         change: parseJson<SyncChange>(row.change_json),
         createdAt: row.created_at,
       }));
+    case "clearConflict":
+      execute("DELETE FROM conflicts WHERE operation_id = ?", [
+        request.operationId,
+      ]);
+      execute("DELETE FROM pending_operations WHERE operation_id = ?", [
+        request.operationId,
+      ]);
+      return null;
     case "close":
       database?.close();
       database = null;

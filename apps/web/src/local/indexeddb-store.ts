@@ -451,6 +451,16 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
         }));
     },
 
+    async clearConflict(operationId) {
+      const transaction = database.transaction(
+        [STORES.conflicts, STORES.pending],
+        "readwrite",
+      );
+      transaction.objectStore(STORES.conflicts).delete(operationId);
+      transaction.objectStore(STORES.pending).delete(operationId);
+      await transactionDone(transaction);
+    },
+
     async close() {
       database.close();
     },

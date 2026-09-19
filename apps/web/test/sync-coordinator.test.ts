@@ -170,6 +170,11 @@ class MemoryStore implements LocalStore {
     return [...this.conflicts.values()].map((value) => structuredClone(value));
   }
 
+  async clearConflict(operationId: string) {
+    this.conflicts.delete(operationId);
+    this.pending.delete(operationId);
+  }
+
   async close() {}
 
   async seedProject(value: Project) {
@@ -278,7 +283,11 @@ describe("browser sync coordinator", () => {
       revision: "server-revision-2",
       payload: {
         incoming: { title: "Sources", body: "my offline edit" },
-        current: { title: "Sources", body: "server edit" },
+        current: {
+          title: "Sources",
+          body: "server edit",
+          currentRevisionId: "66666666-6666-4666-8666-666666666666",
+        },
       },
       createdAt: NOW,
     };
@@ -298,6 +307,62 @@ describe("browser sync coordinator", () => {
       state: "conflict",
       conflicts: 1,
     });
+
+    await coordinator.stop();
+  });
+
+  it("can replace a conflicted local note with the server snapshot", async () => {
+    const store = new MemoryStore();
+    await store.seedProject(project());
+    const original = note("original");
+    await store.seedNote(original);
+
+    const coordinator = createSyncCoordinator({
+      ownerId: OWNER_ID,
+      store,
+      client: network({
+        pushOperations: vi.fn().mockRejectedValue(new Error("offline")),
+      }),
+    });
+    await coordinator.start();
+
+    await coordinator.updateNote(original, {
+      title: "Sources",
+      body: "my offline edit",
+      baseRevisionId: original.revision.id,
+    });
+    const [pending] = await store.listPendingOperations(10);
+    expect(pending).toBeDefined();
+
+    await coordinator.handleServerMessage({
+      type: "CONFLICT",
+      operationId: pending!.id,
+      change: {
+        cursor: "9",
+        operationId: pending!.id,
+        entityType: "document",
+        entityId: DOCUMENT_ID,
+        kind: "conflict",
+        revision: "66666666-6666-4666-8666-666666666666",
+        payload: {
+          current: {
+            title: "Sources",
+            body: "server edit",
+            currentRevisionId: "66666666-6666-4666-8666-666666666666",
+          },
+        },
+        createdAt: NOW,
+      },
+    });
+
+    const resolved = await coordinator.resolveNoteConflict(
+      pending!.id,
+      "use-server",
+    );
+
+    expect(resolved.revision.content.body).toBe("server edit");
+    expect(await store.listConflicts()).toEqual([]);
+    expect(coordinator.status().state).toBe("synced");
 
     await coordinator.stop();
   });

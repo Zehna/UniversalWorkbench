@@ -36,6 +36,10 @@ export interface SyncCoordinator {
   listNotes(projectId: string): Promise<NoteDocumentView[]>;
   getNote(documentId: string): Promise<NoteDocumentView | null>;
   listConflicts(): Promise<LocalConflictRecord[]>;
+  resolveNoteConflict(
+    operationId: string,
+    strategy: "keep-local" | "use-server",
+  ): Promise<NoteDocumentView>;
   createProject(input: CreateProjectRequest): Promise<Project>;
   createNote(
     projectId: string,
@@ -57,6 +61,30 @@ interface CreateSyncCoordinatorOptions {
 
 function cursorAfter(left: string, right: string): boolean {
   return BigInt(left) > BigInt(right);
+}
+
+function serverNoteSnapshot(
+  conflict: LocalConflictRecord,
+): { title: string; body: string; currentRevisionId: string } {
+  const current = conflict.change.payload.current;
+  if (typeof current !== "object" || current === null) {
+    throw new Error("Conflict does not contain a server note snapshot");
+  }
+
+  const record = current as Record<string, unknown>;
+  if (
+    typeof record.title !== "string" ||
+    typeof record.body !== "string" ||
+    typeof record.currentRevisionId !== "string"
+  ) {
+    throw new Error("Conflict server note snapshot is incomplete");
+  }
+
+  return {
+    title: record.title,
+    body: record.body,
+    currentRevisionId: record.currentRevisionId,
+  };
 }
 
 export function createSyncCoordinator(
@@ -311,6 +339,56 @@ export function createSyncCoordinator(
 
     listConflicts() {
       return store.listConflicts();
+    },
+
+    async resolveNoteConflict(operationId, strategy) {
+      const conflict = (await store.listConflicts()).find(
+        (item) => item.operationId === operationId,
+      );
+      if (!conflict || conflict.change.entityType !== "document") {
+        throw new Error("Note conflict was not found");
+      }
+
+      const local = await store.getNote(conflict.change.entityId);
+      if (!local) throw new Error("Local note for conflict was not found");
+
+      const server = serverNoteSnapshot(conflict);
+
+      if (strategy === "use-server") {
+        const timestamp = conflict.change.createdAt;
+        const resolved: NoteDocumentView = {
+          document: {
+            ...local.document,
+            title: server.title,
+            currentRevisionId: server.currentRevisionId,
+            updatedAt: timestamp,
+          },
+          revision: {
+            id: server.currentRevisionId,
+            documentId: local.document.id,
+            revisionNumber: local.revision.revisionNumber + 1,
+            parentRevisionId: local.revision.id,
+            content: { body: server.body },
+            metadata: {},
+            createdAt: timestamp,
+          },
+        };
+        await store.transaction((tx) => tx.upsertNote(resolved));
+        await store.clearConflict(operationId);
+        await refreshStatus();
+        return resolved;
+      }
+
+      device ??= await ensureDevice();
+      const retried = await updateNoteLocally(store, device, local, {
+        title: local.document.title,
+        body: local.revision.content.body,
+        baseRevisionId: server.currentRevisionId,
+      });
+      await store.clearConflict(operationId);
+      await drainPending();
+      await refreshStatus();
+      return retried;
     },
 
     async createProject(input) {

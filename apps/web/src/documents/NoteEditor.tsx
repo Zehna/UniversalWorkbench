@@ -1,18 +1,25 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { NoteDocumentView } from "@uw/contracts";
-import { ApiError, api } from "../api/client";
+import type { LocalConflictRecord } from "../local/store";
+import { useSyncRuntime } from "../sync/runtime";
 
 interface NoteEditorProps {
   projectId: string;
   initial?: NoteDocumentView;
+  conflict?: LocalConflictRecord;
   onSaved(view: NoteDocumentView): void;
 }
 
-export function NoteEditor({ projectId, initial, onSaved }: NoteEditorProps) {
+export function NoteEditor({
+  projectId,
+  initial,
+  conflict,
+  onSaved,
+}: NoteEditorProps) {
+  const { coordinator } = useSyncRuntime();
   const [view, setView] = useState(initial);
   const [title, setTitle] = useState(initial?.document.title ?? "");
   const [body, setBody] = useState(initial?.revision.content.body ?? "");
-  const [conflict, setConflict] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -23,52 +30,50 @@ export function NoteEditor({ projectId, initial, onSaved }: NoteEditorProps) {
     setView(initial);
     setTitle(initial?.document.title ?? "");
     setBody(initial?.revision.content.body ?? "");
-    setConflict(false);
-  }, [initialDocumentId, initialRevisionId]);
+  }, [initial, initialDocumentId, initialRevisionId]);
 
   async function save(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    setConflict(false);
     try {
       const saved = view
-        ? await api.updateNote(projectId, view.document.id, {
+        ? await coordinator.updateNote(view, {
             title,
             body,
             baseRevisionId: view.revision.id,
           })
-        : await api.createNote(projectId, { title, body });
+        : await coordinator.createNote(projectId, { title, body });
       setView(saved);
       setTitle(saved.document.title);
       setBody(saved.revision.content.body);
       onSaved(saved);
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 409) {
-        setConflict(true);
-      } else {
-        setError(
-          cause instanceof ApiError ? cause.message : "Unable to save note",
-        );
-      }
+      setError(cause instanceof Error ? cause.message : "Unable to save note");
     } finally {
       setBusy(false);
     }
   }
 
-  async function reloadCurrent() {
-    if (!view) return;
+  async function resolveConflict(strategy: "keep-local" | "use-server") {
+    if (!conflict) return;
+    setBusy(true);
+    setError(null);
     try {
-      const current = await api.getDocument(projectId, view.document.id);
-      setView(current);
-      setTitle(current.document.title);
-      setBody(current.revision.content.body);
-      setConflict(false);
-      onSaved(current);
+      const resolved = await coordinator.resolveNoteConflict(
+        conflict.operationId,
+        strategy,
+      );
+      setView(resolved);
+      setTitle(resolved.document.title);
+      setBody(resolved.revision.content.body);
+      onSaved(resolved);
     } catch (cause) {
       setError(
-        cause instanceof ApiError ? cause.message : "Unable to reload note",
+        cause instanceof Error ? cause.message : "Unable to resolve conflict",
       );
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -92,9 +97,23 @@ export function NoteEditor({ projectId, initial, onSaved }: NoteEditorProps) {
       </label>
       {conflict ? (
         <div role="alert">
-          <p>A newer revision exists. Your local edit has been preserved.</p>
-          <button type="button" onClick={reloadCurrent}>
-            Reload current
+          <p>
+            Sync conflict detected. Your local edit has been preserved on this
+            device.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void resolveConflict("keep-local")}
+          >
+            Keep local and retry
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void resolveConflict("use-server")}
+          >
+            Use server version
           </button>
         </div>
       ) : null}
