@@ -1,8 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type {
-  Execution,
-  ExecutionReceipt,
-} from "@uw/contracts";
+import type { Execution, ExecutionReceipt } from "@uw/contracts";
 import type { ProvenanceEdge } from "@uw/execution";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {

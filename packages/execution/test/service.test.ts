@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  Execution,
-  ExecutionReceipt,
-} from "@uw/contracts";
+import type { Execution, ExecutionReceipt } from "@uw/contracts";
 import type { Clock, IdGenerator } from "@uw/shared";
 import {
   createExecutionService,
