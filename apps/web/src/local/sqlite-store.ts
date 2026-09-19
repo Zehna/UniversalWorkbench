@@ -116,6 +116,7 @@ export async function createSqliteLocalStore(): Promise<LocalStore> {
   await rpc.call<null>({ type: "init" });
 
   return {
+    backend: "opfs-sqlite",
     async transaction<T>(fn: (tx: LocalTransaction) => Promise<T>) {
       const { transaction, mutations } = createTransactionCollector();
       const result = await fn(transaction);

@@ -6,6 +6,8 @@ import type {
   SyncOperation,
 } from "@uw/contracts";
 
+export type LocalStoreBackend = "opfs-sqlite" | "indexeddb";
+
 export interface LocalDeviceRecord {
   id: string;
   ownerId: string;
@@ -41,6 +43,7 @@ export interface LocalTransaction {
 }
 
 export interface LocalStore {
+  readonly backend: LocalStoreBackend;
   transaction<T>(fn: (tx: LocalTransaction) => Promise<T>): Promise<T>;
   getDevice(): Promise<LocalDeviceRecord | null>;
   setDevice(device: LocalDeviceRecord): Promise<void>;

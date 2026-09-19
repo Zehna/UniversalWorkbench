@@ -249,6 +249,7 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
   const database = await openDatabase();
 
   return {
+    backend: "indexeddb",
     async transaction<T>(fn: (tx: LocalTransaction) => Promise<T>) {
       const collected = createTransactionCollector();
       const result = await fn(collected.transaction);

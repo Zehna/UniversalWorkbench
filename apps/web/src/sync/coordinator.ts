@@ -24,13 +24,26 @@ import type {
   SyncPushResult,
 } from "./client";
 import type { SyncStatus, SyncStatusListener } from "./status";
+import type { SyncWebSocketState } from "./client";
 
 export type { SyncNetworkClient } from "./client";
+
+export interface SyncDiagnostics {
+  deviceId: string;
+  backend: "opfs-sqlite" | "indexeddb";
+  cursor: string;
+  pendingOperations: number;
+  conflicts: number;
+  websocketState: SyncWebSocketState;
+  lastAckAt: string | null;
+  lastErrorCode: string | null;
+}
 
 export interface SyncCoordinator {
   start(): Promise<void>;
   stop(): Promise<void>;
   status(): SyncStatus;
+  diagnostics(): Promise<SyncDiagnostics>;
   subscribe(listener: SyncStatusListener): () => void;
   listProjects(): Promise<Project[]>;
   listNotes(projectId: string): Promise<NoteDocumentView[]>;
@@ -102,6 +115,8 @@ export function createSyncCoordinator(
   let started = false;
   let stopped = false;
   let drainPromise: Promise<void> | null = null;
+  let lastAckAt: string | null = null;
+  let lastErrorCode: string | null = null;
 
   function publish(next: SyncStatus): void {
     currentStatus = next;
@@ -189,6 +204,8 @@ export function createSyncCoordinator(
 
     await store.markOperationAcked(operation.id, result.change.cursor);
     await store.applyRemoteChange(result.change);
+    lastAckAt = new Date().toISOString();
+    lastErrorCode = null;
   }
 
   async function drainOnce(): Promise<void> {
@@ -213,6 +230,7 @@ export function createSyncCoordinator(
       }
     } catch {
       networkAvailable = false;
+      lastErrorCode = "NETWORK_ERROR";
     } finally {
       syncing = false;
       await refreshStatus();
@@ -248,12 +266,14 @@ export function createSyncCoordinator(
   ): Promise<void> {
     if (message.type === "ERROR") {
       networkAvailable = false;
+      lastErrorCode = message.code;
       await refreshStatus();
       return;
     }
 
     if (message.type === "READY" || message.type === "PONG") {
       networkAvailable = true;
+      lastErrorCode = null;
       await refreshStatus();
       return;
     }
@@ -261,12 +281,15 @@ export function createSyncCoordinator(
     if (message.type === "ACK_OPERATION") {
       await store.markOperationAcked(message.operationId, message.cursor);
       networkAvailable = true;
+      lastAckAt = new Date().toISOString();
+      lastErrorCode = null;
       await refreshStatus();
       return;
     }
 
     await applyChangeSafely(message.change);
     networkAvailable = true;
+    lastErrorCode = null;
     await refreshStatus();
   }
 
@@ -296,11 +319,13 @@ export function createSyncCoordinator(
           onClose() {
             if (stopped) return;
             networkAvailable = false;
+            lastErrorCode = "WEBSOCKET_CLOSED";
             void refreshStatus();
           },
           onError() {
             if (stopped) return;
             networkAvailable = false;
+            lastErrorCode = "WEBSOCKET_ERROR";
             void refreshStatus();
           },
         });
@@ -311,10 +336,12 @@ export function createSyncCoordinator(
             await catchUpHttp();
           } catch {
             networkAvailable = false;
+            lastErrorCode = "HTTP_CATCHUP_ERROR";
           }
         }
       } catch {
         networkAvailable = false;
+        lastErrorCode = "NETWORK_ERROR";
       }
 
       await refreshStatus();
@@ -330,6 +357,25 @@ export function createSyncCoordinator(
 
     status() {
       return currentStatus;
+    },
+
+    async diagnostics() {
+      device ??= await ensureDevice();
+      const [cursor, pending, conflicts] = await Promise.all([
+        store.getCursor(),
+        store.listPendingOperations(500),
+        store.listConflicts(),
+      ]);
+      return {
+        deviceId: device.id,
+        backend: store.backend,
+        cursor,
+        pendingOperations: pending.length,
+        conflicts: conflicts.length,
+        websocketState: connection?.state() ?? "closed",
+        lastAckAt,
+        lastErrorCode,
+      };
     },
 
     subscribe(listener) {

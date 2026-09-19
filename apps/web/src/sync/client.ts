@@ -11,8 +11,11 @@ export interface SyncPushResult {
   change: SyncChange;
 }
 
+export type SyncWebSocketState = "closed" | "connecting" | "open";
+
 export interface SyncConnection {
   close(): void;
+  state(): SyncWebSocketState;
 }
 
 export interface SyncConnectOptions {
@@ -147,6 +150,11 @@ export function createBrowserSyncClient(): SyncNetworkClient {
       );
 
       return {
+        state() {
+          if (socket.readyState === WebSocket.OPEN) return "open";
+          if (socket.readyState === WebSocket.CONNECTING) return "connecting";
+          return "closed";
+        },
         close() {
           if (
             socket.readyState === WebSocket.OPEN ||

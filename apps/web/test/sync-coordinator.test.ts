@@ -68,6 +68,7 @@ function note(body = "server copy"): NoteDocumentView {
 }
 
 class MemoryStore implements LocalStore {
+  readonly backend = "indexeddb" as const;
   private storedDevice: LocalDeviceRecord | null = device;
   private cursor = "0";
   private projects = new Map<string, Project>();
@@ -210,12 +211,39 @@ function network(
           },
         })),
       ),
-    connect: vi.fn().mockReturnValue({ close() {} }),
+    connect: vi.fn().mockReturnValue({
+      close() {},
+      state() {
+        return "open" as const;
+      },
+    }),
     ...overrides,
   };
 }
 
 describe("browser sync coordinator", () => {
+  it("reports non-secret sync diagnostics", async () => {
+    const store = new MemoryStore();
+    const coordinator = createSyncCoordinator({
+      ownerId: OWNER_ID,
+      store,
+      client: network(),
+    });
+
+    await coordinator.start();
+    expect(await coordinator.diagnostics()).toMatchObject({
+      deviceId: DEVICE_ID,
+      backend: "indexeddb",
+      cursor: "0",
+      pendingOperations: 0,
+      conflicts: 0,
+      websocketState: "open",
+      lastErrorCode: null,
+    });
+
+    await coordinator.stop();
+  });
+
   it("keeps a local save successful when the network is offline", async () => {
     const store = new MemoryStore();
     await store.seedProject(project());
