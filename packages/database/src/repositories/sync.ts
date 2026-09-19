@@ -1,4 +1,4 @@
-import type { SyncChange, SyncEntityType, SyncOperation } from "@uw/contracts";
+import type { SyncChange, SyncOperation } from "@uw/contracts";
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 
 import type {
