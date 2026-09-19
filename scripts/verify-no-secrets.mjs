@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 
 const [path] = process.argv.slice(2);
-if (!path) throw new Error("Usage: node scripts/verify-no-secrets.mjs <log-file>");
+if (!path)
+  throw new Error("Usage: node scripts/verify-no-secrets.mjs <log-file>");
 
 const canary = process.env.SMOKE_SECRET_CANARY;
 if (!canary) throw new Error("SMOKE_SECRET_CANARY is required");
@@ -16,7 +17,9 @@ const forbidden = [
 
 for (const rule of forbidden) {
   if (rule.test(text)) {
-    throw new Error(`Docker logs leaked forbidden credential material: ${rule.label}`);
+    throw new Error(
+      `Docker logs leaked forbidden credential material: ${rule.label}`,
+    );
   }
 }
 

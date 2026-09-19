@@ -78,9 +78,12 @@ const api = (path) => `${baseUrl}/api${path}`;
 
 async function syncChanges(cookie, cursor = "0") {
   const body = await expectJson(
-    await fetch(api(`/sync/changes?cursor=${encodeURIComponent(cursor)}&limit=500`), {
-      headers: { cookie },
-    }),
+    await fetch(
+      api(`/sync/changes?cursor=${encodeURIComponent(cursor)}&limit=500`),
+      {
+        headers: { cookie },
+      },
+    ),
     200,
     "sync changes",
   );
