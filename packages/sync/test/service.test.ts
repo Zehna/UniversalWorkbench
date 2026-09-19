@@ -65,6 +65,8 @@ function createHarness(record: DeviceRecord | null = device()) {
     touchDevice: vi.fn(async () => undefined),
     revokeDevice: vi.fn(async () => undefined),
     findOperation: vi.fn(async () => null),
+    findChange: vi.fn(async () => null),
+    findTombstone: vi.fn(async () => null),
     persistAppliedOperation: vi.fn(),
     persistConflict: vi.fn(),
     listChanges: vi.fn(async () => []),
