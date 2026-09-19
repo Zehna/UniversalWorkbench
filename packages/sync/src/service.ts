@@ -66,7 +66,9 @@ function operationMatchesEntity(operation: SyncOperation): boolean {
   return false;
 }
 
-export function createSyncService(options: CreateSyncServiceOptions): SyncService {
+export function createSyncService(
+  options: CreateSyncServiceOptions,
+): SyncService {
   const { repository, applier, clock } = options;
 
   return {
@@ -107,11 +109,18 @@ export function createSyncService(options: CreateSyncServiceOptions): SyncServic
 
       for (const operation of operations) {
         if (!activeDevices.has(operation.deviceId)) {
-          const device = await repository.getDevice(ownerId, operation.deviceId);
+          const device = await repository.getDevice(
+            ownerId,
+            operation.deviceId,
+          );
           if (!device || device.revokedAt) {
             throw new SyncDeviceRejectedError();
           }
-          await repository.touchDevice(ownerId, operation.deviceId, clock.now());
+          await repository.touchDevice(
+            ownerId,
+            operation.deviceId,
+            clock.now(),
+          );
           activeDevices.add(operation.deviceId);
         }
 
