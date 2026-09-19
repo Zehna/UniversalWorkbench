@@ -1,0 +1,63 @@
+name: Phase 2 Task 6 DB GREEN
+
+on:
+  push:
+    branches:
+      - phase-2-local-first-sync
+
+permissions:
+  contents: write
+
+jobs:
+  green:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workbench -d workbench_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-2-local-first-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm ci
+      - run: >-
+          npx prettier --write
+          packages/sync/src/apply.ts
+          packages/database/src/schema.ts
+          packages/database/src/repositories/projects.ts
+          packages/database/src/repositories/documents.ts
+          packages/database/src/repositories/sync.ts
+          packages/database/test/sync-apply.integration.test.ts
+      - name: Generate Phase 2 entity sync migration
+        env:
+          DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+        run: npx drizzle-kit generate --config=packages/database/drizzle.config.ts --name=phase2_entity_sync_revision
+      - run: npm run test -w @uw/sync -- apply.test.ts
+      - run: npm run test -w @uw/database -- sync-apply.integration.test.ts
+        env:
+          TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+      - name: Commit normalized GREEN state
+        run: |
+          if [ -z "$(git status --porcelain -- packages/sync packages/database)" ]; then
+            echo "Nothing to normalize"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/sync packages/database
+          git commit -m "chore: generate phase 2 sync apply migration"
+          git push origin HEAD:phase-2-local-first-sync
