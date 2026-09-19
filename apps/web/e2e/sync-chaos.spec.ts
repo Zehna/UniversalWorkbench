@@ -113,7 +113,9 @@ test("server tombstone rejects an older offline update without resurrection", as
     .toBe(1);
   await openProject(stalePage, "Tombstone Project");
   await stalePage.getByRole("button", { name: "Tombstone Note" }).click();
-  await expect(stalePage.getByLabel(/note body/i)).toHaveValue("canonical body");
+  await expect(stalePage.getByLabel(/note body/i)).toHaveValue(
+    "canonical body",
+  );
 
   const deleted = await pushOperation(deletingPage, {
     id: randomUUID(),
@@ -189,7 +191,8 @@ test("revoked device cannot push after reconnect", async ({ browser }) => {
         return (
           typeof project === "object" &&
           project !== null &&
-          (project as { name?: unknown }).name === "Revoked Device Local Project"
+          (project as { name?: unknown }).name ===
+            "Revoked Device Local Project"
         );
       });
     })
