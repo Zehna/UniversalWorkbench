@@ -32,6 +32,7 @@ const device = {
 } satisfies LocalDeviceRecord;
 
 class MemoryLocalStore implements LocalStore {
+  readonly backend = "indexeddb" as const;
   private projects = new Map<string, Project>();
   private notes = new Map<string, NoteDocumentView>();
   private operations = new Map<string, SyncOperation>();

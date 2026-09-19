@@ -54,6 +54,18 @@ function createUiCoordinator(): SyncCoordinator {
     status() {
       return status;
     },
+    async diagnostics() {
+      return {
+        deviceId: "22222222-2222-4222-8222-222222222222",
+        backend: "indexeddb" as const,
+        cursor: "0",
+        pendingOperations: 0,
+        conflicts: 0,
+        websocketState: "open" as const,
+        lastAckAt: null,
+        lastErrorCode: null,
+      };
+    },
     subscribe(listener) {
       listeners.add(listener);
       listener(status);
