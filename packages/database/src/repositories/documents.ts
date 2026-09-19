@@ -696,7 +696,7 @@ export function createPostgresDocumentRepository(
       } finally {
         client.release();
       }
-
+    },
   };
 }
 
