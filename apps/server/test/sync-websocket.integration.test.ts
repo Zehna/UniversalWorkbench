@@ -61,12 +61,14 @@ function change(cursor: string, id = OPERATION_ID): SyncChange {
   };
 }
 
-async function startHarness(options: {
-  authenticated?: boolean;
-  revoked?: boolean;
-  latestCursor?: string;
-  changes?: SyncChange[];
-} = {}): Promise<Harness> {
+async function startHarness(
+  options: {
+    authenticated?: boolean;
+    revoked?: boolean;
+    latestCursor?: string;
+    changes?: SyncChange[];
+  } = {},
+): Promise<Harness> {
   const owner = { id: OWNER_ID, username: "owner", createdAt: NOW };
   const authService = {
     isInitialized: vi.fn().mockResolvedValue(true),
@@ -178,9 +180,7 @@ function unexpectedStatus(socket: WebSocket): Promise<number | undefined> {
 
 async function hello(socket: WebSocket, cursor = "0") {
   const readyPromise = nextJson(socket);
-  socket.send(
-    JSON.stringify({ type: "HELLO", deviceId: DEVICE_ID, cursor }),
-  );
+  socket.send(JSON.stringify({ type: "HELLO", deviceId: DEVICE_ID, cursor }));
   return readyPromise;
 }
 
@@ -227,11 +227,15 @@ describe("sync WebSocket transport", () => {
     });
 
     const firstAckPromise = nextJson(socket);
-    socket.send(JSON.stringify({ type: "PUSH_OPERATION", operation: operation() }));
+    socket.send(
+      JSON.stringify({ type: "PUSH_OPERATION", operation: operation() }),
+    );
     const firstAck = await firstAckPromise;
 
     const secondAckPromise = nextJson(socket);
-    socket.send(JSON.stringify({ type: "PUSH_OPERATION", operation: operation() }));
+    socket.send(
+      JSON.stringify({ type: "PUSH_OPERATION", operation: operation() }),
+    );
     const secondAck = await secondAckPromise;
 
     expect(firstAck).toMatchObject({
