@@ -65,7 +65,10 @@ function repository(): DocumentRepository {
           documentId: input.documentId,
           revisionNumber: 1,
           parentRevisionId: null,
-          content: { kind: "workflow", workflow: structuredClone(input.workflow) },
+          content: {
+            kind: "workflow",
+            workflow: structuredClone(input.workflow),
+          },
           metadata: {},
           createdAt: input.createdAt.toISOString(),
         },

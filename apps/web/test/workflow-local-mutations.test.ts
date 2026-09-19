@@ -73,25 +73,39 @@ class MemoryStore implements LocalStore {
     return result;
   }
 
-  async getDevice() { return device; }
+  async getDevice() {
+    return device;
+  }
   async setDevice() {}
-  async getCursor() { return "0"; }
+  async getCursor() {
+    return "0";
+  }
   async setCursor() {}
-  async listProjects() { return [...this.projects.values()]; }
-  async listNotes() { return [...this.notes.values()]; }
-  async getNote(id: string) { return this.notes.get(id) ?? null; }
+  async listProjects() {
+    return [...this.projects.values()];
+  }
+  async listNotes() {
+    return [...this.notes.values()];
+  }
+  async getNote(id: string) {
+    return this.notes.get(id) ?? null;
+  }
   async listWorkflows(projectId: string) {
     return [...this.workflows.values()].filter(
       (value) => value.document.projectId === projectId,
     );
   }
-  async getWorkflow(id: string) { return this.workflows.get(id) ?? null; }
+  async getWorkflow(id: string) {
+    return this.workflows.get(id) ?? null;
+  }
   async listPendingOperations(limit: number) {
     return this.operations.slice(0, limit);
   }
   async markOperationAcked() {}
   async applyRemoteChange(_change: SyncChange) {}
-  async listConflicts() { return []; }
+  async listConflicts() {
+    return [];
+  }
   async clearConflict() {}
   async close() {}
 }
@@ -99,12 +113,10 @@ class MemoryStore implements LocalStore {
 describe("local workflow mutations", () => {
   it("creates workflow revision 1 and journals a discriminated document operation", async () => {
     const store = new MemoryStore();
-    const created = await createWorkflowLocally(
-      store,
-      device,
-      PROJECT_ID,
-      { title: "Local workflow", workflow },
-    );
+    const created = await createWorkflowLocally(store, device, PROJECT_ID, {
+      title: "Local workflow",
+      workflow,
+    });
 
     const [operation] = await store.listPendingOperations(10);
     expect(created.document.kind).toBe("workflow");
@@ -127,22 +139,15 @@ describe("local workflow mutations", () => {
 
   it("updates workflow with immutable local revision lineage", async () => {
     const store = new MemoryStore();
-    const created = await createWorkflowLocally(
-      store,
-      device,
-      PROJECT_ID,
-      { title: "Local workflow", workflow },
-    );
-    const updated = await updateWorkflowLocally(
-      store,
-      device,
-      created,
-      {
-        title: "Local workflow v2",
-        workflow: { ...workflow, name: "Local workflow v2" },
-        baseRevisionId: created.revision.id,
-      },
-    );
+    const created = await createWorkflowLocally(store, device, PROJECT_ID, {
+      title: "Local workflow",
+      workflow,
+    });
+    const updated = await updateWorkflowLocally(store, device, created, {
+      title: "Local workflow v2",
+      workflow: { ...workflow, name: "Local workflow v2" },
+      baseRevisionId: created.revision.id,
+    });
 
     expect(updated.revision.revisionNumber).toBe(2);
     expect(updated.revision.parentRevisionId).toBe(created.revision.id);

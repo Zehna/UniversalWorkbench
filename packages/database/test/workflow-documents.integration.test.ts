@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { WorkflowDefinitionV1 } from "@uw/contracts";
-import {
-  createDocumentService,
-  RevisionConflictError,
-} from "@uw/documents";
+import { createDocumentService, RevisionConflictError } from "@uw/documents";
 import { SystemClock, UuidGenerator } from "@uw/shared";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
