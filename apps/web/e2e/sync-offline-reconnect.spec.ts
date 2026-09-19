@@ -27,7 +27,7 @@ test("offline edit drains after reconnect without losing local text", async ({
 
   await page.getByLabel(/note body/i).fill("offline revision");
   await page.getByRole("button", { name: /save note/i }).click();
-  await expect(page.getByDisplayValue("offline revision")).toBeVisible();
+  await expect(page.getByLabel(/note body/i)).toHaveValue("offline revision");
   await expect(page.getByLabel(/sync status/i)).toContainText("Offline");
 
   gate.setBlocked(false);
@@ -36,7 +36,7 @@ test("offline edit drains after reconnect without losing local text", async ({
 
   await page.getByRole("button", { name: "Reconnect Edit Project" }).click();
   await page.getByRole("button", { name: "Reconnect Edit Note" }).click();
-  await expect(page.getByDisplayValue("offline revision")).toBeVisible();
+  await expect(page.getByLabel(/note body/i)).toHaveValue("offline revision");
 
   await context.close();
 });

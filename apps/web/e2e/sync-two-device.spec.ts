@@ -30,6 +30,7 @@ test.describe.serial("Phase 2 multi-device sync", () => {
     await phonePage.reload();
     await expect(phonePage.getByLabel(/sync status/i)).toContainText("Synced");
 
+    await laptopPage.reload();
     await expect
       .poll(async () =>
         laptopPage.getByRole("button", { name: "Reconnect Project" }).count(),
