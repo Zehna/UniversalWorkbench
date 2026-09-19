@@ -1,0 +1,34 @@
+name: Phase 2 Task 9 Chaos Format
+
+on:
+  push:
+    branches:
+      - phase-2-local-first-sync
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-2-local-first-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm ci
+      - run: npx prettier --write apps/web/e2e/sync-chaos.spec.ts
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then
+            echo "Already formatted"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/e2e/sync-chaos.spec.ts
+          git commit -m "style: format phase 2 sync chaos tests"
+          git push origin HEAD:phase-2-local-first-sync
