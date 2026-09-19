@@ -3,6 +3,7 @@ import type { SyncChange, SyncOperation } from "@uw/contracts";
 import {
   SyncBatchLimitError,
   SyncDeviceRejectedError,
+  SyncOperationInvalidError,
   createSyncService,
   type DeviceRecord,
   type SyncOperationApplier,
@@ -114,6 +115,20 @@ describe("SyncService", () => {
 
     expect(unknown.applier.apply).not.toHaveBeenCalled();
     expect(revoked.applier.apply).not.toHaveBeenCalled();
+  });
+
+  it("rejects action and entity mismatches before repository mutation", async () => {
+    const { service, repository, applier } = createHarness();
+    const invalid = operation({
+      entityType: "document",
+      action: "project.update",
+    });
+
+    await expect(
+      service.pushOperations(OWNER_ID, [invalid]),
+    ).rejects.toBeInstanceOf(SyncOperationInvalidError);
+    expect(repository.getDevice).not.toHaveBeenCalled();
+    expect(applier.apply).not.toHaveBeenCalled();
   });
 
   it("bounds operation batches at 100", async () => {
