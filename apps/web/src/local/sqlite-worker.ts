@@ -3,6 +3,8 @@
 import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import type {
   Artifact,
+  DocumentRevision,
+  NoteDocument,
   NoteDocumentView,
   Project,
   SyncChange,
@@ -40,6 +42,8 @@ type WorkerRequest =
   | { id: number; type: "getCursor" }
   | { id: number; type: "setCursor"; cursor: string }
   | { id: number; type: "listProjects" }
+  | { id: number; type: "listNotes"; projectId: string }
+  | { id: number; type: "getNote"; documentId: string }
   | { id: number; type: "listPendingOperations"; limit: number }
   | {
       id: number;
@@ -238,6 +242,82 @@ function listProjects(): Project[] {
   }));
 }
 
+interface NoteJoinRow {
+  document_id: string;
+  project_id: string;
+  kind: "note";
+  title: string;
+  current_revision_id: string;
+  document_created_at: string;
+  document_updated_at: string;
+  revision_id: string;
+  revision_number: number;
+  parent_revision_id: string | null;
+  content_json: string;
+  metadata_json: string;
+  revision_created_at: string;
+}
+
+function mapNoteJoin(row: NoteJoinRow): NoteDocumentView {
+  const document: NoteDocument = {
+    id: row.document_id,
+    projectId: row.project_id,
+    kind: row.kind,
+    title: row.title,
+    currentRevisionId: row.current_revision_id,
+    createdAt: row.document_created_at,
+    updatedAt: row.document_updated_at,
+  };
+  const revision: DocumentRevision = {
+    id: row.revision_id,
+    documentId: row.document_id,
+    revisionNumber: row.revision_number,
+    parentRevisionId: row.parent_revision_id,
+    content: parseJson<DocumentRevision["content"]>(row.content_json),
+    metadata: parseJson<DocumentRevision["metadata"]>(row.metadata_json),
+    createdAt: row.revision_created_at,
+  };
+  return { document, revision };
+}
+
+const NOTE_JOIN_SELECT = `
+  SELECT
+    d.id AS document_id,
+    d.project_id,
+    d.kind,
+    d.title,
+    d.current_revision_id,
+    d.created_at AS document_created_at,
+    d.updated_at AS document_updated_at,
+    r.id AS revision_id,
+    r.revision_number,
+    r.parent_revision_id,
+    r.content_json,
+    r.metadata_json,
+    r.created_at AS revision_created_at
+  FROM documents d
+  JOIN document_revisions r ON r.id = d.current_revision_id
+`;
+
+function listNotes(projectId: string): NoteDocumentView[] {
+  return queryRows<NoteJoinRow>(
+    `${NOTE_JOIN_SELECT}
+      WHERE d.project_id = ?
+      ORDER BY d.created_at, d.id`,
+    [projectId],
+  ).map(mapNoteJoin);
+}
+
+function getNote(documentId: string): NoteDocumentView | null {
+  const [row] = queryRows<NoteJoinRow>(
+    `${NOTE_JOIN_SELECT}
+      WHERE d.id = ?
+      LIMIT 1`,
+    [documentId],
+  );
+  return row ? mapNoteJoin(row) : null;
+}
+
 function removeEntity(change: SyncChange): void {
   if (change.entityType === "project") {
     execute("DELETE FROM projects WHERE id = ?", [change.entityId]);
@@ -375,6 +455,10 @@ async function handle(request: WorkerRequest): Promise<unknown> {
       return null;
     case "listProjects":
       return listProjects();
+    case "listNotes":
+      return listNotes(request.projectId);
+    case "getNote":
+      return getNote(request.documentId);
     case "listPendingOperations":
       return queryRows<{ operation_json: string }>(
         `SELECT operation_json

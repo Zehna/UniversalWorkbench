@@ -47,6 +47,8 @@ export interface LocalStore {
   getCursor(): Promise<string>;
   setCursor(cursor: string): Promise<void>;
   listProjects(): Promise<Project[]>;
+  listNotes(projectId: string): Promise<NoteDocumentView[]>;
+  getNote(documentId: string): Promise<NoteDocumentView | null>;
   listPendingOperations(limit: number): Promise<SyncOperation[]>;
   markOperationAcked(operationId: string, cursor: string): Promise<void>;
   applyRemoteChange(change: SyncChange): Promise<void>;

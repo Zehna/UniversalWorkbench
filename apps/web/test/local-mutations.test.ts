@@ -83,6 +83,12 @@ class MemoryLocalStore implements LocalStore {
     return [...this.projects.values()].map((value) => structuredClone(value));
   }
 
+  async listNotes(projectId: string) {
+    return [...this.notes.values()]
+      .filter((value) => value.document.projectId === projectId)
+      .map((value) => structuredClone(value));
+  }
+
   async listPendingOperations(limit: number) {
     return [...this.operations.values()]
       .slice(0, limit)

@@ -184,10 +184,25 @@ class MemoryStore implements LocalStore {
 function network(
   overrides: Partial<SyncNetworkClient> = {},
 ): SyncNetworkClient {
+  let cursor = 0;
   return {
     registerDevice: vi.fn().mockResolvedValue(undefined),
     listChanges: vi.fn().mockResolvedValue([]),
-    pushOperations: vi.fn().mockResolvedValue([]),
+    pushOperations: vi.fn().mockImplementation(async (operations) =>
+      operations.map((operation) => ({
+        operationId: operation.id,
+        change: {
+          cursor: String(++cursor),
+          operationId: operation.id,
+          entityType: operation.entityType,
+          entityId: operation.entityId,
+          kind: "upsert" as const,
+          revision: "1",
+          payload: {},
+          createdAt: NOW,
+        },
+      })),
+    ),
     connect: vi.fn().mockReturnValue({ close() {} }),
     ...overrides,
   };

@@ -1,4 +1,9 @@
-import type { Project, SyncChange, SyncOperation } from "@uw/contracts";
+import type {
+  NoteDocumentView,
+  Project,
+  SyncChange,
+  SyncOperation,
+} from "@uw/contracts";
 import type {
   LocalConflictRecord,
   LocalDeviceRecord,
@@ -22,6 +27,8 @@ type WorkerCommand =
   | { type: "getCursor" }
   | { type: "setCursor"; cursor: string }
   | { type: "listProjects" }
+  | { type: "listNotes"; projectId: string }
+  | { type: "getNote"; documentId: string }
   | { type: "listPendingOperations"; limit: number }
   | { type: "markOperationAcked"; operationId: string; cursor: string }
   | { type: "applyRemoteChange"; change: SyncChange }
@@ -128,6 +135,12 @@ export async function createSqliteLocalStore(): Promise<LocalStore> {
     },
     listProjects() {
       return rpc.call<Project[]>({ type: "listProjects" });
+    },
+    listNotes(projectId) {
+      return rpc.call<NoteDocumentView[]>({ type: "listNotes", projectId });
+    },
+    getNote(documentId) {
+      return rpc.call<NoteDocumentView | null>({ type: "getNote", documentId });
     },
     listPendingOperations(limit) {
       return rpc.call<SyncOperation[]>({

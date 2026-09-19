@@ -1,5 +1,7 @@
 import type {
   Artifact,
+  DocumentRevision,
+  NoteDocument,
   NoteDocumentView,
   Project,
   SyncChange,
@@ -311,6 +313,68 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
           left.createdAt.localeCompare(right.createdAt) ||
           left.id.localeCompare(right.id),
       );
+    },
+
+    async listNotes(projectId) {
+      const documentTransaction = database.transaction(
+        STORES.documents,
+        "readonly",
+      );
+      const documents = await requestResult<NoteDocument[]>(
+        documentTransaction.objectStore(STORES.documents).getAll(),
+      );
+      const matching = documents
+        .filter((document) => document.projectId === projectId)
+        .sort(
+          (left, right) =>
+            left.createdAt.localeCompare(right.createdAt) ||
+            left.id.localeCompare(right.id),
+        );
+
+      const views = await Promise.all(
+        matching.map(async (document) => {
+          const revisionTransaction = database.transaction(
+            STORES.revisions,
+            "readonly",
+          );
+          const revision = await requestResult<DocumentRevision | undefined>(
+            revisionTransaction
+              .objectStore(STORES.revisions)
+              .get(document.currentRevisionId),
+          );
+          return revision
+            ? ({ document, revision } satisfies NoteDocumentView)
+            : null;
+        }),
+      );
+
+      return views.filter(
+        (view): view is NoteDocumentView => view !== null,
+      );
+    },
+
+    async getNote(documentId) {
+      const documentTransaction = database.transaction(
+        STORES.documents,
+        "readonly",
+      );
+      const document = await requestResult<NoteDocument | undefined>(
+        documentTransaction.objectStore(STORES.documents).get(documentId),
+      );
+      if (!document) return null;
+
+      const revisionTransaction = database.transaction(
+        STORES.revisions,
+        "readonly",
+      );
+      const revision = await requestResult<DocumentRevision | undefined>(
+        revisionTransaction
+          .objectStore(STORES.revisions)
+          .get(document.currentRevisionId),
+      );
+      return revision
+        ? ({ document, revision } satisfies NoteDocumentView)
+        : null;
     },
 
     async listPendingOperations(limit) {
