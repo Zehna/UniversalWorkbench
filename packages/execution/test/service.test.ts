@@ -71,7 +71,7 @@ class MemoryExecutions implements ExecutionRepository {
     return value ? structuredClone(value) : null;
   }
 
-  async transition() {
+  async transition(): Promise<Execution | null> {
     throw new Error("not used");
   }
 

@@ -25,3 +25,5 @@ export * from "./errors.js";
 export * from "./model.js";
 export * from "./receipt.js";
 export * from "./repository.js";
+export * from "./provenance.js";
+export * from "./service.js";

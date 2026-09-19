@@ -8,3 +8,6 @@ export * from "./repositories/documents.js";
 export * from "./repositories/projects.js";
 export * from "./repositories/sync.js";
 export * from "./schema.js";
+export * from "./repositories/execution-receipts.js";
+export * from "./repositories/executions.js";
+export * from "./repositories/provenance.js";
