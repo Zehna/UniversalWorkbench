@@ -38,17 +38,13 @@ test("concurrent device edits preserve the stale local version as a conflict", a
   await secondPage.getByLabel(/note body/i).fill("second device local edit");
   await secondPage.getByRole("button", { name: /save note/i }).click();
 
-  await expect(
-    secondPage.getByText(/sync conflict detected/i),
-  ).toBeVisible();
+  await expect(secondPage.getByText(/sync conflict detected/i)).toBeVisible();
   await expect(
     secondPage.getByDisplayValue("second device local edit"),
   ).toBeVisible();
   await expect(secondPage.getByLabel(/sync status/i)).toContainText("Conflict");
 
-  await secondPage
-    .getByRole("button", { name: /use server version/i })
-    .click();
+  await secondPage.getByRole("button", { name: /use server version/i }).click();
   await expect(secondPage.getByDisplayValue("first device edit")).toBeVisible();
 
   await first.close();
