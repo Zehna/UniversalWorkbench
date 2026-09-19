@@ -348,9 +348,7 @@ export async function createIndexedDbLocalStore(): Promise<LocalStore> {
         }),
       );
 
-      return views.filter(
-        (view): view is NoteDocumentView => view !== null,
-      );
+      return views.filter((view): view is NoteDocumentView => view !== null);
     },
 
     async getNote(documentId) {

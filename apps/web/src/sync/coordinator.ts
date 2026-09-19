@@ -125,10 +125,7 @@ export function createSyncCoordinator(
     const cursor = await store.getCursor();
     if (!cursorAfter(change.cursor, cursor)) return;
 
-    if (
-      change.kind !== "conflict" &&
-      (await hasPendingForChange(change))
-    ) {
+    if (change.kind !== "conflict" && (await hasPendingForChange(change))) {
       await store.setCursor(change.cursor);
       return;
     }
@@ -205,7 +202,9 @@ export function createSyncCoordinator(
     }
   }
 
-  async function handleServerMessage(message: ServerSyncMessage): Promise<void> {
+  async function handleServerMessage(
+    message: ServerSyncMessage,
+  ): Promise<void> {
     if (message.type === "ERROR") {
       networkAvailable = false;
       await refreshStatus();
