@@ -56,7 +56,9 @@ function change(op: SyncOperation): SyncChange {
 
 function createHarness(record: DeviceRecord | null = device()) {
   const repository: SyncRepository = {
-    registerDevice: vi.fn(async (input) => device({ id: input.id, name: input.name })),
+    registerDevice: vi.fn(async (input) =>
+      device({ id: input.id, name: input.name }),
+    ),
     listDevices: vi.fn(async () => (record ? [record] : [])),
     getDevice: vi.fn(async () => record),
     touchDevice: vi.fn(async () => undefined),
