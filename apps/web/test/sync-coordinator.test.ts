@@ -188,21 +188,23 @@ function network(
   return {
     registerDevice: vi.fn().mockResolvedValue(undefined),
     listChanges: vi.fn().mockResolvedValue([]),
-    pushOperations: vi.fn().mockImplementation(async (operations: SyncOperation[]) =>
-      operations.map((operation) => ({
-        operationId: operation.id,
-        change: {
-          cursor: String(++cursor),
+    pushOperations: vi
+      .fn()
+      .mockImplementation(async (operations: SyncOperation[]) =>
+        operations.map((operation) => ({
           operationId: operation.id,
-          entityType: operation.entityType,
-          entityId: operation.entityId,
-          kind: "upsert" as const,
-          revision: "1",
-          payload: {},
-          createdAt: NOW,
-        },
-      })),
-    ),
+          change: {
+            cursor: String(++cursor),
+            operationId: operation.id,
+            entityType: operation.entityType,
+            entityId: operation.entityId,
+            kind: "upsert" as const,
+            revision: "1",
+            payload: {},
+            createdAt: NOW,
+          },
+        })),
+      ),
     connect: vi.fn().mockReturnValue({ close() {} }),
     ...overrides,
   };
