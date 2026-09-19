@@ -7,11 +7,15 @@ const expected = new Map([
   ["packages/auth/package.json", "@uw/auth"],
   ["packages/contracts/package.json", "@uw/contracts"],
   ["packages/core/package.json", "@uw/core"],
+  ["packages/context/package.json", "@uw/context"],
   ["packages/database/package.json", "@uw/database"],
   ["packages/documents/package.json", "@uw/documents"],
+  ["packages/execution/package.json", "@uw/execution"],
   ["packages/shared/package.json", "@uw/shared"],
   ["packages/storage/package.json", "@uw/storage"],
   ["packages/sync/package.json", "@uw/sync"],
+  ["packages/tools/package.json", "@uw/tools"],
+  ["packages/workflow/package.json", "@uw/workflow"],
 ]);
 
 let failed = false;

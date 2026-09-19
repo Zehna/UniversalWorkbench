@@ -36,7 +36,7 @@ describe("Phase 3 contracts", () => {
         executionMode: "worker",
         accepts: [],
         produces: [],
-        config: {},
+        configSchema: {},
         requiredCapabilities: [],
         defaults: { timeoutMs: 5000, maxAttempts: 1 },
       }),
