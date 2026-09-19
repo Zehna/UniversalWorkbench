@@ -3,8 +3,6 @@ import type { Pool, PoolClient, QueryResultRow } from "pg";
 
 import type {
   DeviceRecord,
-  PersistAppliedOperationInput,
-  PersistConflictInput,
   StoredSyncOperation,
   SyncRepository,
 } from "@uw/sync";
