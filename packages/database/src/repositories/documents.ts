@@ -248,9 +248,7 @@ export function createPostgresDocumentRepository(
           [
             input.revisionId,
             input.documentId,
-            isWorkflow
-              ? { kind: "workflow", workflow: workflowInput!.workflow }
-              : { body: noteInput!.body },
+            { body: input.body },
             {},
             input.createdAt,
           ],
@@ -739,6 +737,7 @@ function syncDocumentConflict(
             title: current.title,
             workflow:
               current.content &&
+              "kind" in current.content &&
               current.content.kind === "workflow" &&
               "workflow" in current.content
                 ? current.content.workflow
@@ -1065,7 +1064,9 @@ export function createPostgresSyncDocumentStore(pool: Pool): SyncDocumentStore {
             operation.entityId,
             revisionNumber,
             current.current_revision_id,
-            { body: input.body },
+            isWorkflow
+              ? { kind: "workflow", workflow: workflowInput!.workflow }
+              : { body: noteInput!.body },
             {},
             updatedAt,
           ],
