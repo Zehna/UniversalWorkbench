@@ -76,9 +76,7 @@ function validWorkflow(): WorkflowDefinitionV1 {
         to: { nodeId: "select", input: "input" },
       },
     ],
-    outputs: [
-      { name: "result", from: { nodeId: "select", output: "output" } },
-    ],
+    outputs: [{ name: "result", from: { nodeId: "select", output: "output" } }],
   };
 }
 
@@ -163,9 +161,7 @@ describe("validateWorkflowDefinition", () => {
           to: { nodeId: "a", input: "input" },
         },
       ],
-      outputs: [
-        { name: "result", from: { nodeId: "b", output: "output" } },
-      ],
+      outputs: [{ name: "result", from: { nodeId: "b", output: "output" } }],
     };
 
     expect(codes(definition)).toContain("WORKFLOW_CYCLE");
