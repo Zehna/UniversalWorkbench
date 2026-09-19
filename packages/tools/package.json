@@ -10,12 +10,13 @@
     }
   },
   "scripts": {
-    "pretest": "npm run build -w @uw/contracts",
+    "pretest": "npm run build -w @uw/context",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "npm run build -w @uw/contracts && tsc --noEmit",
-    "build": "npm run build -w @uw/contracts && tsup src/index.ts --format esm --dts --clean"
+    "typecheck": "npm run build -w @uw/context && tsc --noEmit",
+    "build": "npm run build -w @uw/context && tsup src/index.ts --format esm --dts --clean"
   },
   "dependencies": {
-    "@uw/contracts": "*"
+    "@uw/contracts": "*",
+    "@uw/context": "*"
   }
 }

@@ -1,16 +1,3 @@
-export {
-  ContextCapabilitySchema,
-  ContextEnvelopeSchema,
-  ContextProvenanceSchema,
-  ContextTypeSchema,
-  JsonObjectSchema,
-  JsonValueSchema,
-} from "@uw/contracts";
-export type {
-  ContextCapability,
-  ContextEnvelope,
-  ContextProvenance,
-  ContextType,
-  JsonObject,
-  JsonValue,
-} from "@uw/contracts";
+export * from "./compatibility.js";
+export * from "./envelope.js";
+export * from "./registry.js";
