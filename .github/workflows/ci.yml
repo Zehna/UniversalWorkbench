@@ -27,7 +27,26 @@ jobs:
         with:
           node-version: 24.21.0
       - run: npm ci
-      - run: npm audit --omit=dev --audit-level=high
+      - name: Production dependency audit
+        shell: bash
+        run: |
+          set +e
+          for attempt in 1 2 3; do
+            output="$(npm audit --omit=dev --audit-level=high 2>&1)"
+            status=$?
+            printf '%s\n' "$output"
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if printf '%s\n' "$output" | grep -Eqi '503 Service Unavailable|502 Bad Gateway|504 Gateway Timeout|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN'; then
+              if [ "$attempt" -lt 3 ]; then
+                sleep $((attempt * 15))
+                continue
+              fi
+            fi
+            exit "$status"
+          done
+          exit 1
       - run: npm run verify:workspaces
       - run: npm run format:check
       - run: npm run lint
