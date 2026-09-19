@@ -109,13 +109,17 @@ function repository(): DocumentRepository {
       revisionNumber += 1;
       currentRevisionId = input.revisionId;
       currentWorkflow = structuredClone(input.workflow);
+      const value = await this.getWorkflow(
+        input.ownerId,
+        input.projectId,
+        input.documentId,
+      );
+      if (!value) {
+        throw new Error("workflow fixture disappeared");
+      }
       return {
         status: "updated",
-        value: await this.getWorkflow(
-          input.ownerId,
-          input.projectId,
-          input.documentId,
-        ),
+        value,
       };
     },
   };
