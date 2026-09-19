@@ -19,3 +19,6 @@ export type {
 } from "@uw/contracts";
 
 export * from "./model.js";
+
+export * from "./repository.js";
+export * from "./service.js";

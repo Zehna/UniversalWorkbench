@@ -1,71 +1,13 @@
 import type { SyncChange, SyncOperation } from "@uw/contracts";
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 
-export interface DeviceRecord {
-  id: string;
-  ownerId: string;
-  name: string;
-  createdAt: Date;
-  lastSeenAt: Date;
-  revokedAt: Date | null;
-}
-
-export interface StoredSyncOperation {
-  ownerId: string;
-  operation: SyncOperation;
-  outcome: "applied" | "conflict";
-  resultRevision: string | null;
-}
-
-export interface PersistAppliedOperationInput {
-  ownerId: string;
-  operation: SyncOperation;
-  resultRevision: string | null;
-  change: {
-    kind: "upsert" | "tombstone";
-    revision: string | null;
-    payload: Record<string, unknown>;
-  };
-  now: Date;
-}
-
-export interface PersistConflictInput {
-  ownerId: string;
-  operation: SyncOperation;
-  currentRevision: string | null;
-  change: {
-    kind: "conflict";
-    revision: string | null;
-    payload: Record<string, unknown>;
-  };
-  now: Date;
-}
-
-export interface SyncRepository {
-  registerDevice(input: {
-    id: string;
-    ownerId: string;
-    name: string;
-    now: Date;
-  }): Promise<DeviceRecord>;
-  getDevice(ownerId: string, deviceId: string): Promise<DeviceRecord | null>;
-  touchDevice(ownerId: string, deviceId: string, now: Date): Promise<void>;
-  revokeDevice(ownerId: string, deviceId: string, now: Date): Promise<void>;
-  findOperation(
-    ownerId: string,
-    operationId: string,
-  ): Promise<StoredSyncOperation | null>;
-  persistAppliedOperation(
-    input: PersistAppliedOperationInput,
-  ): Promise<SyncChange>;
-  persistConflict(input: PersistConflictInput): Promise<SyncChange>;
-  listChanges(
-    ownerId: string,
-    afterCursor: string,
-    limit: number,
-  ): Promise<SyncChange[]>;
-  getLatestCursor(ownerId: string): Promise<string>;
-}
+import type {
+  DeviceRecord,
+  PersistAppliedOperationInput,
+  PersistConflictInput,
+  StoredSyncOperation,
+  SyncRepository,
+} from "@uw/sync";
 
 interface DeviceRow extends QueryResultRow {
   id: string;
@@ -303,6 +245,17 @@ export function createPostgresSyncRepository(pool: Pool): SyncRepository {
       const row = result.rows[0];
       if (!row) throw new Error("Device ID belongs to another owner");
       return mapDevice(row);
+    },
+
+    async listDevices(ownerId) {
+      const result = await pool.query<DeviceRow>(
+        `select id, owner_id, name, created_at, last_seen_at, revoked_at
+           from sync_devices
+          where owner_id = $1
+          order by created_at asc, id asc`,
+        [ownerId],
+      );
+      return result.rows.map(mapDevice);
     },
 
     async getDevice(ownerId, deviceId) {

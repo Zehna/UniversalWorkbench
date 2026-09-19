@@ -35,6 +35,15 @@ export function mapDomainError(error: unknown): unknown {
     case "DocumentNotFoundError":
     case "ArtifactNotFoundError":
       return new HttpError(404, "NOT_FOUND", "Resource not found");
+    case "SyncDeviceRejectedError":
+      return new HttpError(
+        403,
+        "SYNC_DEVICE_REJECTED",
+        "Sync device is not active",
+      );
+    case "SyncBatchLimitError":
+    case "SyncOperationInvalidError":
+      return new HttpError(400, "BAD_REQUEST", "Invalid sync operation");
     case "RevisionConflictError": {
       const currentRevisionId = (
         error as Error & {

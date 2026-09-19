@@ -1,0 +1,44 @@
+name: Normalize Phase 2 Task 5 GREEN
+
+on:
+  push:
+    branches:
+      - phase-2-local-first-sync
+
+permissions:
+  contents: write
+
+jobs:
+  normalize-green:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-2-local-first-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm install --package-lock-only --ignore-scripts
+      - run: >-
+          npx prettier --write
+          packages/sync/src/index.ts
+          packages/sync/src/repository.ts
+          packages/sync/src/service.ts
+          packages/sync/test/service.test.ts
+          packages/sync/package.json
+          packages/database/src/repositories/sync.ts
+          packages/database/package.json
+          apps/server/src/app.ts
+          apps/server/src/middleware/validate.ts
+          apps/server/src/routes/sync.ts
+          apps/server/test/sync-http.integration.test.ts
+          apps/server/package.json
+      - name: Commit normalized files and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json packages/sync packages/database apps/server
+          git rm .github/workflows/normalize-phase2-task5-green.yml
+          git commit -m "chore: normalize phase 2 task 5 implementation"
+          git push origin HEAD:phase-2-local-first-sync
