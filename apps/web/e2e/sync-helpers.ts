@@ -16,16 +16,25 @@ export async function loginOrSetup(page: Page): Promise<void> {
   const createOwner = page.getByRole("heading", { name: /create owner/i });
   const signIn = page.getByRole("heading", { name: /sign in/i });
 
-  if (await createOwner.isVisible().catch(() => false)) {
-    await page.getByLabel(/username/i).fill(E2E_OWNER.username);
-    await page.getByLabel(/^password$/i).fill(E2E_OWNER.password);
-    await page.getByRole("button", { name: /create owner/i }).click();
-  } else {
-    await expect(signIn).toBeVisible();
-    await page.getByLabel(/username/i).fill(E2E_OWNER.username);
-    await page.getByLabel(/^password$/i).fill(E2E_OWNER.password);
-    await page.getByRole("button", { name: /sign in/i }).click();
-  }
+  const mode = await expect
+    .poll(async () => {
+      if (await createOwner.isVisible()) return "setup";
+      if (await signIn.isVisible()) return "login";
+      return "pending";
+    })
+    .not.toBe("pending")
+    .then(async () => {
+      if (await createOwner.isVisible()) return "setup" as const;
+      return "login" as const;
+    });
+
+  await page.getByLabel(/username/i).fill(E2E_OWNER.username);
+  await page.getByLabel(/^password$/i).fill(E2E_OWNER.password);
+  await page
+    .getByRole("button", {
+      name: mode === "setup" ? /create owner/i : /sign in/i,
+    })
+    .click();
 
   await expect(page.getByRole("heading", { name: /projects/i })).toBeVisible();
 }
