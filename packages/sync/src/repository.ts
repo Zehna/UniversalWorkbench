@@ -1,8 +1,4 @@
-import type {
-  SyncChange,
-  SyncEntityType,
-  SyncOperation,
-} from "@uw/contracts";
+import type { SyncChange, SyncEntityType, SyncOperation } from "@uw/contracts";
 
 export interface DeviceRecord {
   id: string;

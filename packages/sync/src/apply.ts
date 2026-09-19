@@ -1,8 +1,5 @@
 import type { SyncOperation } from "@uw/contracts";
-import {
-  executeAction,
-  type AuditRepository,
-} from "@uw/core";
+import { executeAction, type AuditRepository } from "@uw/core";
 import type { Clock, IdGenerator } from "@uw/shared";
 import {
   createConflictPayload,
