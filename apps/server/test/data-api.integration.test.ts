@@ -67,6 +67,11 @@ function createDeps(authenticated = true) {
     listNotes: vi.fn().mockResolvedValue([document]),
     getNote: vi.fn().mockResolvedValue({ document, revision }),
     listRevisions: vi.fn().mockResolvedValue([revision]),
+    createWorkflow: vi.fn(),
+    updateWorkflow: vi.fn(),
+    listWorkflows: vi.fn().mockResolvedValue([]),
+    getWorkflow: vi.fn(),
+    assertCanonicalWorkflowRevision: vi.fn(),
   } satisfies DocumentService;
 
   const artifact = {
