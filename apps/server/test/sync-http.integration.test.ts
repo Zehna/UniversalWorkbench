@@ -46,6 +46,7 @@ function createDeps(authenticated = true) {
     listDevices: vi.fn().mockResolvedValue([]),
     revokeDevice: vi.fn().mockResolvedValue(undefined),
     listChanges: vi.fn().mockResolvedValue([]),
+    getLatestCursor: vi.fn().mockResolvedValue("0"),
     pushOperations: vi.fn().mockResolvedValue([
       {
         operationId: op().id,
