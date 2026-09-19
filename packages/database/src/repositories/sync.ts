@@ -1,10 +1,15 @@
-import type { SyncChange, SyncOperation } from "@uw/contracts";
+import type {
+  SyncChange,
+  SyncEntityType,
+  SyncOperation,
+} from "@uw/contracts";
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 
 import type {
   DeviceRecord,
   StoredSyncOperation,
   SyncRepository,
+  SyncTombstoneRecord,
 } from "@uw/sync";
 
 interface DeviceRow extends QueryResultRow {
@@ -282,6 +287,24 @@ export function createPostgresSyncRepository(pool: Pool): SyncRepository {
           where owner_id = $1 and id = $2`,
         [ownerId, deviceId, now],
       );
+    },
+
+    findChange(ownerId, operationId) {
+      return findChange(pool, ownerId, operationId);
+    },
+
+    async findTombstone(ownerId, entityType, entityId) {
+      const result = await pool.query<{ cursor: string }>(
+        `select cursor::text as cursor
+           from sync_tombstones
+          where owner_id = $1
+            and entity_type = $2
+            and entity_id = $3
+          limit 1`,
+        [ownerId, entityType, entityId],
+      );
+      const row = result.rows[0];
+      return row ? ({ cursor: row.cursor } satisfies SyncTombstoneRecord) : null;
     },
 
     async findOperation(ownerId, operationId) {

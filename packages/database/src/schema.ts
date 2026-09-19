@@ -57,6 +57,10 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   description: text("description"),
   schemaVersion: integer("schema_version").notNull().default(1),
+  syncRevision: bigint("sync_revision", { mode: "bigint" })
+    .notNull()
+    .default(0n),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -75,6 +79,7 @@ export const documents = pgTable("documents", {
   currentRevisionId: uuid("current_revision_id").references(
     (): AnyPgColumn => documentRevisions.id,
   ),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -1,14 +1,21 @@
+import { randomUUID } from "node:crypto";
 import type {
   CreateNoteRecordInput,
   DocumentRepository,
   UpdateNoteRecordInput,
   UpdateNoteRecordResult,
 } from "@uw/documents";
-import type {
-  DocumentRevision,
-  NoteDocument,
-  NoteDocumentView,
+import {
+  CreateNoteRequestSchema,
+  type DocumentRevision,
+  type NoteDocument,
+  type NoteDocumentView,
+  type SyncOperation,
 } from "@uw/contracts";
+import type {
+  SyncDocumentStore,
+  SyncEntityApplyResult,
+} from "@uw/sync";
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 
 interface NoteRow extends QueryResultRow {
@@ -121,6 +128,7 @@ export function createPostgresDocumentRepository(
            from projects
           where id = $1
             and owner_id = $2
+            and deleted_at is null
           limit 1`,
         [projectId, ownerId],
       );
@@ -137,6 +145,7 @@ export function createPostgresDocumentRepository(
              from projects
             where id = $1
               and owner_id = $2
+              and deleted_at is null
             limit 1`,
           [input.projectId, input.ownerId],
         );
@@ -228,7 +237,9 @@ export function createPostgresDocumentRepository(
          from documents d
          join projects p on p.id = d.project_id
         where p.owner_id = $1
+          and p.deleted_at is null
           and d.project_id = $2
+          and d.deleted_at is null
           and d.kind = 'note'
           and d.current_revision_id is not null
         order by d.created_at, d.id`,
@@ -257,8 +268,10 @@ export function createPostgresDocumentRepository(
          join projects p on p.id = d.project_id
          join document_revisions r on r.id = d.current_revision_id
         where p.owner_id = $1
+          and p.deleted_at is null
           and d.project_id = $2
           and d.id = $3
+          and d.deleted_at is null
           and d.kind = 'note'
         limit 1`,
         [ownerId, projectId, documentId],
@@ -281,8 +294,10 @@ export function createPostgresDocumentRepository(
          join documents d on d.id = r.document_id
          join projects p on p.id = d.project_id
         where p.owner_id = $1
+          and p.deleted_at is null
           and d.project_id = $2
           and d.id = $3
+          and d.deleted_at is null
           and d.kind = 'note'
         order by r.revision_number`,
         [ownerId, projectId, documentId],
@@ -310,8 +325,10 @@ export function createPostgresDocumentRepository(
            join projects p on p.id = d.project_id
            join document_revisions r on r.id = d.current_revision_id
           where p.owner_id = $1
+            and p.deleted_at is null
             and d.project_id = $2
             and d.id = $3
+            and d.deleted_at is null
             and d.kind = 'note'
           for update of d`,
           [input.ownerId, input.projectId, input.documentId],
@@ -385,6 +402,318 @@ export function createPostgresDocumentRepository(
               createdAt: input.updatedAt.toISOString(),
             },
           },
+        };
+      } catch (error) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+  };
+}
+
+
+interface SyncLockedDocumentRow extends QueryResultRow {
+  id: string;
+  project_id: string;
+  title: string;
+  current_revision_id: string | null;
+  created_at: Date;
+  deleted_at: Date | null;
+  revision_number: number | null;
+  content: { body?: unknown } | null;
+}
+
+function syncDocumentConflict(
+  current: SyncLockedDocumentRow | null,
+): SyncEntityApplyResult {
+  if (!current) {
+    return {
+      status: "conflict",
+      currentRevision: null,
+      current: { missing: true },
+    };
+  }
+  if (current.deleted_at) {
+    return {
+      status: "conflict",
+      currentRevision: current.current_revision_id,
+      current: { deleted: true },
+    };
+  }
+  return {
+    status: "conflict",
+    currentRevision: current.current_revision_id,
+    current: {
+      id: current.id,
+      title: current.title,
+      body:
+        current.content && typeof current.content.body === "string"
+          ? current.content.body
+          : "",
+      currentRevisionId: current.current_revision_id,
+    },
+  };
+}
+
+async function lockSyncDocument(
+  client: PoolClient,
+  ownerId: string,
+  projectId: string,
+  documentId: string,
+): Promise<SyncLockedDocumentRow | null> {
+  const result = await client.query<SyncLockedDocumentRow>(
+    `select
+       d.id,
+       d.project_id,
+       d.title,
+       d.current_revision_id,
+       d.created_at,
+       d.deleted_at,
+       r.revision_number,
+       r.content
+     from documents d
+     join projects p on p.id = d.project_id
+     left join document_revisions r on r.id = d.current_revision_id
+    where p.owner_id = $1
+      and p.deleted_at is null
+      and d.project_id = $2
+      and d.id = $3
+      and d.kind = 'note'
+    for update of d`,
+    [ownerId, projectId, documentId],
+  );
+  return result.rows[0] ?? null;
+}
+
+function noteViewFromSyncInput(input: {
+  documentId: string;
+  projectId: string;
+  title: string;
+  body: string;
+  revisionId: string;
+  revisionNumber: number;
+  parentRevisionId: string | null;
+  createdAt: Date;
+  documentCreatedAt: Date;
+}): NoteDocumentView {
+  return {
+    document: {
+      id: input.documentId,
+      projectId: input.projectId,
+      kind: "note",
+      title: input.title,
+      currentRevisionId: input.revisionId,
+      createdAt: input.documentCreatedAt.toISOString(),
+      updatedAt: input.createdAt.toISOString(),
+    },
+    revision: {
+      id: input.revisionId,
+      documentId: input.documentId,
+      revisionNumber: input.revisionNumber,
+      parentRevisionId: input.parentRevisionId,
+      content: { body: input.body },
+      metadata: {},
+      createdAt: input.createdAt.toISOString(),
+    },
+  };
+}
+
+export function createPostgresSyncDocumentStore(pool: Pool): SyncDocumentStore {
+  return {
+    async apply(ownerId, operation: SyncOperation) {
+      if (
+        operation.entityType !== "document" ||
+        !operation.action.startsWith("document.")
+      ) {
+        throw new Error("Document sync store received a non-document operation");
+      }
+
+      const projectId = operation.projectId;
+      if (!projectId) {
+        return {
+          status: "conflict",
+          currentRevision: null,
+          current: { missing: true },
+        };
+      }
+
+      const client = await pool.connect();
+      try {
+        await client.query("begin");
+
+        if (operation.action === "document.create") {
+          const input = CreateNoteRequestSchema.parse(operation.payload);
+          const project = await client.query(
+            `select 1
+               from projects
+              where id = $1
+                and owner_id = $2
+                and deleted_at is null
+              limit 1`,
+            [projectId, ownerId],
+          );
+          if (project.rowCount !== 1) {
+            await client.query("rollback");
+            return {
+              status: "conflict",
+              currentRevision: null,
+              current: { missing: true },
+            };
+          }
+
+          const existing = await client.query<SyncLockedDocumentRow>(
+            `select
+               d.id,
+               d.project_id,
+               d.title,
+               d.current_revision_id,
+               d.created_at,
+               d.deleted_at,
+               r.revision_number,
+               r.content
+             from documents d
+             left join document_revisions r on r.id = d.current_revision_id
+            where d.id = $1
+            limit 1`,
+            [operation.entityId],
+          );
+          if (existing.rows[0]) {
+            await client.query("rollback");
+            return syncDocumentConflict(existing.rows[0]);
+          }
+
+          const revisionId = randomUUID();
+          const createdAt = new Date(operation.createdAt);
+          await client.query(
+            `insert into documents (
+               id, project_id, kind, title, current_revision_id,
+               deleted_at, created_at, updated_at
+             ) values ($1,$2,'note',$3,null,null,$4,$4)`,
+            [operation.entityId, projectId, input.title, createdAt],
+          );
+          await client.query(
+            `insert into document_revisions (
+               id, document_id, revision_number, parent_revision_id,
+               content, metadata, created_at
+             ) values ($1,$2,1,null,$3,$4,$5)`,
+            [
+              revisionId,
+              operation.entityId,
+              { body: input.body },
+              {},
+              createdAt,
+            ],
+          );
+          await client.query(
+            `update documents
+                set current_revision_id = $1
+              where id = $2`,
+            [revisionId, operation.entityId],
+          );
+          await client.query("commit");
+
+          const note = noteViewFromSyncInput({
+            documentId: operation.entityId,
+            projectId,
+            title: input.title,
+            body: input.body,
+            revisionId,
+            revisionNumber: 1,
+            parentRevisionId: null,
+            createdAt,
+            documentCreatedAt: createdAt,
+          });
+          return {
+            status: "applied",
+            kind: "upsert",
+            revision: revisionId,
+            payload: { note },
+          };
+        }
+
+        const current = await lockSyncDocument(
+          client,
+          ownerId,
+          projectId,
+          operation.entityId,
+        );
+        if (
+          !current ||
+          current.deleted_at ||
+          current.current_revision_id !== operation.baseRevision
+        ) {
+          await client.query("rollback");
+          return syncDocumentConflict(current);
+        }
+
+        if (operation.action === "document.delete") {
+          await client.query(
+            `update documents
+                set deleted_at = now(),
+                    updated_at = now()
+              where id = $1`,
+            [operation.entityId],
+          );
+          await client.query("commit");
+          return {
+            status: "applied",
+            kind: "tombstone",
+            revision: null,
+            payload: {
+              id: operation.entityId,
+              projectId,
+              deleted: true,
+            },
+          };
+        }
+
+        const input = CreateNoteRequestSchema.parse(operation.payload);
+        const revisionId = randomUUID();
+        const updatedAt = new Date();
+        const revisionNumber = (current.revision_number ?? 0) + 1;
+        await client.query(
+          `insert into document_revisions (
+             id, document_id, revision_number, parent_revision_id,
+             content, metadata, created_at
+           ) values ($1,$2,$3,$4,$5,$6,$7)`,
+          [
+            revisionId,
+            operation.entityId,
+            revisionNumber,
+            current.current_revision_id,
+            { body: input.body },
+            {},
+            updatedAt,
+          ],
+        );
+        await client.query(
+          `update documents
+              set title = $1,
+                  current_revision_id = $2,
+                  updated_at = $3
+            where id = $4`,
+          [input.title, revisionId, updatedAt, operation.entityId],
+        );
+        await client.query("commit");
+
+        const note = noteViewFromSyncInput({
+          documentId: operation.entityId,
+          projectId,
+          title: input.title,
+          body: input.body,
+          revisionId,
+          revisionNumber,
+          parentRevisionId: current.current_revision_id,
+          createdAt: updatedAt,
+          documentCreatedAt: current.created_at,
+        });
+        return {
+          status: "applied",
+          kind: "upsert",
+          revision: revisionId,
+          payload: { note },
         };
       } catch (error) {
         await rollback(client);
