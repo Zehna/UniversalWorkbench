@@ -44,7 +44,9 @@ export function buildWorkflowPlan(
 
   return {
     order,
-    roots: nodeIds.filter((nodeId) => (dependencies[nodeId]?.length ?? 0) === 0),
+    roots: nodeIds.filter(
+      (nodeId) => (dependencies[nodeId]?.length ?? 0) === 0,
+    ),
     terminals: nodeIds.filter(
       (nodeId) => (dependents[nodeId]?.length ?? 0) === 0,
     ),

@@ -6,9 +6,7 @@ import type {
   WorkflowNode,
 } from "@uw/contracts";
 import { ToolNotFoundError, ToolRegistry } from "@uw/tools";
-import type {
-  WorkflowValidationError,
-} from "./errors.js";
+import type { WorkflowValidationError } from "./errors.js";
 import type { WorkflowValidationResult } from "./model.js";
 import { buildWorkflowPlan } from "./planner.js";
 

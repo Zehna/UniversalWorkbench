@@ -10,7 +10,6 @@ export interface WorkflowPlan {
 }
 
 export type WorkflowValidationResult =
-  | { ok: true; errors: [] }
-  | { ok: false; errors: WorkflowValidationError[] };
+  { ok: true; errors: [] } | { ok: false; errors: WorkflowValidationError[] };
 
 export type WorkflowDefinition = WorkflowDefinitionV1;
