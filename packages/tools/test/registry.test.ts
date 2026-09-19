@@ -60,14 +60,8 @@ describe("ToolRegistry", () => {
     const runnerV1 = runner("v1");
     const runnerV2 = runner("v2");
 
-    registry.register(
-      definition("builtin.text.template", "1"),
-      runnerV1,
-    );
-    registry.register(
-      definition("builtin.text.template", "2"),
-      runnerV2,
-    );
+    registry.register(definition("builtin.text.template", "1"), runnerV1);
+    registry.register(definition("builtin.text.template", "2"), runnerV2);
 
     expect(registry.resolve("builtin.text.template", "1").runner).toBe(
       runnerV1,
@@ -134,10 +128,7 @@ describe("ToolRegistry", () => {
     const v1 = definition("builtin.http.request", "1", ["text"]);
     v1.requiredCapabilities = ["network.public"];
     const v2 = definition("builtin.http.request", "2", ["text"]);
-    v2.requiredCapabilities = [
-      "network.public",
-      "project.artifacts.write",
-    ];
+    v2.requiredCapabilities = ["network.public", "project.artifacts.write"];
 
     registry.register(v1, runner("v1"));
     registry.register(v2, runner("v2"));

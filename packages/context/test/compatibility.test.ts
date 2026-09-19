@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ToolInputPort } from "@uw/contracts";
-import {
-  ContextCompatibilityRegistry,
-  acceptsContext,
-} from "../src/index.js";
+import { ContextCompatibilityRegistry, acceptsContext } from "../src/index.js";
 
 function port(types: ToolInputPort["types"]): ToolInputPort {
   return {
