@@ -367,6 +367,46 @@ describe("browser sync coordinator", () => {
     await coordinator.stop();
   });
 
+  it("ignores conflict records that belong to another device operation", async () => {
+    const store = new MemoryStore();
+    const coordinator = createSyncCoordinator({
+      ownerId: OWNER_ID,
+      store,
+      client: network(),
+    });
+    await coordinator.start();
+
+    await coordinator.handleServerMessage({
+      type: "CONFLICT",
+      operationId: "88888888-8888-4888-8888-888888888888",
+      change: {
+        cursor: "9",
+        operationId: "88888888-8888-4888-8888-888888888888",
+        entityType: "document",
+        entityId: DOCUMENT_ID,
+        kind: "conflict",
+        revision: REVISION_ID,
+        payload: {
+          current: {
+            title: "Foreign",
+            body: "other device",
+            currentRevisionId: REVISION_ID,
+          },
+        },
+        createdAt: NOW,
+      },
+    });
+
+    expect(await store.listConflicts()).toEqual([]);
+    expect(await store.getCursor()).toBe("9");
+    expect(coordinator.status()).toMatchObject({
+      state: "synced",
+      cursor: "9",
+    });
+
+    await coordinator.stop();
+  });
+
   it("drains pending operations sequentially in local creation order", async () => {
     const store = new MemoryStore();
     const client = network();

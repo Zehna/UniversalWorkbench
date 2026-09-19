@@ -155,6 +155,17 @@ export function createSyncCoordinator(
     const cursor = await store.getCursor();
     if (!cursorAfter(change.cursor, cursor)) return;
 
+    if (change.kind === "conflict") {
+      const pending = await store.listPendingOperations(500);
+      const belongsToThisDevice = pending.some(
+        (operation) => operation.id === change.operationId,
+      );
+      if (!belongsToThisDevice) {
+        await store.setCursor(change.cursor);
+        return;
+      }
+    }
+
     if (change.kind !== "conflict" && (await hasPendingForChange(change))) {
       await store.setCursor(change.cursor);
       return;
