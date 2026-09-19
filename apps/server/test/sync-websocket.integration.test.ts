@@ -178,7 +178,11 @@ function nextJsonMessages(
       cleanupListeners();
       reject(error);
     };
-    const onMessage = (data: Parameters<WebSocket["on"]>[1] extends (...args: infer A) => unknown ? A[0] : never) => {
+    const onMessage = (
+      data: Parameters<WebSocket["on"]>[1] extends (...args: infer A) => unknown
+        ? A[0]
+        : never,
+    ) => {
       try {
         messages.push(JSON.parse(data.toString()) as Record<string, unknown>);
         if (messages.length === count) {
