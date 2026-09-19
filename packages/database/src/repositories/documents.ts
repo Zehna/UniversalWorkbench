@@ -17,7 +17,6 @@ import {
   type SyncOperation,
   type WorkflowDefinitionV1,
   type WorkflowDocument,
-  type WorkflowDocumentRevision,
   type WorkflowDocumentView,
 } from "@uw/contracts";
 import type { SyncDocumentStore, SyncEntityApplyResult } from "@uw/sync";

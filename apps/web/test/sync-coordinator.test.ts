@@ -6,6 +6,7 @@ import type {
   SyncChange,
   SyncOperation,
   UpdateNoteRequest,
+  WorkflowDocumentView,
 } from "@uw/contracts";
 import type {
   LocalConflictRecord,
@@ -73,10 +74,7 @@ class MemoryStore implements LocalStore {
   private cursor = "0";
   private projects = new Map<string, Project>();
   private notes = new Map<string, NoteDocumentView>();
-  private workflows = new Map<
-    string,
-    import("@uw/contracts").WorkflowDocumentView
-  >();
+  private workflows = new Map<string, WorkflowDocumentView>();
   private pending = new Map<string, SyncOperation>();
   private conflicts = new Map<string, LocalConflictRecord>();
 
