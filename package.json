@@ -19,7 +19,8 @@
     "build": "npm run build -w @uw/contracts && npm run build -w @uw/shared && npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/context && npm run build -w @uw/tools && npm run build -w @uw/execution && npm run build -w @uw/workflow && npm run build -w @uw/sync && npm run build -w @uw/documents && npm run build -w @uw/storage && npm run build -w @uw/artifacts && npm run build -w @uw/database && npm run build -w @uw/server && npm run build -w @uw/web",
     "test:e2e:local": "playwright test apps/web/e2e/local-opfs.spec.ts --project=chromium",
     "e2e:sync": "playwright test apps/web/e2e/sync-*.spec.ts --project=chromium --workers=1",
-    "verify:worker-mode": "npm run build -w @uw/server && npm run migrate -w @uw/database && node scripts/verify-worker-mode.mjs"
+    "verify:worker-mode": "npm run build -w @uw/server && npm run migrate -w @uw/database && node scripts/verify-worker-mode.mjs",
+    "e2e:workflow": "playwright test apps/web/e2e/workflow-golden.spec.ts --project=chromium --workers=1"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
