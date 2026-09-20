@@ -17,28 +17,14 @@ export interface NoteDocumentWriter {
   createNote(
     ownerId: string,
     projectId: string,
-    input: { title: string; body: string },
+    input: {
+      documentId: string;
+      revisionId: string;
+      title: string;
+      body: string;
+    },
     traceId: string,
   ): Promise<NoteDocumentView>;
-}
-
-export interface ExistingNoteReader {
-  getNote(
-    ownerId: string,
-    projectId: string,
-    documentId: string,
-  ): Promise<NoteDocumentView>;
-}
-
-export interface NoteWriteSideEffectStore {
-  get(stepExecutionId: string): Promise<{ targetId: string } | null>;
-  reserve(
-    stepExecutionId: string,
-  ): Promise<
-    | { status: "reserved" }
-    | { status: "existing"; targetId: string }
-  >;
-  complete(stepExecutionId: string, targetId: string): Promise<void>;
 }
 
 export interface NoteContextIdGenerator {
@@ -47,8 +33,6 @@ export interface NoteContextIdGenerator {
 
 export interface CreateNoteWriteToolOptions {
   documents: NoteDocumentWriter;
-  sideEffects: NoteWriteSideEffectStore;
-  existingNotes?: ExistingNoteReader;
   contextIds: NoteContextIdGenerator;
 }
 
@@ -86,6 +70,34 @@ function validation(message: string): ToolExecutionError {
   });
 }
 
+function assertStepUuid(stepExecutionId: string): void {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      stepExecutionId,
+    )
+  ) {
+    throw new ToolExecutionError({
+      code: "TOOL_BUG",
+      message: "Note write step identity is not a UUID",
+      retrySafe: false,
+    });
+  }
+}
+
+export function noteIdentityForStep(stepExecutionId: string): {
+  documentId: string;
+  revisionId: string;
+} {
+  assertStepUuid(stepExecutionId);
+  const first = Number.parseInt(stepExecutionId[0]!, 16);
+  const revisionId =
+    ((first + 8) % 16).toString(16) + stepExecutionId.slice(1);
+  return {
+    documentId: stepExecutionId,
+    revisionId,
+  };
+}
+
 function noteRef(
   context: Parameters<ToolRunner["run"]>[0],
   input: ContextEnvelope,
@@ -114,42 +126,15 @@ function noteRef(
   };
 }
 
-async function loadExisting(
-  options: CreateNoteWriteToolOptions,
-  context: Parameters<ToolRunner["run"]>[0],
-  input: ContextEnvelope,
-  targetId: string,
-): Promise<Awaited<ReturnType<ToolRunner["run"]>>> {
-  if (!options.existingNotes) {
-    throw new ToolExecutionError({
-      code: "TOOL_BUG",
-      message: "Note idempotency reader is not configured",
-      retrySafe: false,
-    });
-  }
-  const note = await options.existingNotes.getNote(
-    context.ownerId,
-    context.projectId,
-    targetId,
-  );
-  const output = noteRef(context, input, note, options.contextIds.next());
-  return {
-    outputs: { note: output },
-    usage: {
-      outputBytes: new TextEncoder().encode(JSON.stringify(output.payload))
-        .byteLength,
-      httpRequests: 0,
-    },
-  };
-}
-
 export function createNoteWriteTool(
   options: CreateNoteWriteToolOptions,
 ): ToolRunner {
   return {
     async run(context) {
       const parsed = NoteWriteConfigSchema.safeParse(context.config);
-      if (!parsed.success) throw validation("Note write configuration is invalid");
+      if (!parsed.success) {
+        throw validation("Note write configuration is invalid");
+      }
 
       const input = context.inputs.input;
       if (
@@ -160,30 +145,16 @@ export function createNoteWriteTool(
         throw validation("Note write requires text or markdown input");
       }
 
-      const existing = await options.sideEffects.get(context.stepExecutionId);
-      if (existing) {
-        return loadExisting(options, context, input, existing.targetId);
-      }
-
-      const reservation = await options.sideEffects.reserve(
-        context.stepExecutionId,
-      );
-      if (reservation.status === "existing") {
-        return loadExisting(options, context, input, reservation.targetId);
-      }
-
+      const identity = noteIdentityForStep(context.stepExecutionId);
       const note = await options.documents.createNote(
         context.ownerId,
         context.projectId,
         {
+          ...identity,
           title: parsed.data.title,
           body: input.payload,
         },
         context.traceId,
-      );
-      await options.sideEffects.complete(
-        context.stepExecutionId,
-        note.document.id,
       );
 
       const output = noteRef(context, input, note, options.contextIds.next());

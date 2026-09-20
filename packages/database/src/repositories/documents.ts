@@ -178,6 +178,67 @@ function mapWorkflowView(row: WorkflowRow): WorkflowDocumentView {
   };
 }
 
+async function findOwnedNote(
+  db: Pool | PoolClient,
+  ownerId: string,
+  projectId: string,
+  documentId: string,
+): Promise<NoteDocumentView | null> {
+  const result = await db.query<NoteRow>(
+    `select
+       d.id as document_id,
+       d.project_id,
+       d.kind,
+       d.title,
+       d.current_revision_id,
+       d.created_at as document_created_at,
+       d.updated_at as document_updated_at,
+       r.id as revision_id,
+       r.revision_number,
+       r.parent_revision_id,
+       r.content,
+       r.metadata,
+       r.created_at as revision_created_at
+     from documents d
+     join projects p on p.id = d.project_id
+     join document_revisions r on r.id = d.current_revision_id
+    where p.owner_id = $1
+      and p.deleted_at is null
+      and d.project_id = $2
+      and d.id = $3
+      and d.deleted_at is null
+      and d.kind = 'note'
+    limit 1`,
+    [ownerId, projectId, documentId],
+  );
+  const row = result.rows[0];
+  return row ? mapView(row) : null;
+}
+
+function sameCreatedNote(
+  value: NoteDocumentView,
+  input: CreateNoteRecordInput,
+): boolean {
+  return (
+    value.document.id === input.documentId &&
+    value.document.projectId === input.projectId &&
+    value.document.title === input.title &&
+    value.revision.id === input.revisionId &&
+    value.revision.documentId === input.documentId &&
+    value.revision.revisionNumber === 1 &&
+    value.revision.content.body === input.body
+  );
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "23505"
+  );
+}
+
 async function rollback(client: PoolClient) {
   try {
     await client.query("rollback");
@@ -207,6 +268,20 @@ export function createPostgresDocumentRepository(
       const client = await pool.connect();
       try {
         await client.query("begin");
+
+        const existing = await findOwnedNote(
+          client,
+          input.ownerId,
+          input.projectId,
+          input.documentId,
+        );
+        if (existing) {
+          await client.query("rollback");
+          if (!sameCreatedNote(existing, input)) {
+            throw new Error("Document identity collision");
+          }
+          return existing;
+        }
 
         const project = await client.query(
           `select 1
@@ -286,6 +361,17 @@ export function createPostgresDocumentRepository(
         };
       } catch (error) {
         await rollback(client);
+        if (isUniqueViolation(error)) {
+          const existing = await findOwnedNote(
+            client,
+            input.ownerId,
+            input.projectId,
+            input.documentId,
+          );
+          if (existing && sameCreatedNote(existing, input)) {
+            return existing;
+          }
+        }
         throw error;
       } finally {
         client.release();
@@ -407,36 +493,8 @@ export function createPostgresDocumentRepository(
       return result.rows.map(mapWorkflowDocument);
     },
 
-    async getNote(ownerId, projectId, documentId) {
-      const result = await pool.query<NoteRow>(
-        `select
-           d.id as document_id,
-           d.project_id,
-           d.kind,
-           d.title,
-           d.current_revision_id,
-           d.created_at as document_created_at,
-           d.updated_at as document_updated_at,
-           r.id as revision_id,
-           r.revision_number,
-           r.parent_revision_id,
-           r.content,
-           r.metadata,
-           r.created_at as revision_created_at
-         from documents d
-         join projects p on p.id = d.project_id
-         join document_revisions r on r.id = d.current_revision_id
-        where p.owner_id = $1
-          and p.deleted_at is null
-          and d.project_id = $2
-          and d.id = $3
-          and d.deleted_at is null
-          and d.kind = 'note'
-        limit 1`,
-        [ownerId, projectId, documentId],
-      );
-      const row = result.rows[0];
-      return row ? mapView(row) : null;
+    getNote(ownerId, projectId, documentId) {
+      return findOwnedNote(pool, ownerId, projectId, documentId);
     },
 
     async getWorkflow(ownerId, projectId, documentId) {
