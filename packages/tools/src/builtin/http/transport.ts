@@ -284,8 +284,15 @@ export class SafeHttpTransport implements SafeHttpTransportLike {
     maxResponseBytes: number,
     redirects: number,
   ): Promise<SafeHttpTransportResult> {
+    if (signal.aborted) {
+      throw signal.reason ?? new DOMException("aborted", "AbortError");
+    }
+
     const url = this.#policy.validateUrl(input.url);
     const addresses = await this.#resolver.resolvePublic(url.hostname);
+    if (signal.aborted) {
+      throw signal.reason ?? new DOMException("aborted", "AbortError");
+    }
     const resolvedAddress = addresses[0]!;
     const response = await this.#connector.request({
       url,
@@ -308,7 +315,17 @@ export class SafeHttpTransport implements SafeHttpTransportLike {
         });
       }
 
-      const next = new URL(location, url);
+      let next: URL;
+      try {
+        next = new URL(location, url);
+      } catch {
+        throw new ToolExecutionError({
+          code: "UPSTREAM_4XX",
+          message: "HTTP upstream returned an invalid redirect URL",
+          method: input.method,
+          retrySafe: false,
+        });
+      }
       const nextMethod = response.status === 303 ? "GET" : input.method;
       const nextHeaders = { ...input.headers };
       if (nextMethod === "GET" && input.method !== "GET") {
