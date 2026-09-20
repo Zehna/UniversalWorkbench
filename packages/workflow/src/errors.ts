@@ -21,3 +21,14 @@ export class WorkflowBindingError extends Error {
     this.name = "WorkflowBindingError";
   }
 }
+
+export class WorkflowPreflightError extends Error {
+  constructor(readonly errors: WorkflowValidationError[]) {
+    super(
+      errors.length === 0
+        ? "Workflow preflight failed"
+        : errors.map((error) => error.message).join("; "),
+    );
+    this.name = "WorkflowPreflightError";
+  }
+}

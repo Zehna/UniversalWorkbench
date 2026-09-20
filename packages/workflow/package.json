@@ -10,13 +10,14 @@
     }
   },
   "scripts": {
-    "pretest": "npm run build -w @uw/tools",
+    "pretest": "npm run build -w @uw/execution && npm run build -w @uw/tools",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "npm run build -w @uw/tools && tsc --noEmit",
-    "build": "npm run build -w @uw/tools && tsup src/index.ts --format esm --dts --clean"
+    "typecheck": "npm run build -w @uw/execution && npm run build -w @uw/tools && tsc --noEmit",
+    "build": "npm run build -w @uw/execution && npm run build -w @uw/tools && tsup src/index.ts --format esm --dts --clean"
   },
   "dependencies": {
     "@uw/contracts": "*",
-    "@uw/tools": "*"
+    "@uw/tools": "*",
+    "@uw/execution": "*"
   }
 }

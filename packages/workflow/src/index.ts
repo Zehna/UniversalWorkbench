@@ -16,3 +16,4 @@ export * from "./errors.js";
 export * from "./model.js";
 export * from "./planner.js";
 export * from "./validate.js";
+export * from "./service.js";
