@@ -32,3 +32,4 @@ export * from "./engine.js";
 export * from "./retry.js";
 export * from "./worker.js";
 export * from "./output.js";
+export * from "./tool-service.js";

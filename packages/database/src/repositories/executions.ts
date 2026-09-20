@@ -275,3 +275,19 @@ export function createPostgresExecutionRepository(
     },
   };
 }
+
+export async function listPostgresExecutionsByProject(
+  pool: Pool,
+  ownerId: string,
+  projectId: string,
+): Promise<Execution[]> {
+  const result = await pool.query<ExecutionRow>(
+    `select ${EXECUTION_COLUMNS}
+       from executions
+      where owner_id = $1
+        and project_id = $2
+      order by queued_at desc, id desc`,
+    [ownerId, projectId],
+  );
+  return result.rows.map(mapExecution);
+}

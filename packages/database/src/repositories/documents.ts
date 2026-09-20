@@ -11,6 +11,7 @@ import type {
 import {
   CreateNoteRequestSchema,
   CreateWorkflowRequestSchema,
+  WorkflowContentSchema,
   type DocumentRevision,
   type NoteDocument,
   type NoteDocumentView,
@@ -1182,6 +1183,40 @@ export function createPostgresSyncDocumentStore(pool: Pool): SyncDocumentStore {
       } finally {
         client.release();
       }
+    },
+  };
+}
+
+interface PinnedWorkflowRevisionRow extends QueryResultRow {
+  content: unknown;
+}
+
+export function createPostgresPinnedWorkflowRevisionLoader(pool: Pool) {
+  return {
+    async loadPinnedRevision(input: {
+      ownerId: string;
+      projectId: string;
+      workflowRevisionId: string;
+    }): Promise<WorkflowDefinitionV1> {
+      const result = await pool.query<PinnedWorkflowRevisionRow>(
+        `select r.content
+           from document_revisions r
+           join documents d on d.id = r.document_id
+           join projects p on p.id = d.project_id
+          where p.owner_id = $1
+            and p.deleted_at is null
+            and d.project_id = $2
+            and d.deleted_at is null
+            and d.kind = 'workflow'
+            and r.id = $3
+          limit 1`,
+        [input.ownerId, input.projectId, input.workflowRevisionId],
+      );
+      const row = result.rows[0];
+      if (!row) {
+        throw new Error("Pinned workflow revision was not found");
+      }
+      return structuredClone(WorkflowContentSchema.parse(row.content).workflow);
     },
   };
 }

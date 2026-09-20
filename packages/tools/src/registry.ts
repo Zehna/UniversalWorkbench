@@ -40,6 +40,16 @@ export class ToolRegistry {
     });
   }
 
+  list(): ToolDefinition[] {
+    return [...this.#tools.values()]
+      .map((registered) => structuredClone(registered.definition))
+      .sort(
+        (left, right) =>
+          left.id.localeCompare(right.id) ||
+          left.version.localeCompare(right.version),
+      );
+  }
+
   resolve(id: string, version: string): RegisteredTool {
     const registered = this.#tools.get(registrationKey(id, version));
     if (!registered) {
