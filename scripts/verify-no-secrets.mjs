@@ -13,6 +13,18 @@ const forbidden = [
   { label: "session cookie", test: (value) => /uw_session=/i.test(value) },
   { label: "Cookie header", test: (value) => /\bcookie:\s*[^\s]/i.test(value) },
   { label: "password field", test: (value) => /"password"\s*:/i.test(value) },
+  {
+    label: "Authorization header",
+    test: (value) => /\bauthorization:\s*[^\s]/i.test(value),
+  },
+  {
+    label: "Set-Cookie header",
+    test: (value) => /\bset-cookie:\s*[^\s]/i.test(value),
+  },
+  {
+    label: "Proxy-Authorization header",
+    test: (value) => /\bproxy-authorization:\s*[^\s]/i.test(value),
+  },
 ];
 
 for (const rule of forbidden) {
@@ -23,4 +35,4 @@ for (const rule of forbidden) {
   }
 }
 
-console.log("Phase 2 Docker logs contain no credential canaries");
+console.log("Phase 3 Docker logs contain no credential canaries");

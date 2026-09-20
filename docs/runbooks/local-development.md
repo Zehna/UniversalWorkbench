@@ -1,35 +1,39 @@
 # Local Development Runbook
 
-Universal Workbench Phase 2 supports local Node processes and the canonical Docker Compose deployment.
+Universal Workbench Phase 3 supports local-first browser authoring plus a durable server-side tool/workflow execution runtime.
 
 ## Prerequisites
 
 - Node.js 24.21.0
 - npm supplied with Node.js
-- PostgreSQL 17-compatible server for local-process development, or Docker Compose for the reference stack
-- Chromium only when running the browser sync gate
+- PostgreSQL 17-compatible server, or Docker Compose for the reference stack
+- Chromium for browser gates
 
-After cloning, install exactly the locked dependency tree:
+Install the locked tree:
 
 ```bash
 npm ci
 ```
 
-## Path 1: Local Node processes + PostgreSQL
+## Database
 
-Provide an existing PostgreSQL database:
+Example local test database:
 
 ```text
 postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
 ```
 
-Apply migrations explicitly before starting the API:
+Apply migrations:
 
 ```bash
 DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test npm run migrate -w @uw/database
 ```
 
-Start the API:
+## Runtime modes
+
+### All-in-one
+
+Runs API, sync WebSocket, and execution worker:
 
 ```bash
 DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test \
@@ -39,77 +43,94 @@ TRUSTED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173 \
 npm run dev -w @uw/server
 ```
 
-Start the PWA in another terminal:
+### API only
+
+Runs HTTP/WebSocket without draining the execution queue:
+
+```bash
+APP_MODE=api DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test npm run dev -w @uw/server
+```
+
+### Worker only
+
+Runs the queue worker without opening an HTTP/WebSocket listener:
+
+```bash
+APP_MODE=worker DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test npm run dev -w @uw/server
+```
+
+Start the PWA separately:
 
 ```bash
 npm run dev -w @uw/web
 ```
 
-The Vite development server proxies `/api/*` to Express.
+Vite proxies `/api/*` to the local Express server.
 
-## Local-first backend selection
+## Local-first authoring
 
-The PWA prefers SQLite WASM + OPFS when the browser provides the required capabilities and cross-origin isolation. If that path is unavailable, it falls back to IndexedDB.
+Projects, notes, and workflow definitions are persisted through SQLite WASM + OPFS when available, with IndexedDB fallback.
 
-Both backends persist:
+Workflow execution is intentionally different from workflow authoring:
 
-- local projects and notes;
-- pending sync operations;
-- cursor;
-- device identity;
-- conflicts;
-- tombstones.
+- authoring can be local/offline;
+- running requires a synced canonical workflow revision;
+- pending/conflicted/offline workflow revisions cannot run;
+- the server repeats validation before enqueue.
 
-A page reload does not discard pending offline edits.
-
-## Sync transport
-
-HTTP recovery endpoint:
+## Built-in Phase 3 tools
 
 ```text
-GET /api/sync/changes?cursor=<last-cursor>
+builtin.http.request@1
+builtin.json.parse@1
+builtin.json.select@1
+builtin.text.template@1
+builtin.note.write@1
 ```
 
-WebSocket endpoint:
+Existing workflow revisions pin exact versions.
 
-```text
-ws://<host>/api/sync/socket
-```
+## Safe HTTP
 
-WebSocket is real-time transport only. HTTP cursor catch-up is the durable recovery mechanism.
+The public HTTP tool permits only validated HTTP/HTTPS public egress.
 
-## Diagnostics
+It blocks private/loopback/link-local/metadata/reserved destinations, revalidates redirects, pins validated DNS addresses, rejects credential-bearing configuration, strips unsafe response headers, and bounds redirects, body size, and timeout.
 
-The browser coordinator exposes:
+There is no local/private-network bypass setting in Phase 3.
 
-- device ID;
-- selected backend;
-- durable cursor;
-- pending operation count;
-- conflict count;
-- WebSocket state;
-- last ACK timestamp;
-- last sync error code.
+## Execution troubleshooting
 
-Diagnostics intentionally exclude passwords, raw session tokens, Cookie headers, and secret values.
+Execution detail exposes:
 
-## Path 2: Canonical Docker Compose deployment
+- execution status;
+- step status and attempt;
+- pinned tool/version;
+- sanitized error;
+- output Context references.
 
-Create an environment file:
+Terminal execution receipt data includes immutable receipts and provenance.
+
+If a workflow is stuck queued:
+
+1. confirm `APP_MODE` is `all` or `worker`;
+2. run `npm run verify:worker-mode` against a fresh test database;
+3. inspect execution/step state through the protected execution API;
+4. check PostgreSQL readiness and queue leases;
+5. do not manually mutate queue rows in a normal recovery flow.
+
+## Canonical Docker deployment
+
+Prepare the environment:
 
 ```bash
 cp deploy/docker/.env.example deploy/docker/.env
 ```
 
-Change the database password and keep `DATABASE_URL` consistent.
-
-Start the reference stack:
+Start:
 
 ```bash
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
 ```
-
-Compose starts PostgreSQL, runs migrations once, starts the API, then starts the nginx/PWA container after the API is healthy.
 
 Open:
 
@@ -117,23 +138,13 @@ Open:
 http://localhost:8080/
 ```
 
-Reference endpoints:
+The canonical profile uses `APP_MODE=all`.
 
-```text
-http://localhost:8080/api/health/live
-http://localhost:8080/api/health/ready
-ws://localhost:8080/api/sync/socket
-```
+The nginx layer retains the Phase 2 COOP/COEP requirements and sync WebSocket proxy.
 
-The nginx layer emits COOP/COEP headers for OPFS SQLite and proxies the sync WebSocket upgrade separately from normal HTTP API traffic.
+## Stop/reset
 
-### Session cookie and HTTPS
-
-Use `SESSION_COOKIE_SECURE=false` for local HTTP. Set it to `true` behind HTTPS.
-
-### Stop or reset
-
-Preserve data:
+Preserve server data:
 
 ```bash
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml down
@@ -145,13 +156,14 @@ Delete PostgreSQL and artifact volumes intentionally:
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml down -v
 ```
 
-Browser-local OPFS/IndexedDB data is independent of Docker volumes. Clearing browser site data removes that device's local workspace and device identity.
+Browser OPFS/IndexedDB is independent of Docker volumes.
 
-## Phase 2 quality gate
+## Quality and security gate
 
 With PostgreSQL available:
 
 ```bash
+npm ci
 npm audit --omit=dev --audit-level=high
 npm run verify:workspaces
 npm run format:check
@@ -162,23 +174,37 @@ npm run build
 node scripts/verify-pwa.mjs
 ```
 
-Run the real-browser sync gate:
+Run Phase 2 sync regression:
 
 ```bash
 npx playwright install chromium --with-deps
 TEST_DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test npm run e2e:sync
 ```
 
-It verifies OPFS/IndexedDB persistence, multi-device catch-up, offline reconnect, conflict preservation, tombstone no-resurrection, and revoked-device rejection.
+Run Phase 3 workflow browser acceptance:
 
-Run the canonical Docker Phase 2 vertical smoke:
+```bash
+TEST_DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test npm run e2e:workflow
+```
+
+Verify worker-only process behavior:
+
+```bash
+TEST_DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test npm run verify:worker-mode
+```
+
+The worker verification expects a fresh/uninitialized test database because it deliberately performs first-run setup before handing the queued job from API mode to worker-only mode.
+
+## Docker Phase 3 vertical smoke
 
 ```bash
 docker compose -f deploy/docker/compose.yml up -d --build
-SMOKE_SECRET_CANARY=phase2-local-canary node scripts/smoke-http.mjs
-docker compose -f deploy/docker/compose.yml logs --no-color > phase2-docker.log
-SMOKE_SECRET_CANARY=phase2-local-canary node scripts/verify-no-secrets.mjs phase2-docker.log
+SMOKE_SECRET_CANARY=phase3-local-canary node scripts/smoke-http.mjs
+docker compose -f deploy/docker/compose.yml logs --no-color > phase3-docker.log
+SMOKE_SECRET_CANARY=phase3-local-canary node scripts/verify-no-secrets.mjs phase3-docker.log
 docker compose -f deploy/docker/compose.yml down -v
 ```
 
-The smoke covers owner setup, two devices, project/note sync, HTTP recovery, idempotent replay, stale conflict preservation, revocation, WebSocket catch-up, isolation headers, credential-log scanning, and logout.
+The smoke preserves all Phase 2 sync/security coverage and additionally creates a canonical workflow, runs `Text Template -> Note Write` through the real PostgreSQL queue/worker, verifies the generated note, receipts, provenance, and credential-free receipt payload.
+
+HTTP is tested separately with injected deterministic transport plus the production safe-egress policy suite. The product does not weaken egress policy to make Docker tests reach a private fixture.

@@ -1,25 +1,37 @@
 # Universal Workbench
 
-Universal Workbench is a local-first, self-hosted-first workspace for connecting tools without losing project context or provenance.
+Universal Workbench is a local-first, self-hosted-first workspace for connecting tools without losing project context, execution history, or provenance.
 
-The current implementation boundary is **Phase 2 — Local-First & Sync**. The browser now writes project and note state locally first, persists pending operations across reloads, synchronizes through authenticated device-bound HTTP/WebSocket transports, and preserves local edits through conflict resolution.
+The current implementation boundary is **Phase 3 — Tool & Workflow Core**.
 
-## Phase 2 capabilities
+The browser remains local-first for projects, notes, and workflow definitions. Canonical synced workflow revisions can now run through a durable server-side execution engine with a PostgreSQL queue, version-pinned built-in tools, retries/cancellation/budgets, receipts, provenance, and a linear-first workflow UI.
 
-- first-run single-owner setup, login, session validation, logout, and owner-only authorization;
-- project and revisioned-note data core from Phase 1;
-- browser-local persistence with SQLite WASM + OPFS when available;
-- durable IndexedDB fallback when OPFS/SQLite is unavailable;
-- local-first project/note mutation with durable pending-operation journal;
-- client-generated device identity with server registration and revocation;
-- monotonic sync cursors and idempotent operation replay;
-- HTTP catch-up as the durable recovery path;
-- authenticated WebSocket HELLO/READY, ACK, replay, and remote-operation transport;
-- stale-write conflict preservation with explicit keep-local or use-server resolution;
-- durable tombstones preventing stale offline resurrection;
-- sync status and non-secret diagnostics;
-- canonical Docker Compose deployment with PostgreSQL, migrations, Express, nginx/PWA, OPFS isolation headers, and WebSocket proxying;
-- permanent CI gates covering Chromium multi-device/offline/fallback/conflict/chaos behavior and Docker vertical smoke.
+## Phase 3 capabilities
+
+- all Phase 0–2 foundation, project/data, local-first, and multi-device sync behavior;
+- typed Context Envelopes and deterministic context compatibility;
+- versioned Tool Contract and exact `toolId@version` registry resolution;
+- revisioned local-first workflow Documents;
+- DAG validation/planning with a mobile-friendly linear authoring UI;
+- canonical-revision execution preflight;
+- durable executions and step records;
+- PostgreSQL queue with leases, reclaim, and worker-safe idempotency;
+- `APP_MODE=all|api|worker`;
+- bounded retry, timeout, cancellation, and execution budgets;
+- immutable execution outputs, receipts, and provenance;
+- safe public HTTP with deny-by-default DNS/IP/redirect policy;
+- built-in HTTP, JSON Parse, JSON Select, Text Template, and Note Write tools;
+- execution timeline with step attempts and output references;
+- initial Context Bus compatibility UX that forms the foundation for `Send to...`;
+- permanent browser workflow, worker-mode, safe-egress, Docker workflow, and Phase 2 regression gates.
+
+## Security boundary
+
+Phase 3 public HTTP does not provide raw secret configuration and does not permit localhost/private-network bypass.
+
+URLs, DNS answers, redirects, headers, body size, timeout, and response headers are validated or bounded. Credential-bearing request/response data is rejected or removed before durable persistence.
+
+AI providers, BYO API keys, secret vault resolution, MCP/plugins, arbitrary code execution, LAN egress, workflow loops, scheduling, Redis, and a graph editor remain outside the Phase 3 boundary.
 
 ## Stack
 
@@ -28,7 +40,7 @@ The current implementation boundary is **Phase 2 — Local-First & Sync**. The b
 - TypeScript
 - React + Vite PWA
 - SQLite WASM + OPFS / IndexedDB fallback
-- Express API + WebSocket transport
+- Express + WebSocket
 - PostgreSQL + Drizzle
 - Vitest + Playwright
 - Docker Compose
@@ -36,25 +48,34 @@ The current implementation boundary is **Phase 2 — Local-First & Sync**. The b
 ## Repository layout
 
 ```text
-apps/web            local-first PWA client and browser persistence
-apps/server         Express API and sync WebSocket transport
+apps/web            local-first PWA, workflow editor, execution timeline
+apps/server         API, sync WebSocket, composition, execution runtime
 packages/auth       owner authentication and sessions
-packages/contracts  shared runtime contracts
+packages/contracts  shared runtime schemas
 packages/core       Action Layer and project domain
-packages/documents  revisioned note domain
+packages/context    Context Envelope and compatibility primitives
+packages/tools      Tool Contract, registry, permissions, built-in tools
+packages/workflow   DAG validation, planning, canonical workflow service
+packages/execution  execution state, worker, queue ports, retry/budget/receipts
+packages/documents  revisioned note/workflow domain
 packages/artifacts  immutable artifact domain
 packages/storage    artifact storage abstraction
-packages/database   PostgreSQL repositories and migrations
-packages/sync       durable sync service and conflict policy
+packages/database   PostgreSQL repositories, execution queue, migrations
+packages/sync       durable local-first sync service
 packages/shared     deterministic shared primitives
 deploy/docker       canonical self-host deployment
-docs                architecture, runbooks, specs, and plans
+docs                architecture, runbooks, specs, and implementation plans
 ```
 
 ## Next boundary
 
-**Phase 3 owns Tool & Workflow execution**: typed tool contracts, execution records, linear-first DAG-capable workflows, permissions, and the first reusable `Send to...` paths.
+**Phase 4 owns AI & universal Send to...** on top of the Phase 3 execution substrate.
 
-AI providers, MCP/plugin expansion, broader upload ingestion, and later private-release hardening remain deferred to their roadmap phases.
+Phase 4 may introduce provider adapters and secret references, but it should reuse the existing Tool Registry, Context Bus, execution queue, capabilities, receipts, and provenance rather than creating an AI-only execution path.
 
-See `docs/runbooks/local-development.md` for startup and verification commands, `docs/architecture/phase-2.md` for the current architecture, and `docs/superpowers/specs/2026-09-15-universal-workbench-design.md` for the approved product blueprint.
+See:
+
+- `docs/architecture/phase-3.md` for the current architecture;
+- `docs/runbooks/local-development.md` for runtime and verification commands;
+- `docs/superpowers/specs/2026-09-19-phase-3-tool-workflow-core-design.md` for the approved Phase 3 design;
+- `docs/superpowers/specs/2026-09-15-universal-workbench-design.md` for the product blueprint.
