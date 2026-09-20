@@ -6,6 +6,12 @@ import type { ErrorEnvelope } from "@uw/contracts";
 import type { ProjectService } from "@uw/core";
 import type { DocumentService } from "@uw/documents";
 import type { SyncService } from "@uw/sync";
+import type { ToolRegistry } from "@uw/tools";
+import type { WorkflowService } from "@uw/workflow";
+import type {
+  DirectToolExecutionService,
+} from "@uw/execution";
+import type { ExecutionApiService } from "./routes/executions.js";
 import type { SessionCookieConfig } from "./middleware/auth.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { createAuthRouter } from "./routes/auth.js";
@@ -15,6 +21,9 @@ import { createHealthRouter } from "./routes/health.js";
 import { createProjectsRouter } from "./routes/projects.js";
 import { createSetupRouter } from "./routes/setup.js";
 import { createSyncRouter } from "./routes/sync.js";
+import { createToolsRouter } from "./routes/tools.js";
+import { createWorkflowsRouter } from "./routes/workflows.js";
+import { createExecutionsRouter } from "./routes/executions.js";
 
 export interface AppDependencies {
   databaseReady(): Promise<boolean>;
@@ -24,6 +33,10 @@ export interface AppDependencies {
   documentService?: DocumentService;
   artifactService?: ArtifactService;
   syncService?: SyncService;
+  toolRegistry?: ToolRegistry;
+  workflowService?: WorkflowService;
+  executionService?: ExecutionApiService;
+  directToolExecutionService?: DirectToolExecutionService;
 }
 
 function requestIdFromLocals(
@@ -129,6 +142,51 @@ export function createApp(deps: AppDependencies) {
         authService: deps.authService,
         sessionCookie: deps.sessionCookie,
         syncService: deps.syncService,
+      }),
+    );
+  }
+
+  if (hasAuthDependencies(deps) && deps.toolRegistry) {
+    app.use(
+      "/tools",
+      createToolsRouter({
+        authService: deps.authService,
+        sessionCookie: deps.sessionCookie,
+        toolRegistry: deps.toolRegistry,
+      }),
+    );
+  }
+
+  if (
+    hasAuthDependencies(deps) &&
+    deps.documentService &&
+    deps.workflowService
+  ) {
+    app.use(
+      "/projects/:projectId/workflows",
+      createWorkflowsRouter({
+        authService: deps.authService,
+        sessionCookie: deps.sessionCookie,
+        documentService: deps.documentService,
+        workflowService: deps.workflowService,
+      }),
+    );
+  }
+
+  if (
+    hasAuthDependencies(deps) &&
+    deps.executionService &&
+    deps.workflowService &&
+    deps.directToolExecutionService
+  ) {
+    app.use(
+      "/projects/:projectId/executions",
+      createExecutionsRouter({
+        authService: deps.authService,
+        sessionCookie: deps.sessionCookie,
+        executionService: deps.executionService,
+        workflowService: deps.workflowService,
+        directToolExecutionService: deps.directToolExecutionService,
       }),
     );
   }

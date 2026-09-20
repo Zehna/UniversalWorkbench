@@ -3,7 +3,7 @@ import { z } from "zod";
 const ConfigSchema = z.object({
   DATABASE_URL: z.string().url(),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  APP_MODE: z.enum(["all", "api"]).default("all"),
+  APP_MODE: z.enum(["all", "api", "worker"]).default("all"),
   SESSION_COOKIE_NAME: z.string().min(1).default("uw_session"),
   SESSION_COOKIE_SECURE: z
     .enum(["true", "false"])
@@ -28,7 +28,7 @@ const ConfigSchema = z.object({
 export interface ServerConfig {
   databaseUrl: string;
   port: number;
-  appMode: "all" | "api";
+  appMode: "all" | "api" | "worker";
   sessionCookieName: string;
   sessionCookieSecure: boolean;
   sessionTtlSeconds: number;

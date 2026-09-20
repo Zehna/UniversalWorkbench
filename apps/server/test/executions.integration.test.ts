@@ -1,9 +1,11 @@
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import type { AuthService } from "@uw/auth";
-import type { ExecutionService } from "@uw/execution";
 import type { WorkflowService } from "@uw/workflow";
-import type { DirectToolExecutionService } from "../src/routes/executions.js";
+import type {
+  DirectToolExecutionService,
+  ExecutionApiService,
+} from "../src/routes/executions.js";
 import { createApp } from "../src/app.js";
 
 const OWNER_ID = "11111111-1111-4111-8111-111111111111";
@@ -55,7 +57,7 @@ function deps(authenticated = true) {
     requestCancellation: vi.fn().mockResolvedValue(execution),
     listReceipts: vi.fn().mockResolvedValue([]),
     listProvenance: vi.fn().mockResolvedValue([]),
-  } satisfies ExecutionService;
+  } satisfies ExecutionApiService;
 
   const workflowService = {
     validateRevision: vi.fn(),
@@ -67,7 +69,17 @@ function deps(authenticated = true) {
 
   const directToolExecutionService = {
     enqueueToolRun: vi.fn().mockResolvedValue({
-      execution: { ...execution, kind: "tool", workflowRevisionId: undefined },
+      execution: {
+        id: EXECUTION_ID,
+        ownerId: OWNER_ID,
+        projectId: PROJECT_ID,
+        kind: "tool" as const,
+        status: "queued" as const,
+        traceId: execution.traceId,
+        idempotencyKey: "tool-1",
+        budget: execution.budget,
+        queuedAt: NOW,
+      },
       step: {
         id: STEP_ID,
         executionId: EXECUTION_ID,

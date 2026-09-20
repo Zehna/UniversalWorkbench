@@ -44,6 +44,31 @@ export function mapDomainError(error: unknown): unknown {
     case "SyncBatchLimitError":
     case "SyncOperationInvalidError":
       return new HttpError(400, "BAD_REQUEST", "Invalid sync operation");
+    case "ToolNotFoundError":
+      return new HttpError(404, "TOOL_NOT_FOUND", "Tool version not found");
+    case "DirectToolInputRequiredError":
+      return new HttpError(
+        400,
+        "TOOL_INPUT_REQUIRED",
+        "Direct tool execution requires workflow-bound inputs",
+      );
+    case "DirectToolExecutionConflictError":
+    case "WorkflowExecutionConflictError":
+      return new HttpError(
+        409,
+        "EXECUTION_CONFLICT",
+        "Execution idempotency conflict",
+      );
+    case "WorkflowPreflightError": {
+      const errors = (
+        error as Error & {
+          errors?: unknown;
+        }
+      ).errors;
+      return new HttpError(400, "WORKFLOW_INVALID", "Workflow is invalid", {
+        ...(Array.isArray(errors) ? { errors } : {}),
+      });
+    }
     case "RevisionConflictError": {
       const currentRevisionId = (
         error as Error & {
