@@ -31,6 +31,19 @@ const QUEUE_COLUMNS = `
   updated_at
 `;
 
+const QUALIFIED_QUEUE_COLUMNS = `
+  q.id,
+  q.execution_id,
+  q.step_execution_id,
+  q.queue_type,
+  q.attempt,
+  q.available_at,
+  q.lease_owner,
+  q.lease_expires_at,
+  q.created_at,
+  q.updated_at
+`;
+
 function mapQueueJob(row: QueueRow): QueueJob {
   return {
     id: row.id,
@@ -130,7 +143,7 @@ export function createPostgresExecutionQueue(pool: Pool): ExecutionQueue {
                   updated_at = $2::timestamptz
              from candidate c
             where q.id = c.id
-           returning ${QUEUE_COLUMNS}`,
+           returning ${QUALIFIED_QUEUE_COLUMNS}`,
           [workerId, now, leaseMs],
         );
 
