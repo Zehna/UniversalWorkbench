@@ -173,6 +173,53 @@ describe("PostgreSQL execution repositories", () => {
     ]);
   });
 
+  it("keeps exactly one receipt for a step under duplicate appends", async () => {
+    const { ownerId, projectId } = await seedOwnerProject();
+    const executions = createPostgresExecutionRepository(pool);
+    const receipts = createPostgresExecutionReceiptRepository(pool);
+    const created = await executions.create({
+      execution: execution(ownerId, projectId),
+    });
+    const stepExecutionId = randomUUID();
+
+    await pool.query(
+      `insert into execution_steps (
+         id, execution_id, node_id, tool_id, tool_version, status, attempt,
+         input_context_ids, output_context_ids, usage
+       ) values ($1, $2, 'node', 'builtin.test', '1', 'succeeded', 1,
+                 '[]'::jsonb, '[]'::jsonb, '{}'::jsonb)`,
+      [stepExecutionId, created.id],
+    );
+
+    const first: ExecutionReceipt = {
+      id: randomUUID(),
+      executionId: created.id,
+      stepExecutionId,
+      workflowRevisionId: null,
+      tool: { id: "builtin.test", version: "1" },
+      inputContextIds: [],
+      outputContextIds: [],
+      capabilities: [],
+      attemptCount: 1,
+      startedAt: "2026-09-20T00:00:00.000Z",
+      finishedAt: "2026-09-20T00:00:01.000Z",
+      status: "succeeded",
+      error: null,
+      usage: { outputBytes: 0, httpRequests: 0 },
+      provenanceEdgeIds: [],
+    };
+    const duplicate: ExecutionReceipt = {
+      ...first,
+      id: randomUUID(),
+    };
+
+    await Promise.all([receipts.append(first), receipts.append(duplicate)]);
+
+    const stored = await receipts.listByExecution(created.id);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.stepExecutionId).toBe(stepExecutionId);
+  });
+
   it("appends and reads provenance edges without mutation methods", async () => {
     const { ownerId, projectId } = await seedOwnerProject();
     const executions = createPostgresExecutionRepository(pool);

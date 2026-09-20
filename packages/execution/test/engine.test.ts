@@ -412,6 +412,66 @@ describe("ExecutionEngine", () => {
     expect(queue.completed).toBe(1);
   });
 
+  it("reconstructs a missing receipt when a terminal step job is reclaimed", async () => {
+    const runner: ToolRunner = {
+      run: vi.fn(async () => {
+        throw new Error("terminal replay must not execute the tool");
+      }),
+    };
+    const terminalStep = step({
+      status: "succeeded",
+      attempt: 1,
+      startedAt: NOW.toISOString(),
+      finishedAt: NOW.toISOString(),
+      outputContextIds: [CONTEXT_ID],
+      usage: { outputBytes: 2, httpRequests: 0 },
+    });
+    const { engine, receipts, queue } = setup(runner, {
+      execution: execution({
+        status: "succeeded",
+        startedAt: NOW.toISOString(),
+        finishedAt: NOW.toISOString(),
+      }),
+      step: terminalStep,
+    });
+
+    await engine.runClaimedJob(job(), "worker-1");
+    await engine.runClaimedJob(job(), "worker-1");
+
+    expect(runner.run).not.toHaveBeenCalled();
+    expect(receipts.rows).toHaveLength(1);
+    expect(receipts.rows[0]).toMatchObject({
+      executionId: EXECUTION_ID,
+      stepExecutionId: STEP_ID,
+      status: "succeeded",
+      outputContextIds: [CONTEXT_ID],
+    });
+    expect(queue.completed).toBe(2);
+  });
+
+  it("records provenance ids returned by the terminal lifecycle in the receipt", async () => {
+    const runner: ToolRunner = {
+      async run() {
+        return {
+          outputs: { output: outputContext() },
+          usage: { outputBytes: 2, httpRequests: 0 },
+        };
+      },
+    };
+    const provenanceId = "99999999-9999-4999-8999-999999999999";
+    const lifecycle = {
+      async onTerminalStep() {
+        return [provenanceId];
+      },
+    } as unknown as ExecutionStepLifecycle;
+    const { engine, receipts } = setup(runner, { lifecycle });
+
+    await engine.runClaimedJob(job(), "worker-1");
+
+    expect(receipts.rows).toHaveLength(1);
+    expect(receipts.rows[0]?.provenanceEdgeIds).toEqual([provenanceId]);
+  });
+
   it("cancels before invoking the tool when cancellation was requested", async () => {
     const runner: ToolRunner = {
       run: vi.fn(async () => {
