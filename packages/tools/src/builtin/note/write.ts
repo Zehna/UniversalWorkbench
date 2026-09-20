@@ -119,7 +119,7 @@ async function loadExisting(
   context: Parameters<ToolRunner["run"]>[0],
   input: ContextEnvelope,
   targetId: string,
-): Promise<ReturnType<ToolRunner["run"]>> {
+): Promise<Awaited<ReturnType<ToolRunner["run"]>>> {
   if (!options.existingNotes) {
     throw new ToolExecutionError({
       code: "TOOL_BUG",
