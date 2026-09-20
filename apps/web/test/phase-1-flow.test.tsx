@@ -90,6 +90,9 @@ function createUiCoordinator(): SyncCoordinator {
     async getWorkflow() {
       return null;
     },
+    async workflowRunEligibility() {
+      return { state: "missing" as const };
+    },
     async listConflicts() {
       return structuredClone(conflicts);
     },

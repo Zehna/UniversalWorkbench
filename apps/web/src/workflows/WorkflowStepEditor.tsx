@@ -1,4 +1,4 @@
-import type { ToolDefinition, WorkflowNode } from "@uw/contracts";
+import type { JsonObject, ToolDefinition, WorkflowNode } from "@uw/contracts";
 
 interface WorkflowStepEditorProps {
   node: WorkflowNode;
@@ -8,7 +8,7 @@ interface WorkflowStepEditorProps {
   onMoveUp(): void;
   onMoveDown(): void;
   onRemove(): void;
-  onConfig(config: Record<string, unknown>): void;
+  onConfig(config: JsonObject): void;
 }
 
 export function WorkflowStepEditor({
@@ -64,7 +64,7 @@ export function WorkflowStepEditor({
                 parsed !== null &&
                 !Array.isArray(parsed)
               ) {
-                onConfig(parsed as Record<string, unknown>);
+                onConfig(parsed as JsonObject);
               }
             } catch {
               // Keep the last valid config until the textarea becomes valid JSON.
