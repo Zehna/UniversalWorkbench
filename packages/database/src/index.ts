@@ -12,3 +12,4 @@ export * from "./repositories/execution-receipts.js";
 export * from "./repositories/executions.js";
 export * from "./repositories/provenance.js";
 export * from "./repositories/execution-queue.js";
+export * from "./repositories/execution-outputs.js";

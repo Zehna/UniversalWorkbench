@@ -24,6 +24,10 @@ import {
 import { isTerminalExecutionStatus } from "./model.js";
 import type { ExecutionQueue, QueueJob } from "./queue.js";
 import type { ExecutionReceiptRepository } from "./receipt.js";
+import {
+  persistStepOutputsBeforeSuccess,
+  type ExecutionOutputRepository,
+} from "./output.js";
 import type {
   ExecutionRepository,
   ExecutionStepRecord,
@@ -58,6 +62,7 @@ interface ExecutionEngineDependencies {
   executions: ExecutionRepository;
   steps: ExecutionStepRepository;
   receipts: ExecutionReceiptRepository;
+  outputs: ExecutionOutputRepository;
   queue: ExecutionQueue;
   tools: ToolRegistry;
   runtime: ExecutionStepRuntimeLoader;
@@ -204,6 +209,7 @@ export function createExecutionEngine(
     executions,
     steps,
     receipts,
+    outputs,
     queue,
     tools,
     runtime,
@@ -461,15 +467,24 @@ export function createExecutionEngine(
         const outputContextIds = Object.values(result.outputs).map(
           (context) => context.id,
         );
-        await finishStep({
-          execution,
-          step,
-          job,
-          workerId,
-          error: null,
-          usage,
-          outputContextIds,
-          capabilities: registered.definition.requiredCapabilities,
+        await persistStepOutputsBeforeSuccess({
+          outputs,
+          contexts: result.outputs,
+          executionId: execution.id,
+          stepExecutionId: step.id,
+          idGenerator,
+          clock,
+          markSucceeded: async () =>
+            finishStep({
+              execution,
+              step,
+              job,
+              workerId,
+              error: null,
+              usage,
+              outputContextIds,
+              capabilities: registered.definition.requiredCapabilities,
+            }),
         });
       } catch (error) {
         const sanitized = sanitizeExecutionError(error);

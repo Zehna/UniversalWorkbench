@@ -18,6 +18,8 @@ import {
   type ExecutionStepRepository,
   type ExecutionStepRuntimeLoader,
   type ExecutionReceiptRepository,
+  type ExecutionOutputRecord,
+  type ExecutionOutputRepository,
   type QueueJob,
 } from "../src/index.js";
 
@@ -161,6 +163,20 @@ class MemoryReceipts implements ExecutionReceiptRepository {
     return this.rows
       .filter((receipt) => receipt.executionId === executionId)
       .map((receipt) => structuredClone(receipt));
+  }
+}
+
+class MemoryOutputs implements ExecutionOutputRepository {
+  readonly rows: ExecutionOutputRecord[] = [];
+
+  async appendMany(records: ExecutionOutputRecord[]) {
+    this.rows.push(...records.map((record) => structuredClone(record)));
+  }
+
+  async listByStep(stepExecutionId: string) {
+    return this.rows
+      .filter((record) => record.stepExecutionId === stepExecutionId)
+      .map((record) => structuredClone(record));
   }
 }
 
@@ -312,6 +328,7 @@ function setup(
   const executions = new MemoryExecutions(options.execution ?? execution());
   const steps = new MemorySteps(options.step ?? step());
   const receipts = new MemoryReceipts();
+  const outputs = new MemoryOutputs();
   const queue = new MemoryQueue();
   const runtime: ExecutionStepRuntimeLoader = {
     async load() {
@@ -322,6 +339,7 @@ function setup(
     executions,
     steps,
     receipts,
+    outputs,
     queue,
     tools: registry(runner, options.timeoutMs),
     runtime,
@@ -329,7 +347,7 @@ function setup(
     idGenerator: new FixedIds(),
     retryRandom: () => 0.5,
   });
-  return { engine, executions, steps, receipts, queue };
+  return { engine, executions, steps, receipts, outputs, queue };
 }
 
 describe("ExecutionEngine", () => {
@@ -340,7 +358,7 @@ describe("ExecutionEngine", () => {
         usage: { outputBytes: 2, httpRequests: 0 },
       })),
     };
-    const { engine, executions, steps, receipts, queue } = setup(runner);
+    const { engine, executions, steps, receipts, outputs, queue } = setup(runner);
 
     await engine.runClaimedJob(job(), "worker-1");
 
@@ -348,6 +366,8 @@ describe("ExecutionEngine", () => {
     expect(steps.row.status).toBe("succeeded");
     expect(steps.row.attempt).toBe(1);
     expect(steps.row.outputContextIds).toEqual([CONTEXT_ID]);
+    expect(outputs.rows).toHaveLength(1);
+    expect(outputs.rows[0]?.contextId).toBe(CONTEXT_ID);
     expect(receipts.rows).toHaveLength(1);
     expect(receipts.rows[0]?.status).toBe("succeeded");
     expect(queue.completed).toBe(1);

@@ -26,3 +26,6 @@ export * from "./builtin/http/dns.js";
 export * from "./builtin/http/policy.js";
 export * from "./builtin/http/tool.js";
 export * from "./builtin/http/transport.js";
+export * from "./builtin/json/index.js";
+export * from "./builtin/text/template.js";
+export * from "./builtin/note/write.js";
