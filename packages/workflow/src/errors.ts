@@ -32,3 +32,10 @@ export class WorkflowPreflightError extends Error {
     this.name = "WorkflowPreflightError";
   }
 }
+
+export class WorkflowExecutionConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WorkflowExecutionConflictError";
+  }
+}

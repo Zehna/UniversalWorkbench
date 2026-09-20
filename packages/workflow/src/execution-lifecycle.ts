@@ -60,23 +60,6 @@ export interface CreateWorkflowExecutionLifecycleOptions {
   edgeIds: WorkflowLifecycleIdGenerator;
 }
 
-function descendants(
-  startNodeId: string,
-  dependents: Record<string, string[]>,
-): Set<string> {
-  const found = new Set<string>();
-  const pending = [...(dependents[startNodeId] ?? [])];
-
-  while (pending.length > 0) {
-    const nodeId = pending.shift()!;
-    if (found.has(nodeId)) continue;
-    found.add(nodeId);
-    pending.push(...(dependents[nodeId] ?? []));
-  }
-
-  return found;
-}
-
 async function transitionWorkflowTerminal(
   executions: ExecutionRepository,
   execution: Execution,
@@ -106,6 +89,9 @@ async function transitionWorkflowTerminal(
 
   if (execution.status !== "running") return;
 
+  const firstFailed = steps.find(
+    (step) => step.status === "failed" || step.status === "timed_out",
+  );
   await executions.transition({
     ownerId: execution.ownerId,
     executionId: execution.id,
@@ -114,11 +100,16 @@ async function transitionWorkflowTerminal(
     now,
     error:
       target === "failed"
-        ? {
+        ? (firstFailed?.error ?? {
             code: "TOOL_BUG",
             message: "Workflow execution failed because a step failed",
-          }
-        : null,
+          })
+        : target === "cancelled"
+          ? {
+              code: "CANCELLED",
+              message: "Workflow execution was cancelled",
+            }
+          : null,
   });
 }
 
@@ -175,19 +166,15 @@ export function createWorkflowExecutionLifecycle(
     }
   }
 
-  async function skipFailedDescendants(
-    definition: WorkflowDefinitionV1,
+  async function skipPendingAfterFailure(
     terminalStep: ExecutionStepRecord,
     current: ExecutionStepRecord[],
   ): Promise<void> {
     if (!failedStatuses.has(terminalStep.status)) return;
 
-    const plan = buildWorkflowPlan(definition);
-    const blocked = descendants(terminalStep.nodeId, plan.dependents);
     const now = clock.now().toISOString();
-
     for (const step of current) {
-      if (!blocked.has(step.nodeId) || step.status !== "pending") continue;
+      if (step.status !== "pending") continue;
       await steps.transition({
         stepExecutionId: step.id,
         from: "pending",
@@ -311,7 +298,7 @@ export function createWorkflowExecutionLifecycle(
       await appendProvenance(execution, durableStep);
 
       let current = await steps.listByExecution(execution.id);
-      await skipFailedDescendants(definition, durableStep, current);
+      await skipPendingAfterFailure(durableStep, current);
 
       current = await steps.listByExecution(execution.id);
       if (!current.some((candidate) => failedStatuses.has(candidate.status))) {

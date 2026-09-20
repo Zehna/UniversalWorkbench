@@ -360,6 +360,27 @@ describe("workflow execution lifecycle", () => {
     expect(executions.row.status).toBe("failed");
   });
 
+  it("skips unrelated pending work after fail-fast while allowing running work to settle", async () => {
+    const { lifecycle, executions, steps, a } = setup({
+      a: "failed",
+      b: "running",
+      join: "pending",
+    });
+    const unrelated = step(
+      "abababab-abab-4bab-8bab-abababababab",
+      "unrelated",
+      "pending",
+    );
+    steps.rows.push(unrelated);
+
+    await lifecycle.onTerminalStep({ execution: execution(), step: a });
+
+    expect(steps.rows.find((item) => item.id === unrelated.id)?.status).toBe(
+      "skipped",
+    );
+    expect(executions.row.status).toBe("running");
+  });
+
   it("writes provenance from parent contexts to successful outputs only once", async () => {
     const { lifecycle, provenance, join, steps, outputs } = setup({
       a: "succeeded",

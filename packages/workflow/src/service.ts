@@ -11,7 +11,10 @@ import type {
   ExecutionStepRepository,
 } from "@uw/execution";
 import type { ToolRegistry } from "@uw/tools";
-import { WorkflowPreflightError } from "./errors.js";
+import {
+  WorkflowExecutionConflictError,
+  WorkflowPreflightError,
+} from "./errors.js";
 import { buildWorkflowPlan } from "./planner.js";
 import { validateWorkflowDefinition } from "./validate.js";
 
@@ -166,13 +169,9 @@ export function createWorkflowService(
       });
 
       if (execution.workflowRevisionId !== input.workflowRevisionId) {
-        throw new WorkflowPreflightError([
-          {
-            code: "UNKNOWN_TOOL",
-            message:
-              "Idempotency key already belongs to a different workflow revision",
-          },
-        ]);
+        throw new WorkflowExecutionConflictError(
+          "Idempotency key already belongs to a different workflow revision",
+        );
       }
 
       const definition = view.revision.content.workflow;
