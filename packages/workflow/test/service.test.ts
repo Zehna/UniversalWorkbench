@@ -187,7 +187,7 @@ function setup(options: { canonicalReject?: Error; existingSteps?: boolean } = {
       ]
     : [];
 
-  let idIndex = 0;
+  let idIndex = options.existingSteps ? 1 : 0;
   const ids = [
     "77777777-7777-4777-8777-777777777777",
     "88888888-8888-4888-8888-888888888888",
@@ -291,7 +291,7 @@ describe("WorkflowService", () => {
     expect(queued).toEqual([rows[0]!.id]);
   });
 
-  it("does not recreate steps for an idempotently returned execution", async () => {
+  it("reconciles missing steps and root queue jobs after an interrupted enqueue", async () => {
     const { service, rows, queued } = setup({ existingSteps: true });
 
     await service.enqueueRun({
@@ -303,8 +303,15 @@ describe("WorkflowService", () => {
       budget,
     });
 
-    expect(rows).toHaveLength(1);
-    expect(queued).toEqual([]);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((row) => row.nodeId === "child")).toMatchObject({
+      toolId: "builtin.fixture.child",
+      toolVersion: "1",
+      status: "pending",
+    });
+    expect(queued).toEqual([
+      "77777777-7777-4777-8777-777777777777",
+    ]);
   });
 
   it("validates the exact pinned tool version, not the newest registered version", async () => {

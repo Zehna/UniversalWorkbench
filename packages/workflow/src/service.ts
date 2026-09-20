@@ -175,40 +175,54 @@ export function createWorkflowService(
         ]);
       }
 
-      const existing = await steps.listByExecution(execution.id);
-      if (existing.length > 0) {
-        return { execution, steps: existing };
-      }
-
       const definition = view.revision.content.workflow;
       const plan = buildWorkflowPlan(definition);
       const rootIds = new Set(plan.roots);
-      const created: ExecutionStepRecord[] = [];
+      const existing = await steps.listByExecution(execution.id);
+      const byNode = new Map(existing.map((step) => [step.nodeId, step]));
+      const reconciled: ExecutionStepRecord[] = [];
 
       for (const node of definition.nodes) {
-        created.push(
-          await steps.create(
-            newStep(execution.id, node, rootIds.has(node.id), idGenerator),
-          ),
+        const current = byNode.get(node.id);
+        if (current) {
+          if (
+            current.toolId !== node.tool.id ||
+            current.toolVersion !== node.tool.version
+          ) {
+            throw new WorkflowPreflightError([
+              {
+                code: "UNKNOWN_TOOL",
+                nodeId: node.id,
+                message: `Persisted step ${node.id} does not match the pinned tool version`,
+              },
+            ]);
+          }
+          reconciled.push(current);
+          continue;
+        }
+
+        const created = await steps.create(
+          newStep(execution.id, node, rootIds.has(node.id), idGenerator),
         );
+        reconciled.push(created);
       }
 
       const now = clock.now().toISOString();
-      for (const step of created) {
-        if (step.status !== "queued") continue;
+      for (const step of reconciled) {
+        if (!rootIds.has(step.nodeId) || step.status !== "queued") continue;
         const job: EnqueueQueueJobInput = {
-          id: idGenerator.next(),
+          id: step.id,
           executionId: execution.id,
           stepExecutionId: step.id,
           queueType: "step",
-          attempt: 0,
+          attempt: step.attempt,
           availableAt: now,
           createdAt: now,
         };
         await queue.enqueue(job);
       }
 
-      return { execution, steps: created };
+      return { execution, steps: reconciled };
     },
   };
 }

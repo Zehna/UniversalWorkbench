@@ -20,6 +20,7 @@ import {
   type ExecutionReceiptRepository,
   type ExecutionOutputRecord,
   type ExecutionOutputRepository,
+  type ExecutionStepLifecycle,
   type QueueJob,
 } from "../src/index.js";
 
@@ -323,6 +324,7 @@ function setup(
     execution?: Execution;
     step?: ExecutionStepRecord;
     timeoutMs?: number;
+    lifecycle?: ExecutionStepLifecycle;
   } = {},
 ) {
   const executions = new MemoryExecutions(options.execution ?? execution());
@@ -346,6 +348,7 @@ function setup(
     clock: new FixedClock(),
     idGenerator: new FixedIds(),
     retryRandom: () => 0.5,
+    ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
   });
   return { engine, executions, steps, receipts, outputs, queue };
 }
@@ -374,6 +377,39 @@ describe("ExecutionEngine", () => {
 
     await engine.runClaimedJob(job(), "worker-1");
     expect(receipts.rows).toHaveLength(1);
+  });
+
+  it("replays terminal-step lifecycle before completing a reclaimed queue job", async () => {
+    const runner: ToolRunner = {
+      async run() {
+        return {
+          outputs: { output: outputContext() },
+          usage: { outputBytes: 2, httpRequests: 0 },
+        };
+      },
+    };
+    let attempts = 0;
+    const lifecycle: ExecutionStepLifecycle = {
+      async onTerminalStep() {
+        attempts += 1;
+        if (attempts === 1) throw new Error("scheduler unavailable");
+      },
+    };
+    const { engine, steps, receipts, queue } = setup(runner, { lifecycle });
+
+    await expect(
+      engine.runClaimedJob(job(), "worker-1"),
+    ).rejects.toThrow("scheduler unavailable");
+
+    expect(steps.row.status).toBe("succeeded");
+    expect(receipts.rows).toHaveLength(1);
+    expect(queue.completed).toBe(0);
+
+    await engine.runClaimedJob(job(), "worker-1");
+
+    expect(attempts).toBe(2);
+    expect(receipts.rows).toHaveLength(1);
+    expect(queue.completed).toBe(1);
   });
 
   it("cancels before invoking the tool when cancellation was requested", async () => {
