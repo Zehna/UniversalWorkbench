@@ -35,7 +35,9 @@ function resolver(
 }
 
 function connector(
-  implementation: (request: HttpConnectorRequest) => Promise<HttpConnectorResponse>,
+  implementation: (
+    request: HttpConnectorRequest,
+  ) => Promise<HttpConnectorResponse>,
 ): HttpConnector {
   return { request: vi.fn(implementation) };
 }
@@ -86,7 +88,10 @@ describe("SafeHttpTransport", () => {
 
     await expect(
       transport.request({ url: "https://public.example/data", method: "GET" }),
-    ).resolves.toMatchObject({ status: 200, finalUrl: "https://public.example/data" });
+    ).resolves.toMatchObject({
+      status: 200,
+      finalUrl: "https://public.example/data",
+    });
   });
 
   it("revalidates every redirect hop and blocks a redirect to private space", async () => {

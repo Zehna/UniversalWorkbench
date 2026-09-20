@@ -22,3 +22,7 @@ export * from "./contract.js";
 export * from "./errors.js";
 export * from "./permissions.js";
 export * from "./registry.js";
+export * from "./builtin/http/dns.js";
+export * from "./builtin/http/policy.js";
+export * from "./builtin/http/tool.js";
+export * from "./builtin/http/transport.js";

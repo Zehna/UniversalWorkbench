@@ -8,7 +8,11 @@ import type {
   StepExecutionStatus,
 } from "@uw/contracts";
 import type { Clock, IdGenerator } from "@uw/shared";
-import { type ToolRegistry, type ToolRunResult } from "@uw/tools";
+import {
+  ToolExecutionError,
+  type ToolRegistry,
+  type ToolRunResult,
+} from "@uw/tools";
 import {
   assertExecutionUsageWithinBudget,
   type ExecutionBudgetUsage,
@@ -472,14 +476,30 @@ export function createExecutionEngine(
         const executionFailure =
           error instanceof ExecutionFailure
             ? error
-            : new ExecutionFailure({
-                code: sanitized.code,
-                message: sanitized.message,
-                ...(sanitized.details === undefined
-                  ? {}
-                  : { details: sanitized.details }),
-                retrySafe: false,
-              });
+            : error instanceof ToolExecutionError
+              ? new ExecutionFailure({
+                  code: error.code,
+                  message: error.message,
+                  ...(error.details === undefined
+                    ? {}
+                    : { details: error.details }),
+                  ...(error.retryAfterMs === undefined
+                    ? {}
+                    : { retryAfterMs: error.retryAfterMs }),
+                  ...(error.method === undefined
+                    ? {}
+                    : { method: error.method }),
+                  ambiguous: error.ambiguous,
+                  retrySafe: error.retrySafe,
+                })
+              : new ExecutionFailure({
+                  code: sanitized.code,
+                  message: sanitized.message,
+                  ...(sanitized.details === undefined
+                    ? {}
+                    : { details: sanitized.details }),
+                  retrySafe: false,
+                });
 
         const maxAttempts = Math.min(
           3,
