@@ -27,3 +27,4 @@ export * from "./receipt.js";
 export * from "./repository.js";
 export * from "./provenance.js";
 export * from "./service.js";
+export * from "./queue.js";
