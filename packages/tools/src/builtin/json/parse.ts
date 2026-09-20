@@ -1,6 +1,7 @@
-import type {
-  ContextEnvelope,
-  ToolDefinition,
+import {
+  JsonValueSchema,
+  type ContextEnvelope,
+  type ToolDefinition,
 } from "@uw/contracts";
 import type { ToolRunner } from "../../contract.js";
 import { ToolExecutionError } from "../../errors.js";
@@ -92,7 +93,7 @@ function ensureInlineLimit(text: string): void {
 function parseJson(text: string): ContextEnvelope["payload"] {
   ensureInlineLimit(text);
   try {
-    return JSON.parse(text) as ContextEnvelope["payload"];
+    return JsonValueSchema.parse(JSON.parse(text));
   } catch {
     throw validation("JSON input is invalid");
   }

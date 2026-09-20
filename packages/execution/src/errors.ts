@@ -15,6 +15,16 @@ export class InvalidExecutionTransitionError extends Error {
   }
 }
 
+export class InvalidStepTransitionError extends Error {
+  constructor(
+    readonly from: string,
+    readonly to: string,
+  ) {
+    super(`Invalid step transition: ${from} -> ${to}`);
+    this.name = "InvalidStepTransitionError";
+  }
+}
+
 export interface ExecutionFailureOptions {
   code: ExecutionErrorCode;
   message: string;

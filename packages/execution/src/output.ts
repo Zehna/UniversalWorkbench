@@ -38,7 +38,14 @@ export async function persistStepOutputsBeforeSuccess(
       stepExecutionId: input.stepExecutionId,
       portName,
       contextId: context.id,
-      artifactId: context.provenance.artifactIds[0] ?? null,
+      artifactId:
+        context.type === "api-response" &&
+        typeof context.payload === "object" &&
+        context.payload !== null &&
+        !Array.isArray(context.payload) &&
+        typeof context.payload.bodyArtifactId === "string"
+          ? context.payload.bodyArtifactId
+          : null,
       context: structuredClone(context),
       createdAt,
     }),
