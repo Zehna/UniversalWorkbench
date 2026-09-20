@@ -306,6 +306,72 @@ describe("browser sync coordinator", () => {
     await coordinator.stop();
   });
 
+  it("returns the canonical note revision after an online update syncs", async () => {
+    const store = new MemoryStore();
+    await store.seedProject(project());
+    const original = note("original");
+    await store.seedNote(original);
+
+    const canonicalRevisionId =
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const client = network({
+      pushOperations: vi.fn().mockImplementation(async (operations) => {
+        const operation = operations[0]!;
+        return [
+          {
+            operationId: operation.id,
+            change: {
+              cursor: "7",
+              operationId: operation.id,
+              entityType: "document" as const,
+              entityId: DOCUMENT_ID,
+              kind: "upsert" as const,
+              revision: canonicalRevisionId,
+              payload: {
+                note: {
+                  document: {
+                    ...original.document,
+                    title: "Sources",
+                    currentRevisionId: canonicalRevisionId,
+                    updatedAt: NOW,
+                  },
+                  revision: {
+                    id: canonicalRevisionId,
+                    documentId: DOCUMENT_ID,
+                    revisionNumber: 2,
+                    parentRevisionId: original.revision.id,
+                    content: { body: "online edit" },
+                    metadata: {},
+                    createdAt: NOW,
+                  },
+                },
+              },
+              createdAt: NOW,
+            },
+          },
+        ];
+      }),
+    });
+    const coordinator = createSyncCoordinator({
+      ownerId: OWNER_ID,
+      store,
+      client,
+    });
+    await coordinator.start();
+
+    const saved = await coordinator.updateNote(original, {
+      title: "Sources",
+      body: "online edit",
+      baseRevisionId: original.revision.id,
+    });
+
+    expect(saved.revision.id).toBe(canonicalRevisionId);
+    expect(saved.revision.content.body).toBe("online edit");
+    expect(await store.listPendingOperations(10)).toEqual([]);
+
+    await coordinator.stop();
+  });
+
   it("does not delete local text when the server reports a conflict", async () => {
     const store = new MemoryStore();
     await store.seedProject(project());

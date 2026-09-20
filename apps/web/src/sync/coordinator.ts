@@ -542,7 +542,7 @@ export function createSyncCoordinator(
       await store.clearConflict(operationId);
       await drainPending();
       await refreshStatus();
-      return retried;
+      return (await store.getNote(retried.document.id)) ?? retried;
     },
 
     async resolveWorkflowConflict(operationId, strategy) {
@@ -595,7 +595,7 @@ export function createSyncCoordinator(
       await store.clearConflict(operationId);
       await drainPending();
       await refreshStatus();
-      return retried;
+      return (await store.getWorkflow(retried.document.id)) ?? retried;
     },
 
     async createProject(input) {
@@ -609,14 +609,14 @@ export function createSyncCoordinator(
       device ??= await ensureDevice();
       const note = await createNoteLocally(store, device, projectId, input);
       await drainPending();
-      return note;
+      return (await store.getNote(note.document.id)) ?? note;
     },
 
     async updateNote(view, input) {
       device ??= await ensureDevice();
       const note = await updateNoteLocally(store, device, view, input);
       await drainPending();
-      return note;
+      return (await store.getNote(note.document.id)) ?? note;
     },
 
     async createWorkflow(projectId, input) {
@@ -628,14 +628,14 @@ export function createSyncCoordinator(
         input,
       );
       await drainPending();
-      return workflow;
+      return (await store.getWorkflow(workflow.document.id)) ?? workflow;
     },
 
     async updateWorkflow(view, input) {
       device ??= await ensureDevice();
       const workflow = await updateWorkflowLocally(store, device, view, input);
       await drainPending();
-      return workflow;
+      return (await store.getWorkflow(workflow.document.id)) ?? workflow;
     },
 
     handleServerMessage,
