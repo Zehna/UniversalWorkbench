@@ -93,6 +93,35 @@ async function syncChanges(cookie, cursor = "0") {
   return body.changes;
 }
 
+async function waitForExecution(cookie, projectId, executionId) {
+  let latest;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const response = await fetch(
+      api(`/projects/${projectId}/executions/${executionId}`),
+      { headers: { cookie } },
+    );
+    latest = await expectJson(response, 200, "workflow execution read");
+
+    const status = latest.execution?.status;
+    if (status === "succeeded") return latest;
+    if (["failed", "cancelled", "timed_out"].includes(status)) {
+      throw new Error(
+        `Phase 3 workflow execution terminated as ${status}: ${JSON.stringify(
+          latest.execution?.error ?? null,
+        )}`,
+      );
+    }
+    if (attempt < maxAttempts) await sleep(retryDelayMs);
+  }
+
+  throw new Error(
+    `Phase 3 workflow execution did not finish: ${JSON.stringify(
+      latest?.execution ?? null,
+    )}`,
+  );
+}
+
 async function push(cookie, op, expectedStatus = 200) {
   return expectJson(
     await fetch(api("/sync/operations"), {
@@ -372,6 +401,156 @@ if (rejected.error?.code !== "SYNC_DEVICE_REJECTED") {
 
 const missedByB = await syncChanges(cookie, deviceBCursor);
 await websocketCatchUp(cookie, deviceB, deviceBCursor, missedByB);
+
+const phase3Text = "Phase 3 Docker worker output";
+const phase3NoteTitle = "Phase 3 Smoke Output";
+const workflowResponse = await fetch(api(`/projects/${projectId}/workflows`), {
+  method: "POST",
+  headers: {
+    "content-type": "application/json",
+    cookie,
+  },
+  body: JSON.stringify({
+    title: "Phase 3 Docker Workflow",
+    workflow: {
+      schemaVersion: 1,
+      name: "Phase 3 Docker Workflow",
+      nodes: [
+        {
+          id: "render",
+          tool: { id: "builtin.text.template", version: "1" },
+          config: { template: phase3Text },
+        },
+        {
+          id: "note",
+          tool: { id: "builtin.note.write", version: "1" },
+          config: { title: phase3NoteTitle },
+        },
+      ],
+      edges: [
+        {
+          from: { nodeId: "render", output: "output" },
+          to: { nodeId: "note", input: "input" },
+        },
+      ],
+      outputs: [
+        {
+          name: "note",
+          from: { nodeId: "note", output: "note" },
+        },
+      ],
+    },
+  }),
+});
+const workflowBody = await expectJson(
+  workflowResponse,
+  201,
+  "Phase 3 workflow create",
+);
+const workflowId = workflowBody.workflow?.document?.id;
+const workflowRevisionId = workflowBody.workflow?.revision?.id;
+if (
+  typeof workflowId !== "string" ||
+  typeof workflowRevisionId !== "string"
+) {
+  throw new Error("Phase 3 workflow create response is incomplete");
+}
+
+const workflowRun = await expectJson(
+  await fetch(api(`/projects/${projectId}/executions`), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie,
+    },
+    body: JSON.stringify({
+      kind: "workflow",
+      workflowId,
+      workflowRevisionId,
+      idempotencyKey: `phase3-smoke-${randomUUID()}`,
+    }),
+  }),
+  202,
+  "Phase 3 workflow enqueue",
+);
+const workflowExecutionId = workflowRun.execution?.id;
+if (typeof workflowExecutionId !== "string") {
+  throw new Error("Phase 3 workflow enqueue response is missing execution id");
+}
+
+const workflowExecution = await waitForExecution(
+  cookie,
+  projectId,
+  workflowExecutionId,
+);
+if (workflowExecution.execution?.workflowRevisionId !== workflowRevisionId) {
+  throw new Error("Phase 3 execution did not pin the workflow revision");
+}
+if (
+  !Array.isArray(workflowExecution.steps) ||
+  workflowExecution.steps.length !== 2 ||
+  workflowExecution.steps.some((step) => step.status !== "succeeded")
+) {
+  throw new Error(
+    `Phase 3 workflow steps did not all succeed: ${JSON.stringify(
+      workflowExecution.steps ?? null,
+    )}`,
+  );
+}
+
+const noteStep = workflowExecution.steps.find(
+  (step) => step.toolId === "builtin.note.write",
+);
+if (!noteStep || typeof noteStep.id !== "string") {
+  throw new Error("Phase 3 workflow is missing the note.write step");
+}
+
+const generatedNote = await expectJson(
+  await fetch(api(`/projects/${projectId}/documents/${noteStep.id}`), {
+    headers: { cookie },
+  }),
+  200,
+  "Phase 3 generated note",
+);
+if (
+  generatedNote.document?.title !== phase3NoteTitle ||
+  generatedNote.revision?.content?.body !== phase3Text
+) {
+  throw new Error("Phase 3 workflow generated the wrong canonical note");
+}
+
+const executionReceipt = await expectJson(
+  await fetch(
+    api(
+      `/projects/${projectId}/executions/${workflowExecutionId}/receipt`,
+    ),
+    { headers: { cookie } },
+  ),
+  200,
+  "Phase 3 workflow receipt",
+);
+if (
+  !Array.isArray(executionReceipt.receipts) ||
+  executionReceipt.receipts.length !== 2
+) {
+  throw new Error("Phase 3 workflow did not persist two step receipts");
+}
+if (
+  !Array.isArray(executionReceipt.provenance) ||
+  executionReceipt.provenance.length < 1
+) {
+  throw new Error("Phase 3 workflow did not persist provenance");
+}
+
+const executionText = JSON.stringify(executionReceipt);
+if (
+  executionText.includes(secretCanary) ||
+  /uw_session|authorization|set-cookie|password/i.test(executionText)
+) {
+  throw new Error("Phase 3 execution receipt contains credential material");
+}
+
+console.log("docker Phase 3 workflow smoke passed");
 
 const logoutResponse = await fetch(api("/auth/logout"), {
   method: "POST",
