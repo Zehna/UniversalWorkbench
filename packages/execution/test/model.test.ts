@@ -32,6 +32,7 @@ describe("Phase 3 execution model", () => {
   it("does not allow terminal step states to become runnable again", () => {
     expect(canTransitionStep("pending", "queued")).toBe(true);
     expect(canTransitionStep("queued", "running")).toBe(true);
+    expect(canTransitionStep("running", "running")).toBe(true);
     expect(canTransitionStep("running", "succeeded")).toBe(true);
     expect(canTransitionStep("pending", "skipped")).toBe(true);
 

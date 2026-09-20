@@ -401,6 +401,79 @@ describe("ExecutionEngine", () => {
     expect(receipts.rows).toHaveLength(1);
   });
 
+  it("reconciles persisted outputs for a reclaimed running step without replaying the tool", async () => {
+    const runner: ToolRunner = {
+      run: vi.fn(async () => {
+        throw new Error("reclaimed step must not rerun the tool");
+      }),
+    };
+    const runningStep = step({
+      status: "running",
+      attempt: 1,
+      startedAt: NOW.toISOString(),
+      usage: { outputBytes: 2, httpRequests: 0 },
+    });
+    const { engine, steps, outputs, receipts, queue } = setup(runner, {
+      execution: execution({
+        status: "running",
+        startedAt: NOW.toISOString(),
+      }),
+      step: runningStep,
+    });
+    outputs.rows.push({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      executionId: EXECUTION_ID,
+      stepExecutionId: STEP_ID,
+      portName: "output",
+      contextId: CONTEXT_ID,
+      artifactId: null,
+      context: outputContext(),
+      createdAt: NOW.toISOString(),
+    });
+
+    await engine.runClaimedJob(job({ attempt: 1 }), "worker-1");
+
+    expect(runner.run).not.toHaveBeenCalled();
+    expect(steps.row.status).toBe("succeeded");
+    expect(steps.row.outputContextIds).toEqual([CONTEXT_ID]);
+    expect(receipts.rows[0]).toMatchObject({
+      status: "succeeded",
+      outputContextIds: [CONTEXT_ID],
+      usage: { outputBytes: 2, httpRequests: 0 },
+    });
+    expect(queue.completed).toBe(1);
+  });
+
+  it("fails an ambiguous reclaimed running step instead of replaying side effects", async () => {
+    const runner: ToolRunner = {
+      run: vi.fn(async () => {
+        throw new Error("ambiguous step must not rerun the tool");
+      }),
+    };
+    const { engine, executions, steps, receipts, queue } = setup(runner, {
+      execution: execution({
+        status: "running",
+        startedAt: NOW.toISOString(),
+      }),
+      step: step({
+        status: "running",
+        attempt: 1,
+        startedAt: NOW.toISOString(),
+      }),
+    });
+
+    await engine.runClaimedJob(job({ attempt: 1 }), "worker-1");
+
+    expect(runner.run).not.toHaveBeenCalled();
+    expect(executions.row.status).toBe("failed");
+    expect(steps.row.status).toBe("failed");
+    expect(receipts.rows[0]?.error).toMatchObject({
+      code: "NETWORK_TRANSIENT",
+      details: { reason: "AMBIGUOUS_WORKER_RECLAIM" },
+    });
+    expect(queue.completed).toBe(1);
+  });
+
   it("replays terminal-step lifecycle before completing a reclaimed queue job", async () => {
     const runner: ToolRunner = {
       async run() {

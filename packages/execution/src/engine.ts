@@ -402,6 +402,42 @@ export function createExecutionEngine(
 
       const zeroUsage: ExecutionUsage = { outputBytes: 0, httpRequests: 0 };
 
+      if (step.status === "running") {
+        const persistedOutputs = await outputs.listByStep(step.id);
+        if (persistedOutputs.length > 0) {
+          await finishStep({
+            execution,
+            step,
+            job,
+            workerId,
+            error: null,
+            usage: step.usage,
+            outputContextIds: persistedOutputs.map((output) => output.contextId),
+            capabilities: registered.definition.requiredCapabilities,
+          });
+          return;
+        }
+
+        await finishStep({
+          execution,
+          step,
+          job,
+          workerId,
+          error: {
+            code: "NETWORK_TRANSIENT",
+            message:
+              "Worker lease expired while the step outcome was ambiguous; automatic replay was blocked",
+            details: {
+              reason: "AMBIGUOUS_WORKER_RECLAIM",
+            },
+          },
+          usage: step.usage,
+          outputContextIds: [],
+          capabilities: registered.definition.requiredCapabilities,
+        });
+        return;
+      }
+
       if (execution.cancellationRequestedAt) {
         const at = nowIso(clock);
         const cancelledStep = await steps.transition({
@@ -524,6 +560,20 @@ export function createExecutionEngine(
           clock,
         );
         assertExecutionUsageWithinBudget(execution.budget, usageAfterRun);
+
+        const checkpointedStep = await steps.transition({
+          stepExecutionId: step.id,
+          from: "running",
+          to: "running",
+          now: nowIso(clock),
+          attempt,
+          error: null,
+          usage,
+        });
+        if (!checkpointedStep) {
+          throw new Error("Execution step usage checkpoint failed");
+        }
+        step = checkpointedStep;
 
         const refreshed = await executions.getByIdForWorker(execution.id);
         if (refreshed?.cancellationRequestedAt) {

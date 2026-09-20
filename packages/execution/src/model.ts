@@ -31,7 +31,13 @@ const stepTransitions: Record<
 > = {
   pending: new Set(["queued", "skipped", "cancelled"]),
   queued: new Set(["running", "cancelled"]),
-  running: new Set(["succeeded", "failed", "cancelled", "timed_out"]),
+  running: new Set([
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "timed_out",
+  ]),
   succeeded: new Set(),
   failed: new Set(),
   skipped: new Set(),
