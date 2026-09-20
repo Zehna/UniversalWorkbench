@@ -100,6 +100,7 @@ function newStep(
     nodeId: node.id,
     toolId: node.tool.id,
     toolVersion: node.tool.version,
+    config: structuredClone(node.config),
     status: root ? "queued" : "pending",
     attempt: 0,
     inputContextIds: [],

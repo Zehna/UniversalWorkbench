@@ -1,6 +1,7 @@
 import type {
   Execution,
   ExecutionKind,
+  JsonObject,
   ExecutionStatus,
   ExecutionUsage,
   SanitizedExecutionError,
@@ -13,6 +14,7 @@ export interface ExecutionStepRecord {
   nodeId: string;
   toolId: string;
   toolVersion: string;
+  config: JsonObject;
   status: StepExecutionStatus;
   attempt: number;
   inputContextIds: string[];

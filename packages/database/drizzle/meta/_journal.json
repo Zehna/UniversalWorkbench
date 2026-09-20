@@ -29,6 +29,13 @@
       "when": 1789839478907,
       "tag": "0003_phase3_execution",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790000000000,
+      "tag": "0004_phase3_step_config",
+      "breakpoints": true
     }
   ]
 }

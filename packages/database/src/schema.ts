@@ -306,6 +306,10 @@ export const executionSteps = pgTable(
     nodeId: text("node_id").notNull(),
     toolId: text("tool_id").notNull(),
     toolVersion: text("tool_version").notNull(),
+    config: jsonb("config")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     status: text("status").notNull(),
     attempt: integer("attempt").notNull().default(0),
     inputContextIds: jsonb("input_context_ids")

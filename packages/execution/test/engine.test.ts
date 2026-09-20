@@ -265,6 +265,7 @@ function step(
     nodeId: "tool",
     toolId: "builtin.test.tool",
     toolVersion: "1",
+    config: {},
     status: "queued",
     attempt: 0,
     inputContextIds: [],

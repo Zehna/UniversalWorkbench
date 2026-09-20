@@ -1,5 +1,6 @@
 import {
   ExecutionUsageSchema,
+  JsonObjectSchema,
   SanitizedExecutionErrorSchema,
   type StepExecutionStatus,
 } from "@uw/contracts";
@@ -17,6 +18,7 @@ interface StepRow extends QueryResultRow {
   node_id: string;
   tool_id: string;
   tool_version: string;
+  config: unknown;
   status: StepExecutionStatus;
   attempt: number;
   input_context_ids: unknown;
@@ -33,6 +35,7 @@ const STEP_COLUMNS = `
   node_id,
   tool_id,
   tool_version,
+  config,
   status,
   attempt,
   input_context_ids,
@@ -57,6 +60,7 @@ function mapStep(row: StepRow): ExecutionStepRecord {
     nodeId: row.node_id,
     toolId: row.tool_id,
     toolVersion: row.tool_version,
+    config: JsonObjectSchema.parse(row.config),
     status: row.status,
     attempt: row.attempt,
     inputContextIds: stringArray(row.input_context_ids),
@@ -97,6 +101,7 @@ export function createPostgresExecutionStepRepository(
            node_id,
            tool_id,
            tool_version,
+           config,
            status,
            attempt,
            input_context_ids,
@@ -106,7 +111,7 @@ export function createPostgresExecutionStepRepository(
            error,
            usage
          ) values (
-           $1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12::jsonb,$13::jsonb
+           $1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10::jsonb,$11,$12,$13::jsonb,$14::jsonb
          )
          on conflict (execution_id, node_id) do nothing
          returning ${STEP_COLUMNS}`,
@@ -116,6 +121,7 @@ export function createPostgresExecutionStepRepository(
           step.nodeId,
           step.toolId,
           step.toolVersion,
+          JSON.stringify(step.config),
           step.status,
           step.attempt,
           JSON.stringify(step.inputContextIds),
