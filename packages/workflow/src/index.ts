@@ -17,3 +17,4 @@ export * from "./model.js";
 export * from "./planner.js";
 export * from "./validate.js";
 export * from "./service.js";
+export * from "./execution-lifecycle.js";
