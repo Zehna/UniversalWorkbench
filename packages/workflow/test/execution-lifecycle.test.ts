@@ -404,15 +404,17 @@ describe("workflow execution lifecycle", () => {
     storedJoin.inputContextIds = [...join.inputContextIds];
     storedJoin.outputContextIds = [...join.outputContextIds];
 
-    await lifecycle.onTerminalStep({
+    const firstIds = await lifecycle.onTerminalStep({
       execution: execution(),
       step: storedJoin,
     });
-    await lifecycle.onTerminalStep({
+    const replayIds = await lifecycle.onTerminalStep({
       execution: execution(),
       step: storedJoin,
     });
 
+    expect(firstIds).toHaveLength(2);
+    expect(replayIds).toEqual(firstIds);
     expect(provenance.rows).toHaveLength(2);
     expect(provenance.rows.map((edge) => edge.sourceId)).toEqual(
       join.inputContextIds,

@@ -11,7 +11,7 @@ function parseReceipt(row: ReceiptRow | undefined): ExecutionReceipt | null {
 }
 
 async function findByStep(
-  client: Pick<Pool, "query"> | Pick<PoolClient, "query">,
+  client: Pool | PoolClient,
   stepExecutionId: string,
 ): Promise<ExecutionReceipt | null> {
   const result = await client.query<ReceiptRow>(

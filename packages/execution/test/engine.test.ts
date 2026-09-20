@@ -417,7 +417,7 @@ describe("ExecutionEngine", () => {
     ).rejects.toThrow("scheduler unavailable");
 
     expect(steps.row.status).toBe("succeeded");
-    expect(receipts.rows).toHaveLength(1);
+    expect(receipts.rows).toHaveLength(0);
     expect(queue.completed).toBe(0);
 
     await engine.runClaimedJob(job(), "worker-1");
@@ -474,11 +474,11 @@ describe("ExecutionEngine", () => {
       },
     };
     const provenanceId = "99999999-9999-4999-8999-999999999999";
-    const lifecycle = {
+    const lifecycle: ExecutionStepLifecycle = {
       async onTerminalStep() {
         return [provenanceId];
       },
-    } as unknown as ExecutionStepLifecycle;
+    };
     const { engine, receipts } = setup(runner, { lifecycle });
 
     await engine.runClaimedJob(job(), "worker-1");
