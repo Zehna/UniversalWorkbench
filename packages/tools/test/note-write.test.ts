@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ContextEnvelope, NoteDocumentView } from "@uw/contracts";
-import { createNoteWriteTool } from "../src/builtin/note/write.js";
+import {
+  createNoteWriteTool,
+  noteIdentityForStep,
+} from "../src/builtin/note/write.js";
 
 const base = {
   ownerId: "11111111-1111-4111-8111-111111111111",
@@ -70,7 +73,11 @@ describe("builtin note.write", () => {
       expect(createNote).toHaveBeenCalledWith(
         base.ownerId,
         base.projectId,
-        { title: "Generated", body: "Hello" },
+        {
+          ...noteIdentityForStep(base.stepExecutionId),
+          title: "Generated",
+          body: "Hello",
+        },
         base.traceId,
       );
       expect(result.outputs.note?.type).toBe("note-ref");
@@ -81,15 +88,6 @@ describe("builtin note.write", () => {
     const createNote = vi.fn();
     const tool = createNoteWriteTool({
       documents: { createNote },
-      sideEffects: {
-        async get() {
-          return null;
-        },
-        async reserve() {
-          return { status: "reserved" as const };
-        },
-        async complete() {},
-      },
       contextIds: {
         next: () => "99999999-9999-4999-8999-999999999999",
       },

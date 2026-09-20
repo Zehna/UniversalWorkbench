@@ -126,6 +126,7 @@ describe("PostgreSQL document revisions", () => {
       documents: createPostgresDocumentRepository(pool),
       audit: createPostgresAuditRepository(pool),
       clock: new SystemClock(),
+      idGenerator: new UuidGenerator(),
     });
 
     const input = {
