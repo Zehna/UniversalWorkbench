@@ -54,7 +54,7 @@ export interface ExecutionStepLifecycle {
   onTerminalStep(input: {
     execution: Execution;
     step: ExecutionStepRecord;
-  }): Promise<void>;
+  }): Promise<string[]>;
 }
 
 export interface ExecutionEngine {
@@ -226,11 +226,13 @@ export function createExecutionEngine(
     retryRandom = Math.random,
     cancellationPollMs = 250,
     lifecycle = {
-      async onTerminalStep() {},
+      async onTerminalStep() {
+        return [];
+      },
     },
   } = dependencies;
 
-  async function appendReceipt(input: {
+  async function ensureReceipt(input: {
     execution: Execution;
     step: ExecutionStepRecord;
     status: "succeeded" | "failed" | "cancelled" | "timed_out";
@@ -239,7 +241,11 @@ export function createExecutionEngine(
     outputContextIds: string[];
     capabilities: ExecutionReceipt["capabilities"];
     finishedAt: string;
-  }): Promise<void> {
+    provenanceEdgeIds: string[];
+  }): Promise<ExecutionReceipt> {
+    const existing = await receipts.getByStep(input.step.id);
+    if (existing) return existing;
+
     const receipt: ExecutionReceipt = {
       id: idGenerator.next(),
       executionId: input.execution.id,
@@ -258,9 +264,9 @@ export function createExecutionEngine(
       status: input.status,
       error: input.error,
       usage: structuredClone(input.usage),
-      provenanceEdgeIds: [],
+      provenanceEdgeIds: [...input.provenanceEdgeIds],
     };
-    await receipts.append(receipt);
+    return receipts.append(receipt);
   }
 
   async function transitionExecutionTerminal(
@@ -323,7 +329,12 @@ export function createExecutionEngine(
       );
     }
 
-    await appendReceipt({
+    const provenanceEdgeIds = await lifecycle.onTerminalStep({
+      execution: terminalExecution,
+      step: terminalStep,
+    });
+
+    await ensureReceipt({
       execution: input.execution,
       step: terminalStep,
       status: terminalExecutionStatusFor(input.error?.code ?? null),
@@ -332,10 +343,7 @@ export function createExecutionEngine(
       outputContextIds: input.outputContextIds,
       capabilities: input.capabilities,
       finishedAt,
-    });
-    await lifecycle.onTerminalStep({
-      execution: terminalExecution,
-      step: terminalStep,
+      provenanceEdgeIds,
     });
     await queue.complete(input.job.id, input.workerId);
   }
@@ -355,13 +363,33 @@ export function createExecutionEngine(
       let step = await steps.getById(job.stepExecutionId);
       if (!step) throw new Error("Execution step was not found");
 
+      const registered = tools.resolve(step.toolId, step.toolVersion);
+
       if (terminalStepStatuses.has(step.status)) {
-        await lifecycle.onTerminalStep({ execution, step });
+        const provenanceEdgeIds = await lifecycle.onTerminalStep({
+          execution,
+          step,
+        });
+        if (step.status !== "skipped") {
+          await ensureReceipt({
+            execution,
+            step,
+            status: step.status as Exclude<
+              StepExecutionStatus,
+              "pending" | "queued" | "running" | "skipped"
+            >,
+            error: step.error,
+            usage: step.usage,
+            outputContextIds: step.outputContextIds,
+            capabilities: registered.definition.requiredCapabilities,
+            finishedAt: step.finishedAt ?? nowIso(clock),
+            provenanceEdgeIds,
+          });
+        }
         await queue.complete(job.id, workerId);
         return;
       }
 
-      const registered = tools.resolve(step.toolId, step.toolVersion);
       const zeroUsage: ExecutionUsage = { outputBytes: 0, httpRequests: 0 };
 
       if (execution.cancellationRequestedAt) {
@@ -381,7 +409,11 @@ export function createExecutionEngine(
           cancellationFailure().sanitized(),
           at,
         );
-        await appendReceipt({
+        const provenanceEdgeIds = await lifecycle.onTerminalStep({
+          execution,
+          step,
+        });
+        await ensureReceipt({
           execution,
           step,
           status: "cancelled",
@@ -390,8 +422,8 @@ export function createExecutionEngine(
           outputContextIds: [],
           capabilities: registered.definition.requiredCapabilities,
           finishedAt: at,
+          provenanceEdgeIds,
         });
-        await lifecycle.onTerminalStep({ execution, step });
         await queue.complete(job.id, workerId);
         return;
       }

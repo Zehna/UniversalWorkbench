@@ -130,40 +130,50 @@ export function createWorkflowExecutionLifecycle(
   async function appendProvenance(
     execution: Execution,
     step: ExecutionStepRecord,
-  ): Promise<void> {
-    if (step.status !== "succeeded") return;
+  ): Promise<string[]> {
+    if (step.status !== "succeeded") return [];
 
     const [stepOutputs, existing] = await Promise.all([
       outputs.listByStep(step.id),
       provenance.listByExecution(execution.id),
     ]);
-    const existingKeys = new Set(
-      existing.map(
-        (edge) =>
-          `${edge.sourceKind}:${edge.sourceId}->${edge.targetKind}:${edge.targetId}:${edge.relation}`,
-      ),
+    const existingByKey = new Map(
+      existing.map((edge) => [
+        `${edge.sourceKind}:${edge.sourceId}->${edge.targetKind}:${edge.targetId}:${edge.relation}`,
+        edge,
+      ]),
     );
+    const edgeIdsForStep: string[] = [];
 
     for (const output of stepOutputs) {
       for (const parentId of output.context.provenance.parentContextIds) {
         const key = `context:${parentId}->context:${output.contextId}:derived-from`;
-        if (existingKeys.has(key)) continue;
+        const existingEdge = existingByKey.get(key);
+        if (existingEdge) {
+          edgeIdsForStep.push(existingEdge.id);
+          continue;
+        }
 
-        await provenance.append({
-          id: edgeIds.next(),
+        const id = edgeIds.next();
+        const created = {
+          id,
           projectId: execution.projectId,
           executionId: execution.id,
           stepExecutionId: step.id,
-          sourceKind: "context",
+          sourceKind: "context" as const,
           sourceId: parentId,
-          targetKind: "context",
+          targetKind: "context" as const,
           targetId: output.contextId,
           relation: "derived-from",
           createdAt: clock.now().toISOString(),
-        });
-        existingKeys.add(key);
+        };
+        await provenance.append(created);
+        existingByKey.set(key, created);
+        edgeIdsForStep.push(id);
       }
     }
+
+    return edgeIdsForStep;
   }
 
   async function skipPendingAfterFailure(
@@ -283,7 +293,7 @@ export function createWorkflowExecutionLifecycle(
     },
 
     async onTerminalStep({ execution, step }) {
-      if (execution.kind !== "workflow") return;
+      if (execution.kind !== "workflow") return [];
       if (!execution.workflowRevisionId) {
         throw new Error("Workflow execution is missing workflowRevisionId");
       }
@@ -295,7 +305,7 @@ export function createWorkflowExecutionLifecycle(
       });
 
       const durableStep = (await steps.getById(step.id)) ?? step;
-      await appendProvenance(execution, durableStep);
+      const provenanceEdgeIds = await appendProvenance(execution, durableStep);
 
       let current = await steps.listByExecution(execution.id);
       await skipPendingAfterFailure(durableStep, current);
@@ -314,6 +324,7 @@ export function createWorkflowExecutionLifecycle(
         current,
         clock.now().toISOString(),
       );
+      return provenanceEdgeIds;
     },
   };
 }

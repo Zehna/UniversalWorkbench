@@ -157,7 +157,21 @@ class MemoryReceipts implements ExecutionReceiptRepository {
   readonly rows: ExecutionReceipt[] = [];
 
   async append(receipt: ExecutionReceipt) {
+    if (receipt.stepExecutionId) {
+      const existing = this.rows.find(
+        (row) => row.stepExecutionId === receipt.stepExecutionId,
+      );
+      if (existing) return structuredClone(existing);
+    }
     this.rows.push(structuredClone(receipt));
+    return structuredClone(receipt);
+  }
+
+  async getByStep(stepExecutionId: string) {
+    const receipt = this.rows.find(
+      (row) => row.stepExecutionId === stepExecutionId,
+    );
+    return receipt ? structuredClone(receipt) : null;
   }
 
   async listByExecution(executionId: string) {
@@ -393,6 +407,7 @@ describe("ExecutionEngine", () => {
       async onTerminalStep() {
         attempts += 1;
         if (attempts === 1) throw new Error("scheduler unavailable");
+        return [];
       },
     };
     const { engine, steps, receipts, queue } = setup(runner, { lifecycle });
