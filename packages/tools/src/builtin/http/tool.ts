@@ -186,7 +186,15 @@ export function createHttpRequestTool(
 
   return {
     async run(context) {
-      const config = HttpToolConfigSchema.parse(context.config);
+      const parsedConfig = HttpToolConfigSchema.safeParse(context.config);
+      if (!parsedConfig.success) {
+        throw new ToolExecutionError({
+          code: "VALIDATION",
+          message: "HTTP tool configuration is invalid",
+          retrySafe: false,
+        });
+      }
+      const config = parsedConfig.data;
       const preparedBody = bodyBytes(context.inputs.body);
       const headers = { ...(config.headers ?? {}) };
       const hasContentType = Object.keys(headers).some(

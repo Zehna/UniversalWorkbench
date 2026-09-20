@@ -3,6 +3,7 @@ import type {
   JsonValue,
   SanitizedExecutionError,
 } from "@uw/contracts";
+import { ToolExecutionError } from "@uw/tools";
 
 export class InvalidExecutionTransitionError extends Error {
   constructor(
@@ -55,6 +56,13 @@ export class ExecutionFailure extends Error {
 export function sanitizeExecutionError(error: unknown): SanitizedExecutionError {
   if (error instanceof ExecutionFailure) {
     return error.sanitized();
+  }
+  if (error instanceof ToolExecutionError) {
+    return {
+      code: error.code,
+      message: error.message,
+      ...(error.details === undefined ? {} : { details: error.details }),
+    };
   }
 
   return {
