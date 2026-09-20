@@ -12,7 +12,13 @@ const executionTransitions: Record<
   ReadonlySet<ExecutionStatus>
 > = {
   queued: new Set(["running", "cancelled"]),
-  running: new Set(["succeeded", "failed", "cancelled", "timed_out"]),
+  running: new Set([
+    "queued",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "timed_out",
+  ]),
   succeeded: new Set(),
   failed: new Set(),
   cancelled: new Set(),

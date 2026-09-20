@@ -28,3 +28,6 @@ export * from "./repository.js";
 export * from "./provenance.js";
 export * from "./service.js";
 export * from "./queue.js";
+export * from "./engine.js";
+export * from "./retry.js";
+export * from "./worker.js";

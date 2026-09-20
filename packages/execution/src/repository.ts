@@ -2,6 +2,7 @@ import type {
   Execution,
   ExecutionKind,
   ExecutionStatus,
+  ExecutionUsage,
   SanitizedExecutionError,
   StepExecutionStatus,
 } from "@uw/contracts";
@@ -19,6 +20,7 @@ export interface ExecutionStepRecord {
   startedAt: string | null;
   finishedAt: string | null;
   error: SanitizedExecutionError | null;
+  usage: ExecutionUsage;
 }
 
 export interface CreateExecutionInput {
@@ -28,6 +30,7 @@ export interface CreateExecutionInput {
 export interface ExecutionRepository {
   create(input: CreateExecutionInput): Promise<Execution>;
   getById(ownerId: string, executionId: string): Promise<Execution | null>;
+  getByIdForWorker(executionId: string): Promise<Execution | null>;
   findByIdempotencyKey(input: {
     ownerId: string;
     projectId: string;
@@ -49,8 +52,22 @@ export interface ExecutionRepository {
   }): Promise<Execution | null>;
 }
 
+export interface TransitionExecutionStepInput {
+  stepExecutionId: string;
+  from: StepExecutionStatus;
+  to: StepExecutionStatus;
+  now: string;
+  attempt?: number;
+  outputContextIds?: string[];
+  error?: SanitizedExecutionError | null;
+  usage?: ExecutionUsage;
+}
+
 export interface ExecutionStepRepository {
   create(step: ExecutionStepRecord): Promise<ExecutionStepRecord>;
   listByExecution(executionId: string): Promise<ExecutionStepRecord[]>;
   getById(stepExecutionId: string): Promise<ExecutionStepRecord | null>;
+  transition(
+    input: TransitionExecutionStepInput,
+  ): Promise<ExecutionStepRecord | null>;
 }

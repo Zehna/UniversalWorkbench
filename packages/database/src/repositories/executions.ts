@@ -187,6 +187,18 @@ export function createPostgresExecutionRepository(
       return row ? mapExecution(row) : null;
     },
 
+    async getByIdForWorker(executionId) {
+      const result = await pool.query<ExecutionRow>(
+        `select ${EXECUTION_COLUMNS}
+           from executions
+          where id = $1
+          limit 1`,
+        [executionId],
+      );
+      const row = result.rows[0];
+      return row ? mapExecution(row) : null;
+    },
+
     findByIdempotencyKey(input) {
       return selectByIdempotency(pool, input);
     },

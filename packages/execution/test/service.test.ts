@@ -55,6 +55,11 @@ class MemoryExecutions implements ExecutionRepository {
     return value?.ownerId === ownerId ? structuredClone(value) : null;
   }
 
+  async getByIdForWorker(executionId: string) {
+    const value = this.rows.get(executionId);
+    return value ? structuredClone(value) : null;
+  }
+
   async findByIdempotencyKey(input: {
     ownerId: string;
     projectId: string;

@@ -11,6 +11,7 @@ import { ToolRegistry, type ToolRunner } from "@uw/tools";
 import {
   ExecutionFailure,
   createExecutionEngine,
+  type EnqueueQueueJobInput,
   type ExecutionQueue,
   type ExecutionRepository,
   type ExecutionStepRecord,
@@ -168,8 +169,13 @@ class MemoryQueue implements ExecutionQueue {
   released: { availableAt: string; attempt: number } | null = null;
   abandoned = 0;
 
-  async enqueue(input: QueueJob) {
-    return structuredClone(input);
+  async enqueue(input: EnqueueQueueJobInput) {
+    return {
+      ...structuredClone(input),
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      updatedAt: input.createdAt,
+    };
   }
 
   async claim() {
