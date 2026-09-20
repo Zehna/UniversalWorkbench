@@ -3,6 +3,7 @@ import type { NoteDocumentView, Project } from "@uw/contracts";
 import type { LocalConflictRecord } from "../local/store";
 import { NoteEditor } from "../documents/NoteEditor";
 import { useSyncRuntime } from "../sync/runtime";
+import { WorkflowList } from "../workflows/WorkflowList";
 
 interface ProjectWorkspaceProps {
   project: Project;
@@ -98,6 +99,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
           </button>
         ))}
       </div>
+      <WorkflowList projectId={project.id} />
       {selected ? (
         <NoteEditor
           key={selected.document.id}
