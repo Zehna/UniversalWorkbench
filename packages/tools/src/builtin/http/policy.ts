@@ -2,22 +2,28 @@ import { isIP } from "node:net";
 import { ToolExecutionError } from "../../errors.js";
 
 const credentialQueryKeys = new Set([
-  "apikey",
-  "accesstoken",
-  "authtoken",
   "authorization",
   "auth",
-  "clientsecret",
-  "credential",
-  "credentials",
   "key",
   "password",
   "passwd",
-  "secret",
   "sig",
-  "signature",
   "token",
 ]);
+
+function isCredentialQueryKey(name: string): boolean {
+  const compact = normalizeCredentialName(name);
+  return (
+    credentialQueryKeys.has(compact) ||
+    compact.includes("apikey") ||
+    compact.includes("accesstoken") ||
+    compact.includes("authtoken") ||
+    compact.includes("clientsecret") ||
+    compact.includes("credential") ||
+    compact.includes("secret") ||
+    compact.includes("signature")
+  );
+}
 
 const forbiddenRequestHeaders = new Set([
   "authorization",
@@ -226,7 +232,7 @@ export class SafeEgressPolicy {
     }
 
     for (const key of url.searchParams.keys()) {
-      if (credentialQueryKeys.has(normalizeCredentialName(key))) {
+      if (isCredentialQueryKey(key)) {
         unsafe("Credential-like query parameters are not allowed");
       }
     }
@@ -255,9 +261,28 @@ export class SafeEgressPolicy {
           retrySafe: false,
         });
       }
+      if (name.length > 128 || value.length > 8_192) {
+        throw new ToolExecutionError({
+          code: "VALIDATION",
+          message: "HTTP header exceeds the allowed size",
+          retrySafe: false,
+        });
+      }
       safe[name.toLowerCase()] = value;
     }
-    safe["accept-encoding"] = "identity";
+
+    const totalBytes = Object.entries(safe).reduce(
+      (total, [name, value]) => total + name.length + value.length,
+      0,
+    );
+    if (totalBytes > 32 * 1024) {
+      throw new ToolExecutionError({
+        code: "VALIDATION",
+        message: "HTTP request headers exceed the allowed size",
+        retrySafe: false,
+      });
+    }
+
     return safe;
   }
 

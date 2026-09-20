@@ -55,6 +55,24 @@ const HARD_TIMEOUT_MS = 30_000;
 const MAX_REDIRECTS = 5;
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 
+function boundedInteger(
+  value: number | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+  label: string,
+): number {
+  if (value === undefined) return fallback;
+  if (!Number.isFinite(value) || !Number.isInteger(value)) {
+    throw new ToolExecutionError({
+      code: "VALIDATION",
+      message: `${label} must be a finite integer`,
+      retrySafe: false,
+    });
+  }
+  return Math.min(max, Math.max(min, value));
+}
+
 function normalizedHostname(url: URL): string {
   return url.hostname.startsWith("[") && url.hostname.endsWith("]")
     ? url.hostname.slice(1, -1)
@@ -71,7 +89,7 @@ export class NodeHttpConnector implements HttpConnector {
       const options: https.RequestOptions = {
         protocol: input.url.protocol,
         hostname,
-        port: input.url.port || undefined,
+        ...(input.url.port ? { port: input.url.port } : {}),
         method: input.method,
         path: `${input.url.pathname}${input.url.search}`,
         headers: input.headers,
@@ -167,17 +185,26 @@ export class SafeHttpTransport implements SafeHttpTransportLike {
   }
 
   async request(input: SafeHttpTransportRequest): Promise<SafeHttpTransportResult> {
-    const timeoutMs = Math.min(
+    const timeoutMs = boundedInteger(
+      input.timeoutMs,
+      DEFAULT_TIMEOUT_MS,
+      1,
       HARD_TIMEOUT_MS,
-      Math.max(1, Math.round(input.timeoutMs ?? DEFAULT_TIMEOUT_MS)),
+      "timeoutMs",
     );
-    const maxRedirects = Math.min(
+    const maxRedirects = boundedInteger(
+      input.maxRedirects,
       MAX_REDIRECTS,
-      Math.max(0, Math.round(input.maxRedirects ?? MAX_REDIRECTS)),
+      0,
+      MAX_REDIRECTS,
+      "maxRedirects",
     );
-    const maxResponseBytes = Math.min(
+    const maxResponseBytes = boundedInteger(
+      input.maxResponseBytes,
       MAX_RESPONSE_BYTES,
-      Math.max(1, Math.round(input.maxResponseBytes ?? MAX_RESPONSE_BYTES)),
+      1,
+      MAX_RESPONSE_BYTES,
+      "maxResponseBytes",
     );
     const controller = new AbortController();
     let timedOut = false;
@@ -196,13 +223,16 @@ export class SafeHttpTransport implements SafeHttpTransportLike {
     }, timeoutMs);
 
     try {
-      const headers = this.#policy.validateHeaders(input.headers);
+      const headers = {
+        ...this.#policy.validateHeaders(input.headers),
+        "accept-encoding": "identity",
+      };
       return await this.#requestHop(
         {
           url: input.url,
           method: input.method,
           headers,
-          body: input.body,
+          ...(input.body === undefined ? {} : { body: input.body }),
         },
         controller.signal,
         maxRedirects,
@@ -290,7 +320,11 @@ export class SafeHttpTransport implements SafeHttpTransportLike {
           url: next.toString(),
           method: nextMethod,
           headers: nextHeaders,
-          ...(nextMethod === "GET" ? {} : input.body === undefined ? {} : { body: input.body }),
+          ...(nextMethod === "GET"
+            ? {}
+            : input.body === undefined
+              ? {}
+              : { body: input.body }),
         },
         signal,
         maxRedirects,

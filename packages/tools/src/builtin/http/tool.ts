@@ -13,11 +13,15 @@ import {
 
 const HttpMethodSchema = z.enum(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]);
 
-const HttpToolConfigSchema = z.object({
-  url: z.string().trim().min(1),
-  method: HttpMethodSchema.default("GET"),
-  headers: z.record(z.string(), z.string()).optional(),
-});
+const HttpToolConfigSchema = z
+  .object({
+    url: z.string().trim().min(1),
+    method: HttpMethodSchema.default("GET"),
+    headers: z.record(z.string(), z.string()).optional(),
+  })
+  .strict();
+
+const MAX_INLINE_BODY_BYTES = 1024 * 1024;
 
 export interface HttpArtifactWriter {
   create(
@@ -90,6 +94,17 @@ function bodyBytes(
 ): { bytes?: Uint8Array; contentType?: string } {
   if (!input) return {};
 
+  const ensureLimit = (bytes: Uint8Array): Uint8Array => {
+    if (bytes.byteLength > MAX_INLINE_BODY_BYTES) {
+      throw new ToolExecutionError({
+        code: "OUTPUT_TOO_LARGE",
+        message: "HTTP request body exceeds the inline context limit",
+        retrySafe: false,
+      });
+    }
+    return bytes;
+  };
+
   if (input.type === "text") {
     if (typeof input.payload !== "string") {
       throw new ToolExecutionError({
@@ -99,14 +114,16 @@ function bodyBytes(
       });
     }
     return {
-      bytes: new TextEncoder().encode(input.payload),
+      bytes: ensureLimit(new TextEncoder().encode(input.payload)),
       contentType: "text/plain; charset=utf-8",
     };
   }
 
   if (input.type === "json") {
     return {
-      bytes: new TextEncoder().encode(JSON.stringify(input.payload)),
+      bytes: ensureLimit(
+        new TextEncoder().encode(JSON.stringify(input.payload)),
+      ),
       contentType: "application/json",
     };
   }
@@ -151,10 +168,11 @@ function throwForHttpStatus(
   };
 
   if (status === 429) {
+    const retryAfterMs = parseRetryAfter(headers["retry-after"]);
     throw new ToolExecutionError({
       code: "UPSTREAM_RATE_LIMIT",
       message: "HTTP upstream rate limited the request",
-      retryAfterMs: parseRetryAfter(headers["retry-after"]),
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
       ...common,
     });
   }
