@@ -22,6 +22,7 @@ interface WorkflowEditorProps {
   coordinator: EditorCoordinator;
   api: WorkflowApiClient;
   tools?: ToolDefinition[] | undefined;
+  syncVersion?: string | undefined;
   onSaved?: ((view: WorkflowDocumentView) => void) | undefined;
 }
 
@@ -112,6 +113,7 @@ export function WorkflowEditor({
   coordinator,
   api,
   tools: suppliedTools,
+  syncVersion,
   onSaved,
 }: WorkflowEditorProps) {
   const [catalog, setCatalog] = useState<ToolDefinition[]>(suppliedTools ?? []);
@@ -120,6 +122,9 @@ export function WorkflowEditor({
   );
   const [nodes, setNodes] = useState<WorkflowNode[]>(() => initialNodes(initial));
   const [selectedTool, setSelectedTool] = useState("");
+  const [addChoices, setAddChoices] = useState<ToolDefinition[]>(
+    suppliedTools ?? [],
+  );
   const [saved, setSaved] = useState<WorkflowDocumentView | undefined>(initial);
   const [eligibility, setEligibility] = useState<
     Awaited<ReturnType<EditorCoordinator["workflowRunEligibility"]>> | null
@@ -152,6 +157,51 @@ export function WorkflowEditor({
   }, [api, suppliedTools]);
 
   useEffect(() => {
+    const last = nodes.at(-1);
+    if (!last) {
+      setAddChoices(catalog);
+      return;
+    }
+
+    const lastTool = toolFor(catalog, last);
+    const outputTypes = lastTool?.produces.flatMap((port) => port.types) ?? [];
+    if (outputTypes.length === 0) {
+      setAddChoices([]);
+      return;
+    }
+
+    let active = true;
+    void Promise.all(outputTypes.map((type) => api.compatibleTargets(type)))
+      .then((groups) => {
+        if (!active) return;
+        const seen = new Set<string>();
+        const compatible = groups
+          .flat()
+          .map((target) => target.definition)
+          .filter((tool) => {
+            const key = `${tool.id}@${tool.version}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        setAddChoices(compatible);
+      })
+      .catch((cause) => {
+        if (active) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Unable to load compatible workflow tools",
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [api, catalog, nodes]);
+
+  useEffect(() => {
     if (!saved) {
       setEligibility({ state: "missing" });
       return;
@@ -163,7 +213,7 @@ export function WorkflowEditor({
     return () => {
       active = false;
     };
-  }, [coordinator, saved]);
+  }, [coordinator, saved, syncVersion]);
 
   const definition = useMemo(
     () => linearDefinition(title || "Untitled workflow", nodes, catalog),
@@ -184,7 +234,7 @@ export function WorkflowEditor({
   }
 
   function addStep() {
-    const tool = catalog.find(
+    const tool = addChoices.find(
       (candidate) => `${candidate.id}@${candidate.version}` === selectedTool,
     );
     if (!tool) return;
@@ -325,7 +375,7 @@ export function WorkflowEditor({
             onChange={(event) => setSelectedTool(event.target.value)}
           >
             <option value="">Choose a tool</option>
-            {catalog.map((tool) => (
+            {addChoices.map((tool) => (
               <option
                 key={`${tool.id}@${tool.version}`}
                 value={`${tool.id}@${tool.version}`}

@@ -164,6 +164,43 @@ describe("WorkflowEditor", () => {
     );
   });
 
+  it("uses context compatibility to choose the next step", async () => {
+    const client = api();
+    vi.mocked(client.compatibleTargets).mockImplementation(async (type) => {
+      if (type !== "text" && type !== "markdown") return [];
+      return [
+        {
+          definition: tools[0]!,
+          inputPort: tools[0]!.accepts[0]!,
+        },
+      ];
+    });
+
+    render(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={workflowView()}
+        coordinator={coordinator()}
+        api={client}
+        tools={tools}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(client.compatibleTargets).toHaveBeenCalledWith("text"),
+    );
+    await waitFor(() =>
+      expect(client.compatibleTargets).toHaveBeenCalledWith("markdown"),
+    );
+
+    expect(
+      await screen.findByRole("option", { name: "JSON Select" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Text Template" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("disables Run after an unsaved editor change", async () => {
     render(
       <WorkflowEditor

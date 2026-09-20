@@ -81,6 +81,7 @@ export function WorkflowList({ projectId }: { projectId: string }) {
           initial={selected}
           coordinator={coordinator}
           api={api}
+          syncVersion={JSON.stringify(status)}
           onSaved={saved}
         />
       ) : creating ? (
@@ -89,6 +90,7 @@ export function WorkflowList({ projectId }: { projectId: string }) {
           projectId={projectId}
           coordinator={coordinator}
           api={api}
+          syncVersion={JSON.stringify(status)}
           onSaved={saved}
         />
       ) : null}
