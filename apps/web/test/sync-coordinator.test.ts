@@ -312,10 +312,11 @@ describe("browser sync coordinator", () => {
     const original = note("original");
     await store.seedNote(original);
 
-    const canonicalRevisionId =
-      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const canonicalRevisionId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const client = network({
-      pushOperations: vi.fn().mockImplementation(async (operations) => {
+      pushOperations: vi
+        .fn()
+        .mockImplementation(async (operations: SyncOperation[]) => {
         const operation = operations[0]!;
         return [
           {
