@@ -19,10 +19,12 @@ async function resetDatabaseSchemas() {
   await migrateDatabase(pool);
 }
 
-async function seedOwnerProjectExecution(input: {
-  cancelled?: boolean;
-  status?: "queued" | "running";
-} = {}) {
+async function seedOwnerProjectExecution(
+  input: {
+    cancelled?: boolean;
+    status?: "queued" | "running";
+  } = {},
+) {
   const ownerId = randomUUID();
   const projectId = randomUUID();
   const executionId = randomUUID();
@@ -212,12 +214,7 @@ describe("PostgreSQL execution queue", () => {
 
     await queue.claim("worker-a", "2026-09-20T00:00:10.000Z", 30_000);
     await expect(
-      queue.releaseForRetry(
-        jobId,
-        "worker-a",
-        "2026-09-20T00:02:00.000Z",
-        1,
-      ),
+      queue.releaseForRetry(jobId, "worker-a", "2026-09-20T00:02:00.000Z", 1),
     ).resolves.toBe(true);
 
     await expect(
