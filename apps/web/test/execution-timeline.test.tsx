@@ -1,6 +1,6 @@
-import { act, render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { Execution } from "@uw/contracts";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   ExecutionSnapshot,
   WorkflowApiClient,
@@ -56,17 +56,16 @@ function snapshot(status: Execution["status"]): ExecutionSnapshot {
   };
 }
 
-afterEach(() => {
-  vi.useRealTimers();
-});
-
 describe("ExecutionTimeline", () => {
-  it("polls while active and stops after the execution becomes terminal", async () => {
-    vi.useFakeTimers();
+  it("polls until terminal, renders receipt data, and then stops polling", async () => {
     const getExecution = vi
       .fn()
       .mockResolvedValueOnce(snapshot("running"))
-      .mockResolvedValueOnce(snapshot("succeeded"));
+      .mockResolvedValue(snapshot("succeeded"));
+    const getReceipt = vi.fn().mockResolvedValue({
+      receipts: [{ id: "receipt-1" }],
+      provenance: [{ id: "edge-1" }],
+    });
 
     const api = {
       listTools: vi.fn(),
@@ -74,7 +73,7 @@ describe("ExecutionTimeline", () => {
       validateWorkflow: vi.fn(),
       runWorkflow: vi.fn(),
       getExecution,
-      getReceipt: vi.fn().mockResolvedValue({ receipts: [], provenance: [] }),
+      getReceipt,
     } satisfies WorkflowApiClient;
 
     render(
@@ -82,23 +81,19 @@ describe("ExecutionTimeline", () => {
         projectId={PROJECT_ID}
         executionId={EXECUTION_ID}
         api={api}
-        pollIntervalMs={1_000}
+        pollIntervalMs={1}
       />,
     );
 
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(await screen.findByText(/running/i)).toBeInTheDocument();
+    expect(await screen.findByText(/execution: succeeded/i)).toBeInTheDocument();
+    expect(screen.getByText(/step-1 · succeeded · attempt 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/receipts: 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/provenance edges: 1/i)).toBeInTheDocument();
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1_000);
-    });
-    expect(await screen.findByText(/succeeded/i)).toBeInTheDocument();
+    await waitFor(() => expect(getExecution).toHaveBeenCalledTimes(2));
+    expect(getReceipt).toHaveBeenCalledTimes(1);
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000);
-    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
     expect(getExecution).toHaveBeenCalledTimes(2);
   });
 });

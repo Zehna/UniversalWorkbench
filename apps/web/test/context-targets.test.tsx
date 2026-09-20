@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ToolDefinition } from "@uw/contracts";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkflowApiClient } from "../src/workflows/api";
@@ -34,10 +34,18 @@ describe("CompatibleTargets", () => {
       getReceipt: vi.fn(),
     } satisfies WorkflowApiClient;
 
-    render(<CompatibleTargets type="text" api={api} />);
+    const onSelect = vi.fn();
+    render(<CompatibleTargets type="text" api={api} onSelect={onSelect} />);
 
-    expect(await screen.findByText("Write Note")).toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Write Note" }),
+    );
     expect(compatibleTargets).toHaveBeenCalledWith("text");
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        definition: expect.objectContaining({ id: "builtin.note.write" }),
+      }),
+    );
     expect(screen.queryByText("JSON Select")).not.toBeInTheDocument();
   });
 });

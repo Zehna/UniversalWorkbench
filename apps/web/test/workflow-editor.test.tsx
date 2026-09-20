@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type {
   ToolDefinition,
   WorkflowDocumentView,
@@ -176,7 +176,7 @@ describe("WorkflowEditor", () => {
     );
 
     const run = await screen.findByRole("button", { name: /^run$/i });
-    expect(run).toBeEnabled();
+    await waitFor(() => expect(run).toBeEnabled());
 
     fireEvent.click(
       screen.getByRole("button", { name: /move json select up/i }),
@@ -186,6 +186,38 @@ describe("WorkflowEditor", () => {
     expect(
       screen.getByText(/run unavailable until this workflow is synced/i),
     ).toBeInTheDocument();
+  });
+
+  it("runs the canonical revision returned by eligibility", async () => {
+    const client = api();
+    const gate = coordinator();
+    vi.mocked(gate.workflowRunEligibility).mockResolvedValue({
+      state: "ready",
+      revisionId: "77777777-7777-4777-8777-777777777777",
+    });
+
+    render(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={workflowView()}
+        coordinator={gate}
+        api={client}
+        tools={tools}
+      />,
+    );
+
+    const run = await screen.findByRole("button", { name: /^run$/i });
+    await waitFor(() => expect(run).toBeEnabled());
+    fireEvent.click(run);
+
+    await waitFor(() =>
+      expect(client.runWorkflow).toHaveBeenCalledWith(
+        PROJECT_ID,
+        WORKFLOW_ID,
+        "77777777-7777-4777-8777-777777777777",
+        expect.any(String),
+      ),
+    );
   });
 
   it("disables Run while the workflow has an unsynced local revision", async () => {

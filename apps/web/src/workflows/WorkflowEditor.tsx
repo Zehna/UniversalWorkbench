@@ -173,12 +173,12 @@ export function WorkflowEditor({
   function move(index: number, delta: -1 | 1) {
     const destination = index + delta;
     if (destination < 0 || destination >= nodes.length) return;
+    setDirty(true);
     setNodes((current) => {
       const next = [...current];
       const [item] = next.splice(index, 1);
       if (!item) return current;
       next.splice(destination, 0, item);
-      setDirty(true);
       return next;
     });
   }
