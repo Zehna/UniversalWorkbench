@@ -128,6 +128,7 @@ export function WorkflowEditor({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (suppliedTools) {
@@ -177,6 +178,7 @@ export function WorkflowEditor({
       const [item] = next.splice(index, 1);
       if (!item) return current;
       next.splice(destination, 0, item);
+      setDirty(true);
       return next;
     });
   }
@@ -186,6 +188,7 @@ export function WorkflowEditor({
       (candidate) => `${candidate.id}@${candidate.version}` === selectedTool,
     );
     if (!tool) return;
+    setDirty(true);
     setNodes((current) => [
       ...current,
       {
@@ -214,6 +217,7 @@ export function WorkflowEditor({
             workflow: definition,
           });
       setSaved(view);
+      setDirty(false);
       setTitle(view.document.title);
       setNodes(structuredClone(view.revision.content.workflow.nodes));
       onSaved?.(view);
@@ -266,7 +270,7 @@ export function WorkflowEditor({
     }
   }
 
-  const runBlocked = !saved || eligibility?.state !== "ready";
+  const runBlocked = dirty || !saved || eligibility?.state !== "ready";
 
   return (
     <section aria-label="Workflow editor">
@@ -277,7 +281,10 @@ export function WorkflowEditor({
           <input
             required
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              setDirty(true);
+            }}
           />
         </label>
 
@@ -291,20 +298,22 @@ export function WorkflowEditor({
               total={nodes.length}
               onMoveUp={() => move(index, -1)}
               onMoveDown={() => move(index, 1)}
-              onRemove={() =>
+              onRemove={() => {
+                setDirty(true);
                 setNodes((current) =>
                   current.filter((candidate) => candidate.id !== node.id),
-                )
-              }
-              onConfig={(config) =>
+                );
+              }}
+              onConfig={(config) => {
+                setDirty(true);
                 setNodes((current) =>
                   current.map((candidate) =>
                     candidate.id === node.id
                       ? { ...candidate, config }
                       : candidate,
                   ),
-                )
-              }
+                );
+              }}
             />
           ))}
         </ol>

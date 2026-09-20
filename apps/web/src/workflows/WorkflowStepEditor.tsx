@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { JsonObject, ToolDefinition, WorkflowNode } from "@uw/contracts";
 
 interface WorkflowStepEditorProps {
@@ -22,6 +23,32 @@ export function WorkflowStepEditor({
   onConfig,
 }: WorkflowStepEditorProps) {
   const label = tool?.displayName ?? `${node.tool.id}@${node.tool.version}`;
+  const serialized = JSON.stringify(node.config, null, 2);
+  const [draft, setDraft] = useState(serialized);
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(serialized);
+    setConfigError(null);
+  }, [serialized]);
+
+  function commitConfig(value: string) {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        Array.isArray(parsed)
+      ) {
+        setConfigError("Configuration must be a JSON object");
+        return;
+      }
+      setConfigError(null);
+      onConfig(parsed as JsonObject);
+    } catch {
+      setConfigError("Configuration must be valid JSON");
+    }
+  }
 
   return (
     <li data-testid="workflow-step">
@@ -54,23 +81,13 @@ export function WorkflowStepEditor({
       <label>
         {label} configuration
         <textarea
-          value={JSON.stringify(node.config, null, 2)}
+          value={draft}
           rows={6}
-          onChange={(event) => {
-            try {
-              const parsed = JSON.parse(event.target.value) as unknown;
-              if (
-                typeof parsed === "object" &&
-                parsed !== null &&
-                !Array.isArray(parsed)
-              ) {
-                onConfig(parsed as JsonObject);
-              }
-            } catch {
-              // Keep the last valid config until the textarea becomes valid JSON.
-            }
-          }}
+          aria-invalid={configError ? "true" : "false"}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={(event) => commitConfig(event.target.value)}
         />
+        {configError ? <span role="alert">{configError}</span> : null}
       </label>
     </li>
   );

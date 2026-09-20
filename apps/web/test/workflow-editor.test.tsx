@@ -164,6 +164,30 @@ describe("WorkflowEditor", () => {
     );
   });
 
+  it("disables Run after an unsaved editor change", async () => {
+    render(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={workflowView()}
+        coordinator={coordinator()}
+        api={api()}
+        tools={tools}
+      />,
+    );
+
+    const run = await screen.findByRole("button", { name: /^run$/i });
+    expect(run).toBeEnabled();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /move json select up/i }),
+    );
+
+    expect(run).toBeDisabled();
+    expect(
+      screen.getByText(/run unavailable until this workflow is synced/i),
+    ).toBeInTheDocument();
+  });
+
   it("disables Run while the workflow has an unsynced local revision", async () => {
     render(
       <WorkflowEditor
