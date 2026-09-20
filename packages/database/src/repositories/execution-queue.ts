@@ -88,6 +88,7 @@ async function insertQueueJob(
        updated_at
      )
      values ($1, $2, $3, $4, $5, $6, $7, $7)
+     on conflict (id) do nothing
      returning ${QUEUE_COLUMNS}`,
     [
       input.id,
@@ -100,8 +101,25 @@ async function insertQueueJob(
     ],
   );
   const row = result.rows[0];
-  if (!row) throw new Error("Execution queue insert returned no row");
-  return mapQueueJob(row);
+  if (row) return mapQueueJob(row);
+
+  const existing = await pool.query<QueueRow>(
+    `select ${QUEUE_COLUMNS}
+       from execution_queue
+      where id = $1
+      limit 1`,
+    [input.id],
+  );
+  const current = existing.rows[0];
+  if (!current) throw new Error("Execution queue insert returned no row");
+  if (
+    current.execution_id !== input.executionId ||
+    current.step_execution_id !== input.stepExecutionId ||
+    current.queue_type !== input.queueType
+  ) {
+    throw new Error("Execution queue idempotency key collision");
+  }
+  return mapQueueJob(current);
 }
 
 export function createPostgresExecutionQueue(pool: Pool): ExecutionQueue {

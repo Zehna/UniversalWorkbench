@@ -50,6 +50,13 @@ export interface ExecutionStepRuntimeLoader {
   ): Promise<ExecutionStepRuntime>;
 }
 
+export interface ExecutionStepLifecycle {
+  onTerminalStep(input: {
+    execution: Execution;
+    step: ExecutionStepRecord;
+  }): Promise<void>;
+}
+
 export interface ExecutionEngine {
   runClaimedJob(
     job: QueueJob,
@@ -70,6 +77,7 @@ interface ExecutionEngineDependencies {
   idGenerator: IdGenerator;
   retryRandom?: () => number;
   cancellationPollMs?: number;
+  lifecycle?: ExecutionStepLifecycle;
 }
 
 const terminalStepStatuses = new Set<StepExecutionStatus>([
@@ -217,6 +225,9 @@ export function createExecutionEngine(
     idGenerator,
     retryRandom = Math.random,
     cancellationPollMs = 250,
+    lifecycle = {
+      async onTerminalStep() {},
+    },
   } = dependencies;
 
   async function appendReceipt(input: {
@@ -302,8 +313,9 @@ export function createExecutionEngine(
       outputContextIds: [...input.outputContextIds],
     };
 
+    let terminalExecution = input.execution;
     if (input.execution.kind === "tool") {
-      await transitionExecutionTerminal(
+      terminalExecution = await transitionExecutionTerminal(
         input.execution,
         terminalExecutionStatusFor(input.error?.code ?? null),
         input.error,
@@ -320,6 +332,10 @@ export function createExecutionEngine(
       outputContextIds: input.outputContextIds,
       capabilities: input.capabilities,
       finishedAt,
+    });
+    await lifecycle.onTerminalStep({
+      execution: terminalExecution,
+      step: terminalStep,
     });
     await queue.complete(input.job.id, input.workerId);
   }
@@ -340,6 +356,7 @@ export function createExecutionEngine(
       if (!step) throw new Error("Execution step was not found");
 
       if (terminalStepStatuses.has(step.status)) {
+        await lifecycle.onTerminalStep({ execution, step });
         await queue.complete(job.id, workerId);
         return;
       }
@@ -374,6 +391,7 @@ export function createExecutionEngine(
           capabilities: registered.definition.requiredCapabilities,
           finishedAt: at,
         });
+        await lifecycle.onTerminalStep({ execution, step });
         await queue.complete(job.id, workerId);
         return;
       }

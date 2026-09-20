@@ -58,6 +58,7 @@ export interface TransitionExecutionStepInput {
   to: StepExecutionStatus;
   now: string;
   attempt?: number;
+  inputContextIds?: string[];
   outputContextIds?: string[];
   error?: SanitizedExecutionError | null;
   usage?: ExecutionUsage;
