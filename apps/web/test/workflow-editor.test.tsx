@@ -201,6 +201,43 @@ describe("WorkflowEditor", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("binds JSON output to the most specific compatible input port", async () => {
+    const gate = coordinator();
+    const initial = workflowView();
+    initial.revision.content.workflow.nodes = [
+      {
+        id: "select",
+        tool: { id: "builtin.json.select", version: "1" },
+        config: { pointer: "/title" },
+      },
+      {
+        id: "template",
+        tool: { id: "builtin.text.template", version: "1" },
+        config: { template: "{{json:}}" },
+      },
+    ];
+    vi.mocked(gate.updateWorkflow).mockResolvedValue(initial);
+
+    render(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={initial}
+        coordinator={gate}
+        api={api()}
+        tools={tools}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
+
+    await waitFor(() => expect(gate.updateWorkflow).toHaveBeenCalled());
+    const update = vi.mocked(gate.updateWorkflow).mock.calls[0]?.[1];
+    expect(update?.workflow.edges).toContainEqual({
+      from: { nodeId: "select", output: "output" },
+      to: { nodeId: "template", input: "json" },
+    });
+  });
+
   it("disables Run after an unsaved editor change", async () => {
     render(
       <WorkflowEditor

@@ -43,13 +43,21 @@ function matchingEdge(
 ): WorkflowEdge | null {
   if (!left || !right) return null;
   for (const output of left.produces) {
-    for (const input of right.accepts) {
-      if (output.types.some((type) => input.types.includes(type))) {
-        return {
-          from: { nodeId: leftNodeId, output: output.name },
-          to: { nodeId: rightNodeId, input: input.name },
-        };
-      }
+    const compatibleInputs = right.accepts
+      .filter((input) =>
+        output.types.some((type) => input.types.includes(type)),
+      )
+      .sort(
+        (first, second) =>
+          first.types.length - second.types.length ||
+          first.name.localeCompare(second.name),
+      );
+    const input = compatibleInputs[0];
+    if (input) {
+      return {
+        from: { nodeId: leftNodeId, output: output.name },
+        to: { nodeId: rightNodeId, input: input.name },
+      };
     }
   }
   return null;
