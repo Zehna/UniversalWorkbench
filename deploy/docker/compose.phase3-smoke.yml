@@ -1,0 +1,28 @@
+services:
+  phase3-fixture:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./phase3-fixture/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      phase3-public-fixture:
+        ipv4_address: 11.22.33.44
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/json"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  app:
+    networks:
+      default: {}
+      phase3-public-fixture: {}
+    depends_on:
+      phase3-fixture:
+        condition: service_healthy
+
+networks:
+  phase3-public-fixture:
+    internal: true
+    ipam:
+      config:
+        - subnet: 11.22.33.0/24

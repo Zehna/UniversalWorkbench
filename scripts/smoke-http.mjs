@@ -402,7 +402,9 @@ if (rejected.error?.code !== "SYNC_DEVICE_REJECTED") {
 const missedByB = await syncChanges(cookie, deviceBCursor);
 await websocketCatchUp(cookie, deviceB, deviceBCursor, missedByB);
 
-const phase3Text = "Phase 3 Docker worker output";
+const phase3FixtureUrl =
+  process.env.PHASE3_FIXTURE_URL ?? "http://11.22.33.44/json";
+const phase3Text = "Phase 3 HTTP fixture output";
 const phase3NoteTitle = "Phase 3 Smoke Output";
 const workflowResponse = await fetch(api(`/projects/${projectId}/workflows`), {
   method: "POST",
@@ -417,9 +419,19 @@ const workflowResponse = await fetch(api(`/projects/${projectId}/workflows`), {
       name: "Phase 3 Docker Workflow",
       nodes: [
         {
+          id: "request",
+          tool: { id: "builtin.http.request", version: "1" },
+          config: { url: phase3FixtureUrl, method: "GET" },
+        },
+        {
+          id: "parse",
+          tool: { id: "builtin.json.parse", version: "1" },
+          config: {},
+        },
+        {
           id: "render",
           tool: { id: "builtin.text.template", version: "1" },
-          config: { template: phase3Text },
+          config: { template: "{{json:/body}}" },
         },
         {
           id: "note",
@@ -428,6 +440,14 @@ const workflowResponse = await fetch(api(`/projects/${projectId}/workflows`), {
         },
       ],
       edges: [
+        {
+          from: { nodeId: "request", output: "response" },
+          to: { nodeId: "parse", input: "input" },
+        },
+        {
+          from: { nodeId: "parse", output: "output" },
+          to: { nodeId: "render", input: "json" },
+        },
         {
           from: { nodeId: "render", output: "output" },
           to: { nodeId: "note", input: "input" },
@@ -488,7 +508,7 @@ if (workflowExecution.execution?.workflowRevisionId !== workflowRevisionId) {
 }
 if (
   !Array.isArray(workflowExecution.steps) ||
-  workflowExecution.steps.length !== 2 ||
+  workflowExecution.steps.length !== 4 ||
   workflowExecution.steps.some((step) => step.status !== "succeeded")
 ) {
   throw new Error(
@@ -496,6 +516,18 @@ if (
       workflowExecution.steps ?? null,
     )}`,
   );
+}
+
+const expectedToolIds = [
+  "builtin.http.request",
+  "builtin.json.parse",
+  "builtin.text.template",
+  "builtin.note.write",
+];
+for (const toolId of expectedToolIds) {
+  if (!workflowExecution.steps.some((step) => step.toolId === toolId)) {
+    throw new Error(`Phase 3 workflow is missing step ${toolId}`);
+  }
 }
 
 const noteStep = workflowExecution.steps.find(
@@ -516,7 +548,7 @@ if (
   generatedNote.document?.title !== phase3NoteTitle ||
   generatedNote.revision?.content?.body !== phase3Text
 ) {
-  throw new Error("Phase 3 workflow generated the wrong canonical note");
+  throw new Error("Phase 3 HTTP workflow generated the wrong canonical note");
 }
 
 const executionReceipt = await expectJson(
@@ -531,15 +563,28 @@ const executionReceipt = await expectJson(
 );
 if (
   !Array.isArray(executionReceipt.receipts) ||
-  executionReceipt.receipts.length !== 2
+  executionReceipt.receipts.length !== 4
 ) {
-  throw new Error("Phase 3 workflow did not persist two step receipts");
+  throw new Error("Phase 3 workflow did not persist four step receipts");
 }
 if (
   !Array.isArray(executionReceipt.provenance) ||
-  executionReceipt.provenance.length < 1
+  executionReceipt.provenance.length < 3
 ) {
-  throw new Error("Phase 3 workflow did not persist provenance");
+  throw new Error("Phase 3 workflow did not persist full-chain provenance");
+}
+
+const httpOutput = workflowExecution.outputs?.find(
+  (output) =>
+    workflowExecution.steps.find((step) => step.id === output.stepExecutionId)
+      ?.toolId === "builtin.http.request",
+);
+if (
+  !httpOutput ||
+  httpOutput.context?.type !== "api-response" ||
+  typeof httpOutput.context?.payload?.bodyArtifactId !== "string"
+) {
+  throw new Error("Phase 3 HTTP workflow did not persist response artifact context");
 }
 
 const executionText = JSON.stringify(executionReceipt);
@@ -550,7 +595,7 @@ if (
   throw new Error("Phase 3 execution receipt contains credential material");
 }
 
-console.log("docker Phase 3 workflow smoke passed");
+console.log("docker Phase 3 HTTP workflow smoke passed");
 
 const logoutResponse = await fetch(api("/auth/logout"), {
   method: "POST",

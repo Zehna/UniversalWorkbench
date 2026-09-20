@@ -66,14 +66,15 @@ jobs:
           node-version: 24.21.0
       - run: npm ci
       - name: Build and start reference deployment
-        run: docker compose -f deploy/docker/compose.yml up -d --build
+        run: docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.phase3-smoke.yml up -d --build
       - name: Smoke deployment
         env:
           SMOKE_SECRET_CANARY: phase3-smoke-secret-canary-do-not-log
+          PHASE3_FIXTURE_URL: http://11.22.33.44/json
         run: node scripts/smoke-http.mjs
       - name: Capture deployment logs
         if: always()
-        run: docker compose -f deploy/docker/compose.yml logs --no-color | tee phase3-docker.log
+        run: docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.phase3-smoke.yml logs --no-color | tee phase3-docker.log
       - name: Verify deployment logs contain no secrets
         if: always()
         env:
@@ -81,7 +82,7 @@ jobs:
         run: node scripts/verify-no-secrets.mjs phase3-docker.log
       - name: Tear down
         if: always()
-        run: docker compose -f deploy/docker/compose.yml down -v
+        run: docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.phase3-smoke.yml down -v
 
   browser-sync:
     runs-on: ubuntu-latest
