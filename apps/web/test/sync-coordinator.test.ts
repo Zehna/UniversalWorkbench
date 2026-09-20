@@ -317,41 +317,41 @@ describe("browser sync coordinator", () => {
       pushOperations: vi
         .fn()
         .mockImplementation(async (operations: SyncOperation[]) => {
-        const operation = operations[0]!;
-        return [
-          {
-            operationId: operation.id,
-            change: {
-              cursor: "7",
+          const operation = operations[0]!;
+          return [
+            {
               operationId: operation.id,
-              entityType: "document" as const,
-              entityId: DOCUMENT_ID,
-              kind: "upsert" as const,
-              revision: canonicalRevisionId,
-              payload: {
-                note: {
-                  document: {
-                    ...original.document,
-                    title: "Sources",
-                    currentRevisionId: canonicalRevisionId,
-                    updatedAt: NOW,
-                  },
-                  revision: {
-                    id: canonicalRevisionId,
-                    documentId: DOCUMENT_ID,
-                    revisionNumber: 2,
-                    parentRevisionId: original.revision.id,
-                    content: { body: "online edit" },
-                    metadata: {},
-                    createdAt: NOW,
+              change: {
+                cursor: "7",
+                operationId: operation.id,
+                entityType: "document" as const,
+                entityId: DOCUMENT_ID,
+                kind: "upsert" as const,
+                revision: canonicalRevisionId,
+                payload: {
+                  note: {
+                    document: {
+                      ...original.document,
+                      title: "Sources",
+                      currentRevisionId: canonicalRevisionId,
+                      updatedAt: NOW,
+                    },
+                    revision: {
+                      id: canonicalRevisionId,
+                      documentId: DOCUMENT_ID,
+                      revisionNumber: 2,
+                      parentRevisionId: original.revision.id,
+                      content: { body: "online edit" },
+                      metadata: {},
+                      createdAt: NOW,
+                    },
                   },
                 },
+                createdAt: NOW,
               },
-              createdAt: NOW,
             },
-          },
-        ];
-      }),
+          ];
+        }),
     });
     const coordinator = createSyncCoordinator({
       ownerId: OWNER_ID,
@@ -368,6 +368,118 @@ describe("browser sync coordinator", () => {
 
     expect(saved.revision.id).toBe(canonicalRevisionId);
     expect(saved.revision.content.body).toBe("online edit");
+    expect(await store.listPendingOperations(10)).toEqual([]);
+
+    await coordinator.stop();
+  });
+
+  it("returns the canonical workflow revision after an online update syncs", async () => {
+    const workflowId = "99999999-9999-4999-8999-999999999999";
+    const canonicalRevisionId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const original: WorkflowDocumentView = {
+      document: {
+        id: workflowId,
+        projectId: PROJECT_ID,
+        kind: "workflow",
+        title: "Local flow",
+        currentRevisionId: REVISION_ID,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      revision: {
+        id: REVISION_ID,
+        documentId: workflowId,
+        revisionNumber: 1,
+        parentRevisionId: null,
+        content: {
+          kind: "workflow",
+          workflow: {
+            schemaVersion: 1,
+            name: "Local flow",
+            nodes: [],
+            edges: [],
+            outputs: [],
+          },
+        },
+        metadata: {},
+        createdAt: NOW,
+      },
+    };
+
+    const store = new MemoryStore();
+    await store.seedWorkflow(original);
+
+    const client = network({
+      pushOperations: vi
+        .fn()
+        .mockImplementation(async (operations: SyncOperation[]) => {
+          const operation = operations[0]!;
+          return [
+            {
+              operationId: operation.id,
+              change: {
+                cursor: "8",
+                operationId: operation.id,
+                entityType: "document" as const,
+                entityId: workflowId,
+                kind: "upsert" as const,
+                revision: canonicalRevisionId,
+                payload: {
+                  workflow: {
+                    document: {
+                      ...original.document,
+                      title: "Synced flow",
+                      currentRevisionId: canonicalRevisionId,
+                      updatedAt: NOW,
+                    },
+                    revision: {
+                      id: canonicalRevisionId,
+                      documentId: workflowId,
+                      revisionNumber: 2,
+                      parentRevisionId: original.revision.id,
+                      content: {
+                        kind: "workflow" as const,
+                        workflow: {
+                          schemaVersion: 1 as const,
+                          name: "Synced flow",
+                          nodes: [],
+                          edges: [],
+                          outputs: [],
+                        },
+                      },
+                      metadata: {},
+                      createdAt: NOW,
+                    },
+                  },
+                },
+                createdAt: NOW,
+              },
+            },
+          ];
+        }),
+    });
+
+    const coordinator = createSyncCoordinator({
+      ownerId: OWNER_ID,
+      store,
+      client,
+    });
+    await coordinator.start();
+
+    const saved = await coordinator.updateWorkflow(original, {
+      title: "Synced flow",
+      workflow: {
+        schemaVersion: 1,
+        name: "Synced flow",
+        nodes: [],
+        edges: [],
+        outputs: [],
+      },
+      baseRevisionId: original.revision.id,
+    });
+
+    expect(saved.revision.id).toBe(canonicalRevisionId);
+    expect(saved.revision.content.workflow.name).toBe("Synced flow");
     expect(await store.listPendingOperations(10)).toEqual([]);
 
     await coordinator.stop();
