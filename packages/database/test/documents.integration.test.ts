@@ -115,6 +115,42 @@ describe("PostgreSQL document revisions", () => {
     );
   });
 
+  it("replays an execution note identity without creating a duplicate document", async () => {
+    const ownerId = await insertOwner();
+    const projectId = await insertProject(ownerId);
+    const documentId = randomUUID();
+    const revisionId = randomUUID();
+    const traceId = randomUUID();
+    const { createExecutionNoteWriter } = await import("@uw/documents");
+    const writer = createExecutionNoteWriter({
+      documents: createPostgresDocumentRepository(pool),
+      audit: createPostgresAuditRepository(pool),
+      clock: new SystemClock(),
+    });
+
+    const input = {
+      documentId,
+      revisionId,
+      title: "Generated",
+      body: "Stable body",
+    };
+    const first = await writer.createNote(ownerId, projectId, input, traceId);
+    const replay = await writer.createNote(ownerId, projectId, input, traceId);
+
+    expect(replay).toEqual(first);
+
+    const documents = await pool.query<{ count: string }>(
+      "select count(*)::text as count from documents where id = $1",
+      [documentId],
+    );
+    const revisions = await pool.query<{ count: string }>(
+      "select count(*)::text as count from document_revisions where id = $1",
+      [revisionId],
+    );
+    expect(documents.rows[0]?.count).toBe("1");
+    expect(revisions.rows[0]?.count).toBe("1");
+  });
+
   it("appends revision 2 without changing revision 1", async () => {
     const ownerId = await insertOwner();
     const projectId = await insertProject(ownerId);

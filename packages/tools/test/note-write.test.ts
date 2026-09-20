@@ -56,15 +56,6 @@ describe("builtin note.write", () => {
       const createNote = vi.fn().mockResolvedValue(created);
       const tool = createNoteWriteTool({
         documents: { createNote },
-        sideEffects: {
-          async get() {
-            return null;
-          },
-          async reserve() {
-            return { status: "reserved" as const };
-          },
-          async complete() {},
-        },
         contextIds: {
           next: () => "99999999-9999-4999-8999-999999999999",
         },
@@ -122,45 +113,71 @@ describe("builtin note.write", () => {
     expect(createNote).not.toHaveBeenCalled();
   });
 
-  it("returns the existing note on retry without creating a duplicate", async () => {
-    const createNote = vi.fn().mockResolvedValue(created);
+  it("uses the same reserved document identity when the same step is retried", async () => {
+    const createNote = vi.fn().mockImplementation(
+      async (
+        _ownerId: string,
+        _projectId: string,
+        input: {
+          documentId: string;
+          revisionId: string;
+          title: string;
+          body: string;
+        },
+      ) => ({
+        ...created,
+        document: {
+          ...created.document,
+          id: input.documentId,
+          currentRevisionId: input.revisionId,
+        },
+        revision: {
+          ...created.revision,
+          id: input.revisionId,
+          documentId: input.documentId,
+        },
+      }),
+    );
+    let contextIndex = 0;
+    const contextIds = [
+      "99999999-9999-4999-8999-999999999991",
+      "99999999-9999-4999-8999-999999999992",
+    ];
     const tool = createNoteWriteTool({
       documents: { createNote },
-      sideEffects: {
-        async get(stepExecutionId) {
-          return stepExecutionId === base.stepExecutionId
-            ? { targetId: created.document.id }
-            : null;
-        },
-        async reserve() {
-          throw new Error("reserve should not run");
-        },
-        async complete() {
-          throw new Error("complete should not run");
-        },
-      },
-      existingNotes: {
-        async getNote(ownerId, projectId, documentId) {
-          expect(ownerId).toBe(base.ownerId);
-          expect(projectId).toBe(base.projectId);
-          expect(documentId).toBe(created.document.id);
-          return created;
-        },
-      },
       contextIds: {
-        next: () => "99999999-9999-4999-8999-999999999999",
+        next: () => contextIds[contextIndex++]!,
       },
     });
 
-    const result = await tool.run({
+    const first = await tool.run({
+      ...base,
+      config: { title: "Generated" },
+      inputs: { input: content("text") },
+    });
+    const replay = await tool.run({
       ...base,
       config: { title: "Generated" },
       inputs: { input: content("text") },
     });
 
-    expect(createNote).not.toHaveBeenCalled();
-    expect(result.outputs.note?.payload).toMatchObject({
-      documentId: created.document.id,
+    expect(createNote).toHaveBeenCalledTimes(2);
+    const firstInput = createNote.mock.calls[0]?.[2];
+    const replayInput = createNote.mock.calls[1]?.[2];
+    expect(replayInput).toEqual(firstInput);
+    expect(firstInput).toMatchObject({
+      documentId: base.stepExecutionId,
+      title: "Generated",
+      body: "Hello",
+    });
+    expect(firstInput?.revisionId).not.toBe(firstInput?.documentId);
+    expect(first.outputs.note?.payload).toMatchObject({
+      documentId: firstInput?.documentId,
+      revisionId: firstInput?.revisionId,
+    });
+    expect(replay.outputs.note?.payload).toMatchObject({
+      documentId: firstInput?.documentId,
+      revisionId: firstInput?.revisionId,
     });
   });
 });
