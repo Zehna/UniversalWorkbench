@@ -25,13 +25,12 @@ describe("server config", () => {
     ]);
   });
 
-  it("rejects worker mode until the worker runtime exists", () => {
-    expect(() =>
-      loadConfig({
-        DATABASE_URL: "postgresql://u:p@localhost:5432/db",
-        APP_MODE: "worker",
-      }),
-    ).toThrow();
+  it("accepts worker mode once the execution worker runtime exists", () => {
+    const config = loadConfig({
+      DATABASE_URL: "postgresql://u:p@localhost:5432/db",
+      APP_MODE: "worker",
+    });
+    expect(config.appMode).toBe("worker");
   });
 
   it("rejects an unsupported app mode", () => {
