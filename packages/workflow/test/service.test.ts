@@ -93,7 +93,7 @@ function definition(): WorkflowDefinitionV1 {
       {
         id: "root",
         tool: { id: "builtin.fixture.root", version: "1" },
-        config: {},
+        config: { source: "fixture" },
       },
       {
         id: "child",
@@ -280,6 +280,7 @@ describe("WorkflowService", () => {
         toolId: "builtin.fixture.root",
         toolVersion: "1",
         status: "queued",
+        config: { source: "fixture" },
       }),
       expect.objectContaining({
         nodeId: "child",

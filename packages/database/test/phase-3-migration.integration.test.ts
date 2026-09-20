@@ -120,6 +120,31 @@ describe("Phase 3 execution persistence migration", () => {
     await expect(insert()).rejects.toMatchObject({ code: "23505" });
   });
 
+  it("persists durable step config with an empty-object default", async () => {
+    const { ownerId, projectId } = await seedOwnerProject();
+    const executionId = randomUUID();
+    await pool.query(
+      `insert into executions
+        (id, owner_id, project_id, kind, status, trace_id, idempotency_key, budget, queued_at)
+       values ($1, $2, $3, 'tool', 'queued', $4, 'step-config', '{}'::jsonb, now())`,
+      [executionId, ownerId, projectId, randomUUID()],
+    );
+
+    const stepId = randomUUID();
+    await pool.query(
+      `insert into execution_steps
+        (id, execution_id, node_id, tool_id, tool_version, status, attempt)
+       values ($1, $2, 'tool', 'builtin.http.request', '1', 'queued', 0)`,
+      [stepId, executionId],
+    );
+
+    const stored = await pool.query<{ config: Record<string, unknown> }>(
+      "select config from execution_steps where id = $1",
+      [stepId],
+    );
+    expect(stored.rows[0]?.config).toEqual({});
+  });
+
   it("creates queue indexes for availability and lease recovery", async () => {
     const result = await pool.query<{ indexname: string }>(
       `select indexname
