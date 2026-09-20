@@ -280,23 +280,33 @@ No `ALLOW_LOCALHOST` or private-network product bypass exists.
 
 ### Docker vertical workflow smoke
 
-The canonical Docker stack runs a deterministic:
+CI layers `deploy/docker/compose.phase3-smoke.yml` over the canonical Compose stack. The override adds only a deterministic nginx fixture and a second `internal: true` Docker network. The fixture is assigned `11.22.33.44`, which is intentionally treated as public by the production safe-egress policy; no localhost/private-network bypass is introduced.
+
+The assembled stack runs:
 
 ```text
-Text Template -> Note Write
+HTTP Request
+  -> response-body Artifact
+  -> JSON Parse
+  -> Text Template
+  -> Note Write
 ```
 
 through the real PostgreSQL queue and `APP_MODE=all` worker.
 
 The smoke verifies:
 
+- safe HTTP execution through the production transport/policy;
+- immutable response-body Artifact context;
 - exact canonical workflow revision pin;
-- both steps succeed;
+- all four steps succeed;
 - canonical generated note content;
-- two terminal receipts;
-- provenance;
+- four terminal receipts;
+- full-chain provenance;
 - credential-free receipt payload;
 - all existing Phase 2 sync/security behavior.
+
+The fixture exists only in the smoke override; the base deployment remains unchanged.
 
 ### Browser workflow gate
 

@@ -197,14 +197,38 @@ The worker verification expects a fresh/uninitialized test database because it d
 
 ## Docker Phase 3 vertical smoke
 
+The Phase 3 smoke adds a **test-only Compose override** containing a deterministic nginx fixture on an internal Docker network. The fixture uses a synthetic public-looking address so the production safe-egress policy still performs its normal public-address checks; there is no localhost/private-network allow flag.
+
 ```bash
-docker compose -f deploy/docker/compose.yml up -d --build
-SMOKE_SECRET_CANARY=phase3-local-canary node scripts/smoke-http.mjs
-docker compose -f deploy/docker/compose.yml logs --no-color > phase3-docker.log
-SMOKE_SECRET_CANARY=phase3-local-canary node scripts/verify-no-secrets.mjs phase3-docker.log
-docker compose -f deploy/docker/compose.yml down -v
+docker compose \
+  -f deploy/docker/compose.yml \
+  -f deploy/docker/compose.phase3-smoke.yml \
+  up -d --build
+
+SMOKE_SECRET_CANARY=phase3-local-canary \
+PHASE3_FIXTURE_URL=http://11.22.33.44/json \
+node scripts/smoke-http.mjs
+
+docker compose \
+  -f deploy/docker/compose.yml \
+  -f deploy/docker/compose.phase3-smoke.yml \
+  logs --no-color > phase3-docker.log
+
+SMOKE_SECRET_CANARY=phase3-local-canary \
+node scripts/verify-no-secrets.mjs phase3-docker.log
+
+docker compose \
+  -f deploy/docker/compose.yml \
+  -f deploy/docker/compose.phase3-smoke.yml \
+  down -v
 ```
 
-The smoke preserves all Phase 2 sync/security coverage and additionally creates a canonical workflow, runs `Text Template -> Note Write` through the real PostgreSQL queue/worker, verifies the generated note, receipts, provenance, and credential-free receipt payload.
+The smoke preserves all Phase 2 sync/security coverage and additionally runs the assembled Phase 3 chain:
 
-HTTP is tested separately with injected deterministic transport plus the production safe-egress policy suite. The product does not weaken egress policy to make Docker tests reach a private fixture.
+```text
+HTTP Request -> JSON Parse -> Text Template -> Note Write
+```
+
+through the real PostgreSQL queue and `APP_MODE=all` worker. It verifies the response-body Artifact context, canonical generated note, four successful steps, four terminal receipts, full-chain provenance, exact workflow revision pinning, and credential-free receipt payload.
+
+The fixture network is `internal: true`; it exists only in `compose.phase3-smoke.yml`. The base deployment and product egress policy contain no test bypass.
