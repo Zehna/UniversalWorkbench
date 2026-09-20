@@ -210,6 +210,9 @@ function createUiCoordinator(): SyncCoordinator {
       publish({ state: "conflict", pending: 0, conflicts: 1 });
       return structuredClone(note);
     },
+    async resolveWorkflowConflict() {
+      throw new Error("workflow UI is not part of this test");
+    },
     async createWorkflow() {
       throw new Error("workflow UI is not part of this test");
     },
