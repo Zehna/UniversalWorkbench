@@ -208,6 +208,10 @@ class MemoryStore implements LocalStore {
   async seedNote(value: NoteDocumentView) {
     this.notes.set(value.document.id, structuredClone(value));
   }
+
+  async seedWorkflow(value: WorkflowDocumentView) {
+    this.workflows.set(value.document.id, structuredClone(value));
+  }
 }
 
 function network(
@@ -456,6 +460,69 @@ describe("browser sync coordinator", () => {
     });
 
     await coordinator.stop();
+  });
+
+  it("gates workflow execution on this workflow's local sync state", async () => {
+    const workflowId = "99999999-9999-4999-8999-999999999999";
+    const workflowView: WorkflowDocumentView = {
+      document: {
+        id: workflowId,
+        projectId: PROJECT_ID,
+        kind: "workflow",
+        title: "Run me",
+        currentRevisionId: REVISION_ID,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      revision: {
+        id: REVISION_ID,
+        documentId: workflowId,
+        revisionNumber: 1,
+        parentRevisionId: null,
+        content: {
+          kind: "workflow",
+          workflow: {
+            schemaVersion: 1,
+            name: "Run me",
+            nodes: [],
+            edges: [],
+            outputs: [],
+          },
+        },
+        metadata: {},
+        createdAt: NOW,
+      },
+    };
+    const store = new MemoryStore();
+    await store.seedWorkflow(workflowView);
+    const coordinator = createSyncCoordinator({
+      ownerId: OWNER_ID,
+      store,
+      client: network(),
+    });
+    await coordinator.start();
+
+    expect(await coordinator.workflowRunEligibility(workflowId)).toEqual({
+      state: "ready",
+      revisionId: REVISION_ID,
+    });
+
+    const offlineStore = new MemoryStore();
+    await offlineStore.seedWorkflow(workflowView);
+    const offline = createSyncCoordinator({
+      ownerId: OWNER_ID,
+      store: offlineStore,
+      client: network({
+        registerDevice: vi.fn().mockRejectedValue(new Error("offline")),
+      }),
+    });
+    await offline.start();
+    expect(await offline.workflowRunEligibility(workflowId)).toEqual({
+      state: "offline",
+    });
+
+    await coordinator.stop();
+    await offline.stop();
   });
 
   it("drains pending operations sequentially in local creation order", async () => {

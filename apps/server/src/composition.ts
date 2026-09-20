@@ -175,6 +175,19 @@ export function composeApplication(config: ServerConfig) {
     list(ownerId, projectId) {
       return listPostgresExecutionsByProject(pool, ownerId, projectId);
     },
+    async listSteps(executionId) {
+      return (await stepRepository.listByExecution(executionId)).map((step) => ({
+        id: step.id,
+        nodeId: step.nodeId,
+        toolId: step.toolId,
+        toolVersion: step.toolVersion,
+        status: step.status,
+        attempt: step.attempt,
+        startedAt: step.startedAt,
+        finishedAt: step.finishedAt,
+        error: step.error,
+      }));
+    },
   };
 
   const workflowService = createWorkflowService({

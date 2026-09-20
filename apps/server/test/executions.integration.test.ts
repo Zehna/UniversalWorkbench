@@ -53,6 +53,7 @@ function deps(authenticated = true) {
     enqueueWorkflowExecution: vi.fn(),
     enqueueToolExecution: vi.fn(),
     list: vi.fn().mockResolvedValue([execution]),
+    listSteps: vi.fn().mockResolvedValue([]),
     get: vi.fn().mockResolvedValue(execution),
     requestCancellation: vi.fn().mockResolvedValue(execution),
     listReceipts: vi.fn().mockResolvedValue([]),
@@ -182,13 +183,14 @@ describe("Phase 3 executions API", () => {
       ).status,
     ).toBe(200);
 
-    expect(
-      (
-        await request(app)
-          .get(`/projects/${PROJECT_ID}/executions/${EXECUTION_ID}`)
-          .set("Cookie", cookie)
-      ).status,
-    ).toBe(200);
+    const detail = await request(app)
+      .get(`/projects/${PROJECT_ID}/executions/${EXECUTION_ID}`)
+      .set("Cookie", cookie);
+    expect(detail.status).toBe(200);
+    expect(detail.body).toEqual({
+      execution,
+      steps: [],
+    });
 
     expect(
       (

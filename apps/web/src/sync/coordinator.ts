@@ -44,6 +44,10 @@ export interface SyncDiagnostics {
   lastErrorCode: string | null;
 }
 
+export type WorkflowRunEligibility =
+  | { state: "ready"; revisionId: string }
+  | { state: "offline" | "pending" | "conflict" | "missing" };
+
 export interface SyncCoordinator {
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -55,6 +59,9 @@ export interface SyncCoordinator {
   getNote(documentId: string): Promise<NoteDocumentView | null>;
   listWorkflows(projectId: string): Promise<WorkflowDocumentView[]>;
   getWorkflow(documentId: string): Promise<WorkflowDocumentView | null>;
+  workflowRunEligibility(
+    documentId: string,
+  ): Promise<WorkflowRunEligibility>;
   listConflicts(): Promise<LocalConflictRecord[]>;
   resolveNoteConflict(
     operationId: string,
@@ -417,6 +424,40 @@ export function createSyncCoordinator(
 
     getWorkflow(documentId) {
       return store.getWorkflow(documentId);
+    },
+
+    async workflowRunEligibility(documentId) {
+      const workflow = await store.getWorkflow(documentId);
+      if (!workflow) return { state: "missing" };
+
+      const [pending, conflicts] = await Promise.all([
+        store.listPendingOperations(500),
+        store.listConflicts(),
+      ]);
+      if (
+        conflicts.some(
+          (conflict) =>
+            conflict.change.entityType === "document" &&
+            conflict.change.entityId === documentId,
+        )
+      ) {
+        return { state: "conflict" };
+      }
+      if (
+        pending.some(
+          (operation) =>
+            operation.entityType === "document" &&
+            operation.entityId === documentId,
+        )
+      ) {
+        return { state: "pending" };
+      }
+      if (!networkAvailable) return { state: "offline" };
+
+      return {
+        state: "ready",
+        revisionId: workflow.revision.id,
+      };
     },
 
     listConflicts() {

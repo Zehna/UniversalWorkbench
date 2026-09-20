@@ -20,8 +20,29 @@ import { HttpError, mapDomainError, parseRequest } from "../middleware/validate.
 
 export type { DirectToolExecutionService } from "@uw/execution";
 
+export interface ExecutionStepSummary {
+  id: string;
+  nodeId: string;
+  toolId: string;
+  toolVersion: string;
+  status:
+    | "pending"
+    | "queued"
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "skipped"
+    | "cancelled"
+    | "timed_out";
+  attempt: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: unknown | null;
+}
+
 export interface ExecutionApiService extends ExecutionService {
   list(ownerId: string, projectId: string): Promise<Execution[]>;
+  listSteps(executionId: string): Promise<ExecutionStepSummary[]>;
 }
 
 interface ExecutionsRouterDependencies {
@@ -139,7 +160,8 @@ export function createExecutionsRouter(deps: ExecutionsRouterDependencies) {
         projectId,
         executionId,
       );
-      res.json({ execution });
+      const steps = await deps.executionService.listSteps(executionId);
+      res.json({ execution, steps });
     } catch (error) {
       next(mapDomainError(error));
     }
