@@ -4,6 +4,7 @@ export type WorkflowValidationErrorCode =
   | "UNKNOWN_PORT"
   | "TYPE_MISMATCH"
   | "MISSING_INPUT"
+  | "MULTIPLE_INPUT"
   | "WORKFLOW_CYCLE"
   | "NO_TERMINAL"
   | "CAPABILITY_DENIED"

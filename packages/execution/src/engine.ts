@@ -104,18 +104,28 @@ function resultUsage(result: ToolRunResult): ExecutionUsage {
   };
 }
 
-function buildBudgetUsage(
+async function buildBudgetUsage(
   execution: Execution,
-  attempt: number,
-  usage: ExecutionUsage,
+  currentUsage: ExecutionUsage,
+  steps: ExecutionStepRepository,
   clock: Clock,
-): ExecutionBudgetUsage {
+): Promise<ExecutionBudgetUsage> {
+  const executionSteps = await steps.listByExecution(execution.id);
+  const persisted = executionSteps.reduce(
+    (total, step) => ({
+      attempts: total.attempts + step.attempt,
+      outputBytes: total.outputBytes + step.usage.outputBytes,
+      httpRequests: total.httpRequests + step.usage.httpRequests,
+    }),
+    { attempts: 0, outputBytes: 0, httpRequests: 0 },
+  );
+
   return {
     elapsedMs: elapsedMs(execution, clock),
-    steps: 1,
-    totalAttempts: attempt,
-    outputBytes: usage.outputBytes,
-    httpRequests: usage.httpRequests,
+    steps: executionSteps.length,
+    totalAttempts: persisted.attempts,
+    outputBytes: persisted.outputBytes + currentUsage.outputBytes,
+    httpRequests: persisted.httpRequests + currentUsage.httpRequests,
   };
 }
 
@@ -464,10 +474,13 @@ export function createExecutionEngine(
       step = runningStep;
 
       try {
-        assertExecutionUsageWithinBudget(
-          execution.budget,
-          buildBudgetUsage(execution, attempt, zeroUsage, clock),
+        const usageBeforeRun = await buildBudgetUsage(
+          execution,
+          zeroUsage,
+          steps,
+          clock,
         );
+        assertExecutionUsageWithinBudget(execution.budget, usageBeforeRun);
         if (attempt > execution.budget.maxAttemptsPerStep) {
           throw new ExecutionFailure({
             code: "BUDGET_EXCEEDED",
@@ -504,10 +517,13 @@ export function createExecutionEngine(
         );
 
         const usage = resultUsage(result);
-        assertExecutionUsageWithinBudget(
-          execution.budget,
-          buildBudgetUsage(execution, attempt, usage, clock),
+        const usageAfterRun = await buildBudgetUsage(
+          execution,
+          usage,
+          steps,
+          clock,
         );
+        assertExecutionUsageWithinBudget(execution.budget, usageAfterRun);
 
         const refreshed = await executions.getByIdForWorker(execution.id);
         if (refreshed?.cancellationRequestedAt) {
@@ -585,9 +601,15 @@ export function createExecutionEngine(
             : { retryAfterMs: executionFailure.retryAfterMs }),
         });
 
+        const cumulativeUsage = await buildBudgetUsage(
+          execution,
+          zeroUsage,
+          steps,
+          clock,
+        );
         if (
           decision.retryable &&
-          attempt < execution.budget.maxTotalAttempts &&
+          cumulativeUsage.totalAttempts < execution.budget.maxTotalAttempts &&
           !execution.cancellationRequestedAt
         ) {
           const queuedStep = await steps.transition({

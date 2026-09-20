@@ -106,6 +106,8 @@ export function validateWorkflowDefinition(
     }
   }
 
+  const inputBindings = new Map<string, number>();
+
   for (const edge of definition.edges) {
     const sourceNode = findNode(definition, edge.from.nodeId);
     const targetNode = findNode(definition, edge.to.nodeId);
@@ -138,6 +140,19 @@ export function validateWorkflowDefinition(
         ),
       );
       continue;
+    }
+
+    const bindingKey = `${edge.to.nodeId}.${edge.to.input}`;
+    const bindingCount = (inputBindings.get(bindingKey) ?? 0) + 1;
+    inputBindings.set(bindingKey, bindingCount);
+    if (bindingCount > 1) {
+      errors.push(
+        error(
+          "MULTIPLE_INPUT",
+          `Input ${bindingKey} has multiple bindings`,
+          targetNode.id,
+        ),
+      );
     }
 
     const compatible = sourcePort.types.some((sourceType) =>

@@ -128,6 +128,21 @@ describe("validateWorkflowDefinition", () => {
     expect(codes(definition)).toContain("TYPE_MISMATCH");
   });
 
+  it("rejects multiple bindings to the same input port", () => {
+    const definition = validWorkflow();
+    definition.nodes.push({
+      id: "source-2",
+      tool: { id: "test.source", version: "1" },
+      config: {},
+    });
+    definition.edges.push({
+      from: { nodeId: "source-2", output: "output" },
+      to: { nodeId: "select", input: "input" },
+    });
+
+    expect(codes(definition)).toContain("MULTIPLE_INPUT");
+  });
+
   it("rejects a required input with no binding", () => {
     const definition = validWorkflow();
     definition.edges = [];

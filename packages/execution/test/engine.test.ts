@@ -102,14 +102,17 @@ class MemoryExecutions implements ExecutionRepository {
 }
 
 class MemorySteps implements ExecutionStepRepository {
-  constructor(readonly row: ExecutionStepRecord) {}
+  constructor(
+    readonly row: ExecutionStepRecord,
+    readonly otherRows: ExecutionStepRecord[] = [],
+  ) {}
 
   async create() {
     return structuredClone(this.row);
   }
 
   async listByExecution() {
-    return [structuredClone(this.row)];
+    return [this.row, ...this.otherRows].map((row) => structuredClone(row));
   }
 
   async getById(stepExecutionId: string) {
@@ -340,10 +343,14 @@ function setup(
     step?: ExecutionStepRecord;
     timeoutMs?: number;
     lifecycle?: ExecutionStepLifecycle;
+    otherSteps?: ExecutionStepRecord[];
   } = {},
 ) {
   const executions = new MemoryExecutions(options.execution ?? execution());
-  const steps = new MemorySteps(options.step ?? step());
+  const steps = new MemorySteps(
+    options.step ?? step(),
+    options.otherSteps ?? [],
+  );
   const receipts = new MemoryReceipts();
   const outputs = new MemoryOutputs();
   const queue = new MemoryQueue();
@@ -555,6 +562,96 @@ describe("ExecutionEngine", () => {
     expect(steps.row.status).toBe("timed_out");
     expect(receipts.rows).toHaveLength(1);
     expect(receipts.rows[0]?.error?.code).toBe("TIMEOUT");
+  });
+
+  it("enforces maxTotalAttempts across all workflow steps", async () => {
+    const runner: ToolRunner = {
+      run: vi.fn(async () => ({
+        outputs: { output: outputContext() },
+        usage: { outputBytes: 2, httpRequests: 0 },
+      })),
+    };
+    const previousStep = step({
+      id: "88888888-8888-4888-8888-888888888888",
+      nodeId: "previous",
+      status: "succeeded",
+      attempt: 2,
+      startedAt: NOW.toISOString(),
+      finishedAt: NOW.toISOString(),
+      usage: { outputBytes: 4, httpRequests: 0 },
+    });
+    const { engine, steps, receipts } = setup(runner, {
+      execution: execution({
+        kind: "workflow",
+        workflowRevisionId: "99999999-9999-4999-8999-999999999999",
+        budget: {
+          maxWallClockMs: 60_000,
+          maxSteps: 2,
+          maxAttemptsPerStep: 3,
+          maxTotalAttempts: 2,
+          maxOutputBytes: 1_024,
+          maxHttpRequests: 2,
+        },
+      }),
+      otherSteps: [previousStep],
+    });
+
+    await engine.runClaimedJob(job(), "worker-1");
+
+    expect(runner.run).not.toHaveBeenCalled();
+    expect(steps.row.status).toBe("failed");
+    expect(receipts.rows[0]?.error?.code).toBe("BUDGET_EXCEEDED");
+    expect(receipts.rows[0]?.error?.details).toMatchObject({
+      dimension: "totalAttempts",
+      actual: 3,
+      limit: 2,
+    });
+  });
+
+  it("enforces output-byte budget cumulatively across workflow steps", async () => {
+    const runner: ToolRunner = {
+      async run() {
+        return {
+          outputs: { output: outputContext() },
+          usage: { outputBytes: 200, httpRequests: 0 },
+        };
+      },
+    };
+    const previousStep = step({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      nodeId: "previous",
+      status: "succeeded",
+      attempt: 1,
+      startedAt: NOW.toISOString(),
+      finishedAt: NOW.toISOString(),
+      usage: { outputBytes: 900, httpRequests: 0 },
+    });
+    const { engine, steps, outputs, receipts } = setup(runner, {
+      execution: execution({
+        kind: "workflow",
+        workflowRevisionId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        budget: {
+          maxWallClockMs: 60_000,
+          maxSteps: 2,
+          maxAttemptsPerStep: 3,
+          maxTotalAttempts: 4,
+          maxOutputBytes: 1_000,
+          maxHttpRequests: 2,
+        },
+      }),
+      otherSteps: [previousStep],
+    });
+
+    await engine.runClaimedJob(job(), "worker-1");
+
+    expect(steps.row.status).toBe("failed");
+    expect(outputs.rows).toHaveLength(0);
+    expect(receipts.rows[0]?.error?.code).toBe("BUDGET_EXCEEDED");
+    expect(receipts.rows[0]?.error?.details).toMatchObject({
+      dimension: "outputBytes",
+      actual: 1_100,
+      limit: 1_000,
+    });
   });
 
   it("fails instead of persisting outputs that exceed the budget", async () => {
