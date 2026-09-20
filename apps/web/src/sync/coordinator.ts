@@ -1,5 +1,6 @@
-import type {
-  CreateNoteRequest,
+import {
+  WorkflowDefinitionV1Schema,
+  type CreateNoteRequest,
   CreateProjectRequest,
   NoteDocumentView,
   Project,
@@ -46,7 +47,8 @@ export interface SyncDiagnostics {
 
 export type WorkflowRunEligibility =
   | { state: "ready"; revisionId: string }
-  | { state: "offline" | "pending" | "conflict" | "missing" };
+  | { state: "conflict"; operationId: string }
+  | { state: "offline" | "pending" | "missing" };
 
 export interface SyncCoordinator {
   start(): Promise<void>;
@@ -67,6 +69,10 @@ export interface SyncCoordinator {
     operationId: string,
     strategy: "keep-local" | "use-server",
   ): Promise<NoteDocumentView>;
+  resolveWorkflowConflict(
+    operationId: string,
+    strategy: "keep-local" | "use-server",
+  ): Promise<WorkflowDocumentView>;
   createProject(input: CreateProjectRequest): Promise<Project>;
   createNote(
     projectId: string,
@@ -120,6 +126,32 @@ function serverNoteSnapshot(conflict: LocalConflictRecord): {
   return {
     title: record.title,
     body: record.body,
+    currentRevisionId: record.currentRevisionId,
+  };
+}
+
+function serverWorkflowSnapshot(conflict: LocalConflictRecord): {
+  title: string;
+  workflow: WorkflowDocumentView["revision"]["content"]["workflow"];
+  currentRevisionId: string;
+} {
+  const current = conflict.change.payload.current;
+  if (typeof current !== "object" || current === null) {
+    throw new Error("Conflict does not contain a server workflow snapshot");
+  }
+
+  const record = current as Record<string, unknown>;
+  if (
+    record.kind !== "workflow" ||
+    typeof record.title !== "string" ||
+    typeof record.currentRevisionId !== "string"
+  ) {
+    throw new Error("Conflict server workflow snapshot is incomplete");
+  }
+
+  return {
+    title: record.title,
+    workflow: WorkflowDefinitionV1Schema.parse(record.workflow),
     currentRevisionId: record.currentRevisionId,
   };
 }
@@ -434,14 +466,13 @@ export function createSyncCoordinator(
         store.listPendingOperations(500),
         store.listConflicts(),
       ]);
-      if (
-        conflicts.some(
-          (conflict) =>
-            conflict.change.entityType === "document" &&
-            conflict.change.entityId === documentId,
-        )
-      ) {
-        return { state: "conflict" };
+      const conflict = conflicts.find(
+        (candidate) =>
+          candidate.change.entityType === "document" &&
+          candidate.change.entityId === documentId,
+      );
+      if (conflict) {
+        return { state: "conflict", operationId: conflict.operationId };
       }
       if (
         pending.some(
@@ -506,6 +537,59 @@ export function createSyncCoordinator(
       const retried = await updateNoteLocally(store, device, local, {
         title: local.document.title,
         body: local.revision.content.body,
+        baseRevisionId: server.currentRevisionId,
+      });
+      await store.clearConflict(operationId);
+      await drainPending();
+      await refreshStatus();
+      return retried;
+    },
+
+    async resolveWorkflowConflict(operationId, strategy) {
+      const conflict = (await store.listConflicts()).find(
+        (item) => item.operationId === operationId,
+      );
+      if (!conflict || conflict.change.entityType !== "document") {
+        throw new Error("Workflow conflict was not found");
+      }
+
+      const local = await store.getWorkflow(conflict.change.entityId);
+      if (!local) throw new Error("Local workflow for conflict was not found");
+
+      const server = serverWorkflowSnapshot(conflict);
+
+      if (strategy === "use-server") {
+        const timestamp = conflict.change.createdAt;
+        const resolved: WorkflowDocumentView = {
+          document: {
+            ...local.document,
+            title: server.title,
+            currentRevisionId: server.currentRevisionId,
+            updatedAt: timestamp,
+          },
+          revision: {
+            id: server.currentRevisionId,
+            documentId: local.document.id,
+            revisionNumber: local.revision.revisionNumber + 1,
+            parentRevisionId: local.revision.id,
+            content: {
+              kind: "workflow",
+              workflow: structuredClone(server.workflow),
+            },
+            metadata: {},
+            createdAt: timestamp,
+          },
+        };
+        await store.transaction((tx) => tx.upsertWorkflow(resolved));
+        await store.clearConflict(operationId);
+        await refreshStatus();
+        return resolved;
+      }
+
+      device ??= await ensureDevice();
+      const retried = await updateWorkflowLocally(store, device, local, {
+        title: local.document.title,
+        workflow: structuredClone(local.revision.content.workflow),
         baseRevisionId: server.currentRevisionId,
       });
       await store.clearConflict(operationId);

@@ -96,6 +96,7 @@ function coordinator(
   | "createWorkflow"
   | "updateWorkflow"
   | "workflowRunEligibility"
+  | "resolveWorkflowConflict"
 > {
   return {
     createWorkflow: vi.fn(),
@@ -103,8 +104,14 @@ function coordinator(
     workflowRunEligibility: vi.fn().mockResolvedValue(
       state === "ready"
         ? { state: "ready", revisionId: REVISION_ID }
-        : { state },
+        : state === "conflict"
+          ? {
+              state: "conflict",
+              operationId: "99999999-9999-4999-8999-999999999999",
+            }
+          : { state },
     ),
+    resolveWorkflowConflict: vi.fn(),
   };
 }
 
@@ -292,6 +299,40 @@ describe("WorkflowEditor", () => {
         expect.any(String),
       ),
     );
+  });
+
+  it("offers explicit workflow conflict resolution", async () => {
+    const gate = coordinator("conflict");
+    const server = workflowView();
+    server.document.title = "Server flow";
+    server.revision.content.workflow.name = "Server flow";
+    vi.mocked(gate.resolveWorkflowConflict).mockResolvedValue(server);
+
+    render(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={workflowView()}
+        coordinator={gate}
+        api={api()}
+        tools={tools}
+      />,
+    );
+
+    expect(
+      await screen.findByText(/workflow sync conflict detected/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /use server version/i }),
+    );
+
+    await waitFor(() =>
+      expect(gate.resolveWorkflowConflict).toHaveBeenCalledWith(
+        "99999999-9999-4999-8999-999999999999",
+        "use-server",
+      ),
+    );
+    expect(screen.getByDisplayValue("Server flow")).toBeInTheDocument();
   });
 
   it("disables Run while the workflow has an unsynced local revision", async () => {

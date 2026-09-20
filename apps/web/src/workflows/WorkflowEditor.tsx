@@ -13,7 +13,10 @@ import type { WorkflowApiClient } from "./api";
 
 type EditorCoordinator = Pick<
   SyncCoordinator,
-  "createWorkflow" | "updateWorkflow" | "workflowRunEligibility"
+  | "createWorkflow"
+  | "updateWorkflow"
+  | "workflowRunEligibility"
+  | "resolveWorkflowConflict"
 >;
 
 interface WorkflowEditorProps {
@@ -289,6 +292,37 @@ export function WorkflowEditor({
     }
   }
 
+  async function resolveConflict(strategy: "keep-local" | "use-server") {
+    if (!saved || eligibility?.state !== "conflict") return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const resolved = await coordinator.resolveWorkflowConflict(
+        eligibility.operationId,
+        strategy,
+      );
+      setSaved(resolved);
+      setDirty(false);
+      setTitle(resolved.document.title);
+      setNodes(structuredClone(resolved.revision.content.workflow.nodes));
+      onSaved?.(resolved);
+      setMessage(
+        strategy === "keep-local"
+          ? "Local workflow queued against the server revision"
+          : "Using server workflow version",
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Unable to resolve workflow conflict",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function validate() {
     if (!saved || eligibility?.state !== "ready") return;
     setBusy(true);
@@ -408,6 +442,28 @@ export function WorkflowEditor({
 
       {runBlocked ? (
         <p>Run unavailable until this workflow is synced</p>
+      ) : null}
+      {eligibility?.state === "conflict" ? (
+        <div role="alert">
+          <p>
+            Workflow sync conflict detected. Your local workflow has been
+            preserved.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void resolveConflict("keep-local")}
+          >
+            Keep local and retry
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void resolveConflict("use-server")}
+          >
+            Use server version
+          </button>
+        </div>
       ) : null}
       <button
         type="button"

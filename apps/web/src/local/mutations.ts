@@ -167,7 +167,7 @@ export async function updateNoteLocally(
     entityType: "document",
     entityId: view.document.id,
     action: "document.update",
-    baseRevision: view.revision.id,
+    baseRevision: input.baseRevisionId,
     payload: { title: input.title, body: input.body },
   });
 
@@ -265,7 +265,7 @@ export async function updateWorkflowLocally(
     entityType: "document",
     entityId: view.document.id,
     action: "document.update",
-    baseRevision: view.revision.id,
+    baseRevision: input.baseRevisionId,
     payload: {
       kind: "workflow",
       title: input.title,

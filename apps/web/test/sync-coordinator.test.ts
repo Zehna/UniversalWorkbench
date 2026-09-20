@@ -462,6 +462,163 @@ describe("browser sync coordinator", () => {
     await coordinator.stop();
   });
 
+  it("retries a note conflict against the server base revision", async () => {
+    const store = new MemoryStore();
+    await store.seedProject(project());
+    const original = note("original");
+    await store.seedNote(original);
+
+    const client = network({
+      pushOperations: vi.fn().mockRejectedValue(new Error("offline")),
+    });
+    const coordinator = createSyncCoordinator({
+      ownerId: OWNER_ID,
+      store,
+      client,
+    });
+    await coordinator.start();
+
+    await coordinator.updateNote(original, {
+      title: "Sources",
+      body: "my local edit",
+      baseRevisionId: original.revision.id,
+    });
+    const [firstPending] = await store.listPendingOperations(10);
+
+    await coordinator.handleServerMessage({
+      type: "CONFLICT",
+      operationId: firstPending!.id,
+      change: {
+        cursor: "9",
+        operationId: firstPending!.id,
+        entityType: "document",
+        entityId: DOCUMENT_ID,
+        kind: "conflict",
+        revision: "66666666-6666-4666-8666-666666666666",
+        payload: {
+          current: {
+            title: "Sources",
+            body: "server edit",
+            currentRevisionId: "66666666-6666-4666-8666-666666666666",
+          },
+        },
+        createdAt: NOW,
+      },
+    });
+
+    await coordinator.resolveNoteConflict(firstPending!.id, "keep-local");
+
+    const pending = await store.listPendingOperations(10);
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.baseRevision).toBe(
+      "66666666-6666-4666-8666-666666666666",
+    );
+
+    await coordinator.stop();
+  });
+
+  it("can replace a conflicted local workflow with the server snapshot", async () => {
+    const workflowId = "99999999-9999-4999-8999-999999999999";
+    const local: WorkflowDocumentView = {
+      document: {
+        id: workflowId,
+        projectId: PROJECT_ID,
+        kind: "workflow",
+        title: "Local flow",
+        currentRevisionId: REVISION_ID,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      revision: {
+        id: REVISION_ID,
+        documentId: workflowId,
+        revisionNumber: 1,
+        parentRevisionId: null,
+        content: {
+          kind: "workflow",
+          workflow: {
+            schemaVersion: 1,
+            name: "Local flow",
+            nodes: [],
+            edges: [],
+            outputs: [],
+          },
+        },
+        metadata: {},
+        createdAt: NOW,
+      },
+    };
+
+    const store = new MemoryStore();
+    await store.seedWorkflow(local);
+    const coordinator = createSyncCoordinator({
+      ownerId: OWNER_ID,
+      store,
+      client: network({
+        pushOperations: vi.fn().mockRejectedValue(new Error("offline")),
+      }),
+    });
+    await coordinator.start();
+
+    await coordinator.updateWorkflow(local, {
+      title: "My local flow",
+      workflow: {
+        schemaVersion: 1,
+        name: "My local flow",
+        nodes: [],
+        edges: [],
+        outputs: [],
+      },
+      baseRevisionId: local.revision.id,
+    });
+    const [pending] = await store.listPendingOperations(10);
+
+    await coordinator.handleServerMessage({
+      type: "CONFLICT",
+      operationId: pending!.id,
+      change: {
+        cursor: "12",
+        operationId: pending!.id,
+        entityType: "document",
+        entityId: workflowId,
+        kind: "conflict",
+        revision: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        payload: {
+          current: {
+            id: workflowId,
+            kind: "workflow",
+            title: "Server flow",
+            workflow: {
+              schemaVersion: 1,
+              name: "Server flow",
+              nodes: [],
+              edges: [],
+              outputs: [],
+            },
+            currentRevisionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          },
+        },
+        createdAt: NOW,
+      },
+    });
+
+    expect(await coordinator.workflowRunEligibility(workflowId)).toEqual({
+      state: "conflict",
+      operationId: pending!.id,
+    });
+
+    const resolved = await coordinator.resolveWorkflowConflict(
+      pending!.id,
+      "use-server",
+    );
+
+    expect(resolved.document.title).toBe("Server flow");
+    expect(resolved.revision.content.workflow.name).toBe("Server flow");
+    expect(await store.listConflicts()).toEqual([]);
+
+    await coordinator.stop();
+  });
+
   it("gates workflow execution on this workflow's local sync state", async () => {
     const workflowId = "99999999-9999-4999-8999-999999999999";
     const workflowView: WorkflowDocumentView = {
