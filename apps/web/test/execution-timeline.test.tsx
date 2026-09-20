@@ -53,6 +53,33 @@ function snapshot(status: Execution["status"]): ExecutionSnapshot {
         error: null,
       },
     ],
+    outputs:
+      status === "succeeded"
+        ? [
+            {
+              stepExecutionId: "55555555-5555-4555-8555-555555555555",
+              portName: "note",
+              context: {
+                id: "66666666-6666-4666-8666-666666666666",
+                type: "note-ref",
+                schemaVersion: 1,
+                mimeType: "application/vnd.uw.note-ref+json",
+                metadata: {},
+                payload: {
+                  documentId: "77777777-7777-4777-8777-777777777777",
+                  revisionId: "88888888-8888-4888-8888-888888888888",
+                  title: "Generated Note",
+                },
+                provenance: {
+                  projectId: PROJECT_ID,
+                  artifactIds: [],
+                  parentContextIds: [],
+                },
+                capabilities: [],
+              },
+            },
+          ]
+        : [],
   };
 }
 
@@ -89,6 +116,9 @@ describe("ExecutionTimeline", () => {
     expect(screen.getByText(/step-1 · succeeded · attempt 1/i)).toBeInTheDocument();
     expect(screen.getByText(/receipts: 1/i)).toBeInTheDocument();
     expect(screen.getByText(/provenance edges: 1/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/note · note-ref · generated note/i),
+    ).toBeInTheDocument();
 
     await waitFor(() => expect(getExecution).toHaveBeenCalledTimes(2));
     expect(getReceipt).toHaveBeenCalledTimes(1);

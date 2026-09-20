@@ -161,6 +161,9 @@ test("linear workflow runs through worker and is visible from a second browser",
     firstPage.getByRole("heading", { name: /Execution: succeeded/i }),
   ).toBeVisible({ timeout: 30_000 });
   await expect(firstPage.getByText(/Receipts: 2/i)).toBeVisible();
+  await expect(
+    firstPage.getByText(/note · note-ref · Golden Workflow Output/i),
+  ).toBeVisible();
 
   const execution = await latestWorkflowExecution(firstPage, projectId);
   expect(execution.status).toBe("succeeded");

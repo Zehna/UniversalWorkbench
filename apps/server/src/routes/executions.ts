@@ -4,6 +4,7 @@ import {
   IdSchema,
   JsonObjectSchema,
   ToolReferenceSchema,
+  type ContextEnvelope,
   type Execution,
   type OwnerPublic,
 } from "@uw/contracts";
@@ -40,9 +41,16 @@ export interface ExecutionStepSummary {
   error: unknown | null;
 }
 
+export interface ExecutionOutputSummary {
+  stepExecutionId: string;
+  portName: string;
+  context: ContextEnvelope;
+}
+
 export interface ExecutionApiService extends ExecutionService {
   list(ownerId: string, projectId: string): Promise<Execution[]>;
   listSteps(executionId: string): Promise<ExecutionStepSummary[]>;
+  listOutputs(executionId: string): Promise<ExecutionOutputSummary[]>;
 }
 
 interface ExecutionsRouterDependencies {
@@ -160,8 +168,11 @@ export function createExecutionsRouter(deps: ExecutionsRouterDependencies) {
         projectId,
         executionId,
       );
-      const steps = await deps.executionService.listSteps(executionId);
-      res.json({ execution, steps });
+      const [steps, outputs] = await Promise.all([
+        deps.executionService.listSteps(executionId),
+        deps.executionService.listOutputs(executionId),
+      ]);
+      res.json({ execution, steps, outputs });
     } catch (error) {
       next(mapDomainError(error));
     }

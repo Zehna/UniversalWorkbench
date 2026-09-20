@@ -1,7 +1,9 @@
 import {
+  ContextEnvelopeSchema,
   ExecutionSchema,
   ToolDefinitionSchema,
   ToolInputPortSchema,
+  type ContextEnvelope,
   type ContextType,
   type Execution,
   type StepExecutionStatus,
@@ -26,9 +28,16 @@ export interface ExecutionStepSummary {
   error: unknown | null;
 }
 
+export interface ExecutionOutputSummary {
+  stepExecutionId: string;
+  portName: string;
+  context: ContextEnvelope;
+}
+
 export interface ExecutionSnapshot {
   execution: Execution;
   steps: ExecutionStepSummary[];
+  outputs: ExecutionOutputSummary[];
 }
 
 export interface ExecutionReceiptSnapshot {
@@ -138,6 +147,24 @@ function parseSteps(value: unknown): ExecutionStepSummary[] {
   });
 }
 
+function parseOutputs(value: unknown): ExecutionOutputSummary[] {
+  if (!Array.isArray(value)) throw new Error("Invalid execution output list");
+  return value.map((item) => {
+    if (
+      !isRecord(item) ||
+      typeof item.stepExecutionId !== "string" ||
+      typeof item.portName !== "string"
+    ) {
+      throw new Error("Invalid execution output");
+    }
+    return {
+      stepExecutionId: item.stepExecutionId,
+      portName: item.portName,
+      context: ContextEnvelopeSchema.parse(item.context),
+    };
+  });
+}
+
 export function createWorkflowApiClient(): WorkflowApiClient {
   return {
     async listTools() {
@@ -209,6 +236,7 @@ export function createWorkflowApiClient(): WorkflowApiClient {
       return {
         execution: ExecutionSchema.parse(body.execution),
         steps: parseSteps(body.steps),
+        outputs: parseOutputs(body.outputs),
       };
     },
 

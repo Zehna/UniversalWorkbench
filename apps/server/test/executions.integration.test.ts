@@ -54,6 +54,7 @@ function deps(authenticated = true) {
     enqueueToolExecution: vi.fn(),
     list: vi.fn().mockResolvedValue([execution]),
     listSteps: vi.fn().mockResolvedValue([]),
+    listOutputs: vi.fn().mockResolvedValue([]),
     get: vi.fn().mockResolvedValue(execution),
     requestCancellation: vi.fn().mockResolvedValue(execution),
     listReceipts: vi.fn().mockResolvedValue([]),
@@ -190,6 +191,7 @@ describe("Phase 3 executions API", () => {
     expect(detail.body).toEqual({
       execution,
       steps: [],
+      outputs: [],
     });
 
     expect(

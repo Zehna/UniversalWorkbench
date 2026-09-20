@@ -188,6 +188,17 @@ export function composeApplication(config: ServerConfig) {
         error: step.error,
       }));
     },
+    async listOutputs(executionId) {
+      const steps = await stepRepository.listByExecution(executionId);
+      const groups = await Promise.all(
+        steps.map((step) => outputRepository.listByStep(step.id)),
+      );
+      return groups.flat().map((output) => ({
+        stepExecutionId: output.stepExecutionId,
+        portName: output.portName,
+        context: output.context,
+      }));
+    },
   };
 
   const workflowService = createWorkflowService({

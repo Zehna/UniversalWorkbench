@@ -80,6 +80,30 @@ export function ExecutionTimeline({
           </li>
         ))}
       </ol>
+      {snapshot.outputs.length > 0 ? (
+        <div>
+          <h5>Outputs</h5>
+          <ul>
+            {snapshot.outputs.map((output) => {
+              const payload = output.context.payload;
+              const title =
+                output.context.type === "note-ref" &&
+                typeof payload === "object" &&
+                payload !== null &&
+                !Array.isArray(payload) &&
+                typeof payload.title === "string"
+                  ? payload.title
+                  : null;
+              return (
+                <li key={`${output.stepExecutionId}:${output.portName}`}>
+                  {output.portName} · {output.context.type}
+                  {title ? ` · ${title}` : ""}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
       {receipt ? (
         <div>
           <p>Receipts: {receipt.receipts.length}</p>
