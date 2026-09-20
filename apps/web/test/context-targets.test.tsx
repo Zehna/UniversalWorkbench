@@ -1,50 +1,43 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
 import type { ToolDefinition } from "@uw/contracts";
+import { describe, expect, it, vi } from "vitest";
+import type { WorkflowApiClient } from "../src/workflows/api";
 import { CompatibleTargets } from "../src/context/CompatibleTargets";
-import type { WorkflowApiClient } from "../src/workflows/types";
 
-const noteTool: ToolDefinition = {
+const NOTE_TOOL: ToolDefinition = {
   id: "builtin.note.write",
   version: "1",
   displayName: "Write Note",
-  description: "Write a note",
+  description: "Write note",
   executionMode: "worker",
   accepts: [{ name: "input", types: ["text", "markdown"], required: true }],
   produces: [{ name: "note", types: ["note-ref"] }],
   configSchema: {},
   requiredCapabilities: ["project.documents.write"],
-  defaults: { timeoutMs: 5000, maxAttempts: 1 },
+  defaults: { timeoutMs: 5_000, maxAttempts: 1 },
 };
 
 describe("CompatibleTargets", () => {
-  it("shows compatible typed targets and reports selection", async () => {
-    const onSelect = vi.fn();
-    const client = {
-      compatibleTargets: vi.fn().mockResolvedValue([
-        {
-          definition: noteTool,
-          inputPort: noteTool.accepts[0]!,
-        },
-      ]),
-    } as unknown as WorkflowApiClient;
+  it("uses the shared compatibility endpoint instead of a screen-specific list", async () => {
+    const compatibleTargets = vi.fn().mockResolvedValue([
+      {
+        definition: NOTE_TOOL,
+        inputPort: NOTE_TOOL.accepts[0]!,
+      },
+    ]);
+    const api = {
+      listTools: vi.fn(),
+      compatibleTargets,
+      validateWorkflow: vi.fn(),
+      runWorkflow: vi.fn(),
+      getExecution: vi.fn(),
+      getReceipt: vi.fn(),
+    } satisfies WorkflowApiClient;
 
-    render(
-      <CompatibleTargets
-        contextType="text"
-        client={client}
-        onSelect={onSelect}
-      />,
-    );
+    render(<CompatibleTargets type="text" api={api} />);
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: /write note/i }),
-    );
-    expect(client.compatibleTargets).toHaveBeenCalledWith("text");
-    expect(onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({
-        definition: expect.objectContaining({ id: "builtin.note.write" }),
-      }),
-    );
+    expect(await screen.findByText("Write Note")).toBeInTheDocument();
+    expect(compatibleTargets).toHaveBeenCalledWith("text");
+    expect(screen.queryByText("JSON Select")).not.toBeInTheDocument();
   });
 });
