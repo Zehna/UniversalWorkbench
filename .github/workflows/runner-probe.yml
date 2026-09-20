@@ -1,0 +1,12 @@
+name: Runner Probe
+
+on:
+  push:
+    branches:
+      - phase-3-tool-workflow-core
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo runner-ok
