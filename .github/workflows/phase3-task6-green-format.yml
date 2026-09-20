@@ -1,0 +1,34 @@
+name: Phase 3 Task 6 GREEN Format
+
+on:
+  push:
+    branches:
+      - phase-3-tool-workflow-core
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-3-tool-workflow-core
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm ci
+      - run: npx prettier --write packages/database/src/repositories/execution-receipts.ts packages/database/src/repositories/executions.ts packages/database/src/repositories/provenance.ts packages/execution/src/service.ts
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then
+            echo "Already formatted"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/database/src/repositories/execution-receipts.ts packages/database/src/repositories/executions.ts packages/database/src/repositories/provenance.ts packages/execution/src/service.ts
+          git commit -m "style: format phase 3 task 6 implementation"
+          git push origin HEAD:phase-3-tool-workflow-core
