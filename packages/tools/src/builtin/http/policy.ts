@@ -248,9 +248,7 @@ export class SafeEgressPolicy {
       if (isCredentialHeader(name)) {
         unsafe(`Request header ${name} is not allowed`);
       }
-      if (/[
-]/.test(name) || /[
-]/.test(value)) {
+      if (/[\u000d\u000a]/.test(name) || /[\u000d\u000a]/.test(value)) {
         throw new ToolExecutionError({
           code: "VALIDATION",
           message: "HTTP headers cannot contain line breaks",
