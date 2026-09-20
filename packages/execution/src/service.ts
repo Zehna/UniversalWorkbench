@@ -1,8 +1,4 @@
-import type {
-  Execution,
-  ExecutionBudget,
-  ExecutionKind,
-} from "@uw/contracts";
+import type { Execution, ExecutionBudget, ExecutionKind } from "@uw/contracts";
 import type { Clock, IdGenerator } from "@uw/shared";
 import { DEFAULT_EXECUTION_BUDGET, assertExecutionBudget } from "./budget.js";
 import type { ExecutionReceiptRepository } from "./receipt.js";
@@ -16,8 +12,7 @@ export interface EnqueueExecutionBaseInput {
   budget?: ExecutionBudget;
 }
 
-export interface EnqueueWorkflowExecutionInput
-  extends EnqueueExecutionBaseInput {
+export interface EnqueueWorkflowExecutionInput extends EnqueueExecutionBaseInput {
   workflowRevisionId: string;
 }
 

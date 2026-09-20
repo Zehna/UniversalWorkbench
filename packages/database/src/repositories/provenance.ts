@@ -1,7 +1,4 @@
-import type {
-  ProvenanceEdge,
-  ProvenanceRepository,
-} from "@uw/execution";
+import type { ProvenanceEdge, ProvenanceRepository } from "@uw/execution";
 import type { Pool, QueryResultRow } from "pg";
 
 interface ProvenanceRow extends QueryResultRow {

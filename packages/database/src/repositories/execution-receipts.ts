@@ -1,7 +1,4 @@
-import {
-  ExecutionReceiptSchema,
-  type ExecutionReceipt,
-} from "@uw/contracts";
+import { ExecutionReceiptSchema, type ExecutionReceipt } from "@uw/contracts";
 import type { ExecutionReceiptRepository } from "@uw/execution";
 import type { Pool, QueryResultRow } from "pg";
 

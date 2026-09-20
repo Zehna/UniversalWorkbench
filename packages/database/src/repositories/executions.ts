@@ -196,10 +196,7 @@ export function createPostgresExecutionRepository(
         throw new InvalidExecutionTransitionError(input.from, input.to);
       }
 
-      const assignments = [
-        "status = $4",
-        "updated_at = $5",
-      ];
+      const assignments = ["status = $4", "updated_at = $5"];
       const values: unknown[] = [
         input.ownerId,
         input.executionId,
