@@ -19,6 +19,7 @@ import {
 } from "./budget.js";
 import {
   ExecutionFailure,
+  ExecutionWorkerInterruptedError,
   sanitizeExecutionError,
 } from "./errors.js";
 import { isTerminalExecutionStatus } from "./model.js";
@@ -156,10 +157,14 @@ async function runWithGuards(
   const controller = new AbortController();
   let timedOut = false;
   let cancelled = false;
+  let workerInterrupted = false;
 
   const abortFromExternal = () => {
-    cancelled = true;
-    controller.abort(externalSignal?.reason);
+    workerInterrupted = true;
+    controller.abort(
+      externalSignal?.reason ??
+        new DOMException("worker interrupted", "AbortError"),
+    );
   };
   externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
   if (externalSignal?.aborted) abortFromExternal();
@@ -193,7 +198,10 @@ async function runWithGuards(
     return await Promise.race([run(controller.signal), aborted]);
   } catch (error) {
     if (timedOut) throw timeoutFailure();
-    if (cancelled || externalSignal?.aborted) throw cancellationFailure();
+    if (workerInterrupted || externalSignal?.aborted) {
+      throw new ExecutionWorkerInterruptedError();
+    }
+    if (cancelled) throw cancellationFailure();
     throw error;
   } finally {
     globalThis.clearTimeout(timeout);
@@ -623,6 +631,10 @@ export function createExecutionEngine(
             }),
         });
       } catch (error) {
+        if (error instanceof ExecutionWorkerInterruptedError) {
+          throw error;
+        }
+
         const sanitized = sanitizeExecutionError(error);
         const executionFailure =
           error instanceof ExecutionFailure
