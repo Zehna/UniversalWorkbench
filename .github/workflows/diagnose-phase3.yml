@@ -33,39 +33,77 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24.21.0
-      - name: Run quality diagnostics
+      - run: mkdir -p .phase3-diag
+
+      - id: install
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm ci 2>&1 | tee .phase3-diag/install.log
+
+      - id: audit
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm audit --omit=dev --audit-level=high 2>&1 | tee .phase3-diag/audit.log
+
+      - id: workspaces
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run verify:workspaces 2>&1 | tee .phase3-diag/workspaces.log
+
+      - id: format
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run format:check 2>&1 | tee .phase3-diag/format.log
+
+      - id: lint
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run lint 2>&1 | tee .phase3-diag/lint.log
+
+      - id: typecheck
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run typecheck 2>&1 | tee .phase3-diag/typecheck.log
+
+      - id: tests
+        continue-on-error: true
         env:
           TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
         shell: bash
-        run: |
-          set +e
-          : > phase3-ci-diagnostic.txt
+        run: set -o pipefail; npm test 2>&1 | tee .phase3-diag/tests.log
 
-          run_check() {
-            name="$1"
-            shift
-            echo "===== $name =====" >> phase3-ci-diagnostic.txt
-            "$@" > .phase3-step.log 2>&1
-            status=$?
-            echo "status=$status" >> phase3-ci-diagnostic.txt
-            if [ "$status" -ne 0 ]; then
-              tail -n 160 .phase3-step.log >> phase3-ci-diagnostic.txt
-            fi
-            echo >> phase3-ci-diagnostic.txt
-          }
+      - id: build
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; npm run build 2>&1 | tee .phase3-diag/build.log
 
-          run_check "npm ci" npm ci
-          run_check "production audit" npm audit --omit=dev --audit-level=high
-          run_check "verify workspaces" npm run verify:workspaces
-          run_check "format" npm run format:check
-          run_check "lint" npm run lint
-          run_check "typecheck" npm run typecheck
-          run_check "tests" npm test
-          run_check "build" npm run build
-          run_check "pwa verify" node scripts/verify-pwa.mjs
+      - id: pwa
+        continue-on-error: true
+        shell: bash
+        run: set -o pipefail; node scripts/verify-pwa.mjs 2>&1 | tee .phase3-diag/pwa.log
+
       - name: Commit diagnostic report
+        if: always()
         shell: bash
         run: |
+          {
+            echo "install=${{ steps.install.outcome }}"
+            echo "audit=${{ steps.audit.outcome }}"
+            echo "workspaces=${{ steps.workspaces.outcome }}"
+            echo "format=${{ steps.format.outcome }}"
+            echo "lint=${{ steps.lint.outcome }}"
+            echo "typecheck=${{ steps.typecheck.outcome }}"
+            echo "tests=${{ steps.tests.outcome }}"
+            echo "build=${{ steps.build.outcome }}"
+            echo "pwa=${{ steps.pwa.outcome }}"
+            echo
+            for file in .phase3-diag/*.log; do
+              echo "===== $file ====="
+              tail -n 120 "$file"
+              echo
+            done
+          } > phase3-ci-diagnostic.txt
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add phase3-ci-diagnostic.txt
