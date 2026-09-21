@@ -235,6 +235,10 @@ class MemoryQueue implements ExecutionQueue {
     this.abandoned += 1;
     return true;
   }
+
+  async discardUnleased() {
+    return true;
+  }
 }
 
 function execution(overrides: Partial<Execution> = {}): Execution {
