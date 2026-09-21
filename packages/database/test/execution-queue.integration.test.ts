@@ -22,7 +22,7 @@ async function resetDatabaseSchemas() {
 async function seedOwnerProjectExecution(
   input: {
     cancelled?: boolean;
-    status?: "queued" | "running";
+    status?: "queued" | "running" | "cancelled";
   } = {},
 ) {
   const ownerId = randomUUID();
@@ -195,16 +195,43 @@ describe("PostgreSQL execution queue", () => {
     ).resolves.toMatchObject({ rowCount: 0 });
   });
 
-  it("does not claim work for an execution with cancellation requested", async () => {
+  it("claims cancellation-requested work immediately so the worker can finalize it", async () => {
     const { executionId } = await seedOwnerProjectExecution({
       cancelled: true,
     });
-    await seedJob({ executionId });
+    const jobId = await seedJob({
+      executionId,
+      availableAt: "2026-09-20T01:00:00.000Z",
+    });
     const queue = createPostgresExecutionQueue(pool);
 
     await expect(
       queue.claim("worker-a", "2026-09-20T00:00:10.000Z", 30_000),
-    ).resolves.toBeNull();
+    ).resolves.toMatchObject({
+      id: jobId,
+      executionId,
+      leaseOwner: "worker-a",
+    });
+  });
+
+  it("drains leftover queue rows after an execution has become cancelled", async () => {
+    const { executionId } = await seedOwnerProjectExecution({
+      cancelled: true,
+      status: "cancelled",
+    });
+    const jobId = await seedJob({
+      executionId,
+      availableAt: "2026-09-20T01:00:00.000Z",
+    });
+    const queue = createPostgresExecutionQueue(pool);
+
+    await expect(
+      queue.claim("worker-cleanup", "2026-09-20T00:00:10.000Z", 30_000),
+    ).resolves.toMatchObject({
+      id: jobId,
+      executionId,
+      leaseOwner: "worker-cleanup",
+    });
   });
 
   it("releases a lease for retry with the same durable identity", async () => {

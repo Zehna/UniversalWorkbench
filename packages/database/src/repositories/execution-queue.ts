@@ -143,13 +143,21 @@ export function createPostgresExecutionQueue(pool: Pool): ExecutionQueue {
              select q.id
                from execution_queue q
                join executions e on e.id = q.execution_id
-              where q.available_at <= $2::timestamptz
+              where (
+                  q.available_at <= $2::timestamptz
+                  or e.cancellation_requested_at is not null
+                )
                 and (
                   q.lease_expires_at is null
                   or q.lease_expires_at <= $2::timestamptz
                 )
-                and e.cancellation_requested_at is null
-                and e.status in ('queued', 'running')
+                and (
+                  e.status in ('queued', 'running')
+                  or (
+                    e.status = 'cancelled'
+                    and e.cancellation_requested_at is not null
+                  )
+                )
               order by q.available_at, q.created_at, q.id
               for update of q skip locked
               limit 1
