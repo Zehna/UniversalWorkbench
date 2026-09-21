@@ -650,6 +650,29 @@ describe("ExecutionEngine", () => {
     expect(receipts.rows).toHaveLength(0);
   });
 
+  it("does not mutate or invoke a tool when the worker signal is already aborted", async () => {
+    const runner: ToolRunner = {
+      run: vi.fn(async () => {
+        throw new Error("pre-aborted worker must not run the tool");
+      }),
+    };
+    const controller = new AbortController();
+    controller.abort(new DOMException("worker stopping", "AbortError"));
+    const { engine, executions, steps, receipts, queue } = setup(runner);
+
+    await expect(
+      engine.runClaimedJob(job(), "worker-1", controller.signal),
+    ).rejects.toMatchObject({
+      name: "ExecutionWorkerInterruptedError",
+    });
+
+    expect(runner.run).not.toHaveBeenCalled();
+    expect(executions.row.status).toBe("queued");
+    expect(steps.row.status).toBe("queued");
+    expect(receipts.rows).toHaveLength(0);
+    expect(queue.completed).toBe(0);
+  });
+
   it("does not turn worker shutdown into a user cancellation", async () => {
     const runner: ToolRunner = {
       run: vi.fn(
