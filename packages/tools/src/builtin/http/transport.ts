@@ -333,6 +333,16 @@ export class SafeHttpTransport implements SafeHttpTransportLike {
         });
       }
       const nextMethod = redirectedMethod(response.status, input.method);
+      const preservesBody = nextMethod !== "GET" && input.body !== undefined;
+      if (preservesBody && next.origin !== url.origin) {
+        throw new ToolExecutionError({
+          code: "UNSAFE_EGRESS",
+          message: "Cross-origin redirects cannot replay an HTTP request body",
+          method: input.method,
+          retrySafe: false,
+        });
+      }
+
       const nextHeaders = { ...input.headers };
       if (nextMethod === "GET" && input.method !== "GET") {
         delete nextHeaders["content-type"];

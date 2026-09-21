@@ -149,6 +149,29 @@ describe("SafeHttpTransport", () => {
     expect(requests[1]?.headers["content-type"]).toBeUndefined();
   });
 
+  it("rejects a cross-origin 307 redirect that would replay a request body", async () => {
+    const dns = resolver({
+      "public.example": [{ address: "93.184.216.34", family: 4 }],
+      "other.example": [{ address: "93.184.216.35", family: 4 }],
+    });
+    const requests: HttpConnectorRequest[] = [];
+    const http = connector(async (request) => {
+      requests.push(request);
+      return response(307, { location: "https://other.example/upload" });
+    });
+    const transport = new SafeHttpTransport({ resolver: dns, connector: http });
+
+    await expect(
+      transport.request({
+        url: "https://public.example/upload",
+        method: "POST",
+        body: new TextEncoder().encode("private payload"),
+      }),
+    ).rejects.toMatchObject({ code: "UNSAFE_EGRESS" });
+
+    expect(requests).toHaveLength(1);
+  });
+
   it("sanitizes credential-bearing response headers", async () => {
     const dns = resolver({
       "public.example": [{ address: "93.184.216.34", family: 4 }],
