@@ -25,6 +25,13 @@ export class InvalidStepTransitionError extends Error {
   }
 }
 
+export class ExecutionWorkerInterruptedError extends Error {
+  constructor() {
+    super("Execution worker was interrupted");
+    this.name = "ExecutionWorkerInterruptedError";
+  }
+}
+
 export interface ExecutionFailureOptions {
   code: ExecutionErrorCode;
   message: string;
