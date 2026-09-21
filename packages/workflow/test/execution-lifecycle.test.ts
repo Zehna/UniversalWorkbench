@@ -381,6 +381,25 @@ describe("workflow execution lifecycle", () => {
     expect(executions.row.status).toBe("running");
   });
 
+  it("marks a workflow cancelled only after every step becomes terminal", async () => {
+    const { lifecycle, executions, steps, a } = setup({
+      a: "cancelled",
+      b: "cancelled",
+      join: "pending",
+    });
+    executions.row.cancellationRequestedAt = NOW;
+
+    await lifecycle.onTerminalStep({
+      execution: structuredClone(executions.row),
+      step: a,
+    });
+
+    expect(steps.rows.find((item) => item.nodeId === "join")?.status).toBe(
+      "skipped",
+    );
+    expect(executions.row.status).toBe("cancelled");
+  });
+
   it("writes provenance from parent contexts to successful outputs only once", async () => {
     const { lifecycle, provenance, join, steps, outputs } = setup({
       a: "succeeded",
