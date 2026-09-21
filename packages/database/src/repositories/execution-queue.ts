@@ -222,5 +222,15 @@ export function createPostgresExecutionQueue(pool: Pool): ExecutionQueue {
       );
       return result.rowCount === 1;
     },
+
+    async discardUnleased(jobId) {
+      const result = await pool.query(
+        `delete from execution_queue
+          where id = $1
+            and lease_owner is null`,
+        [jobId],
+      );
+      return result.rowCount === 1;
+    },
   };
 }

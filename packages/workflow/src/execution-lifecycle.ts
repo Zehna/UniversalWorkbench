@@ -54,7 +54,7 @@ export interface CreateWorkflowExecutionLifecycleOptions {
   executions: ExecutionRepository;
   steps: ExecutionStepRepository;
   outputs: ExecutionOutputRepository;
-  queue: Pick<ExecutionQueue, "enqueue">;
+  queue: Pick<ExecutionQueue, "enqueue" | "discardUnleased">;
   provenance: ProvenanceRepository;
   clock: WorkflowLifecycleClock;
   edgeIds: WorkflowLifecycleIdGenerator;
@@ -176,7 +176,7 @@ export function createWorkflowExecutionLifecycle(
     return edgeIdsForStep;
   }
 
-  async function skipPendingAfterFailure(
+  async function skipUnstartedAfterFailure(
     terminalStep: ExecutionStepRecord,
     current: ExecutionStepRecord[],
   ): Promise<void> {
@@ -184,15 +184,18 @@ export function createWorkflowExecutionLifecycle(
 
     const now = clock.now().toISOString();
     for (const step of current) {
-      if (step.status !== "pending") continue;
-      await steps.transition({
+      if (step.status !== "pending" && step.status !== "queued") continue;
+      const transitioned = await steps.transition({
         stepExecutionId: step.id,
-        from: "pending",
+        from: step.status,
         to: "skipped",
         now,
         error: null,
         usage: step.usage,
       });
+      if (transitioned && step.status === "queued") {
+        await queue.discardUnleased(step.id);
+      }
     }
   }
 
@@ -308,7 +311,7 @@ export function createWorkflowExecutionLifecycle(
       const provenanceEdgeIds = await appendProvenance(execution, durableStep);
 
       let current = await steps.listByExecution(execution.id);
-      await skipPendingAfterFailure(durableStep, current);
+      await skipUnstartedAfterFailure(durableStep, current);
 
       current = await steps.listByExecution(execution.id);
       if (!current.some((candidate) => failedStatuses.has(candidate.status))) {

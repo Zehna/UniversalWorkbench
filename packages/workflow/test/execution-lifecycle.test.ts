@@ -227,6 +227,9 @@ class MemoryQueue implements ExecutionQueue {
   async abandon() {
     return true;
   }
+  async discardUnleased(jobId: string) {
+    return this.jobs.delete(jobId);
+  }
 }
 
 class MemoryProvenance implements ProvenanceRepository {
@@ -379,6 +382,25 @@ describe("workflow execution lifecycle", () => {
       "skipped",
     );
     expect(executions.row.status).toBe("running");
+  });
+
+  it("skips and removes queued-but-unstarted work after fail-fast", async () => {
+    const { lifecycle, executions, steps, queue, a } = setup({
+      a: "failed",
+      b: "queued",
+      join: "pending",
+    });
+    queue.jobs.set(steps.rows.find((item) => item.nodeId === "b")!.id, "b");
+
+    await lifecycle.onTerminalStep({ execution: execution(), step: a });
+
+    const queuedSibling = steps.rows.find((item) => item.nodeId === "b")!;
+    expect(queuedSibling.status).toBe("skipped");
+    expect(queue.jobs.has(queuedSibling.id)).toBe(false);
+    expect(steps.rows.find((item) => item.nodeId === "join")?.status).toBe(
+      "skipped",
+    );
+    expect(executions.row.status).toBe("failed");
   });
 
   it("marks a workflow cancelled only after every step becomes terminal", async () => {

@@ -258,6 +258,28 @@ describe("PostgreSQL execution queue", () => {
     });
   });
 
+  it("discards only unleased jobs during fail-fast cleanup", async () => {
+    const { executionId } = await seedOwnerProjectExecution();
+    const unleasedJobId = await seedJob({ executionId });
+    const leasedJobId = await seedJob({ executionId });
+    const queue = createPostgresExecutionQueue(pool);
+
+    await expect(queue.discardUnleased(unleasedJobId)).resolves.toBe(true);
+    await expect(
+      pool.query("select 1 from execution_queue where id = $1", [unleasedJobId]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+
+    await queue.claim("worker-a", "2026-09-20T00:00:10.000Z", 30_000);
+    const leased = await pool.query<{ id: string }>(
+      "select id from execution_queue where lease_owner = 'worker-a'",
+    );
+    expect(leased.rows[0]?.id).toBe(leasedJobId);
+    await expect(queue.discardUnleased(leasedJobId)).resolves.toBe(false);
+    await expect(
+      pool.query("select 1 from execution_queue where id = $1", [leasedJobId]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+  });
+
   it("abandons a lease without changing the job identity", async () => {
     const { executionId } = await seedOwnerProjectExecution();
     const jobId = await seedJob({ executionId });

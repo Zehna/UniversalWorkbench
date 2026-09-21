@@ -38,4 +38,5 @@ export interface ExecutionQueue {
     attempt: number,
   ): Promise<boolean>;
   abandon(jobId: string, workerId: string): Promise<boolean>;
+  discardUnleased(jobId: string): Promise<boolean>;
 }
