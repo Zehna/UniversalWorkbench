@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type {
   Execution,
   ExecutionBudget,
@@ -172,6 +173,11 @@ export function createWorkflowService(
       if (execution.workflowRevisionId !== input.workflowRevisionId) {
         throw new WorkflowExecutionConflictError(
           "Idempotency key already belongs to a different workflow revision",
+        );
+      }
+      if (!isDeepStrictEqual(execution.budget, input.budget)) {
+        throw new WorkflowExecutionConflictError(
+          "Idempotency key already belongs to a workflow run with a different budget",
         );
       }
 

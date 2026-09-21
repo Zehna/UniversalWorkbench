@@ -315,6 +315,24 @@ describe("WorkflowService", () => {
     ]);
   });
 
+  it("rejects idempotency-key reuse with a different workflow budget", async () => {
+    const { service } = setup();
+
+    await expect(
+      service.enqueueRun({
+        ownerId: OWNER_ID,
+        projectId: PROJECT_ID,
+        workflowId: WORKFLOW_ID,
+        workflowRevisionId: REVISION_ID,
+        idempotencyKey: "run-1",
+        budget: {
+          ...budget,
+          maxWallClockMs: 30_000,
+        },
+      }),
+    ).rejects.toThrow("different budget");
+  });
+
   it("validates the exact pinned tool version, not the newest registered version", async () => {
     const { service, rows } = setup();
 

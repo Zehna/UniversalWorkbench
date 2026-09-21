@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { DEFAULT_EXECUTION_BUDGET } from "./budget.js";
 import type {
   Execution,
   ExecutionBudget,
@@ -130,6 +131,13 @@ export function createDirectToolExecutionService(
         idempotencyKey: input.idempotencyKey,
         ...(input.budget === undefined ? {} : { budget: input.budget }),
       });
+
+      const requestedBudget = input.budget ?? DEFAULT_EXECUTION_BUDGET;
+      if (!isDeepStrictEqual(execution.budget, requestedBudget)) {
+        throw new DirectToolExecutionConflictError(
+          "Idempotency key already belongs to a direct tool run with a different budget",
+        );
+      }
 
       const existing = await steps.listByExecution(execution.id);
       if (existing.length > 1) {

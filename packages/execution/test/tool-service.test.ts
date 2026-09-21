@@ -198,6 +198,24 @@ describe("DirectToolExecutionService", () => {
     ).rejects.toBeInstanceOf(DirectToolExecutionConflictError);
   });
 
+  it("rejects idempotency-key reuse with a different execution budget", async () => {
+    const { service } = setup([step({ mode: "fixture" })]);
+
+    await expect(
+      service.enqueueToolRun({
+        ownerId: OWNER_ID,
+        projectId: PROJECT_ID,
+        idempotencyKey: "direct-1",
+        tool: { id: "builtin.fixture.direct", version: "1" },
+        config: { mode: "fixture" },
+        budget: {
+          ...execution().budget,
+          maxWallClockMs: 30_000,
+        },
+      }),
+    ).rejects.toBeInstanceOf(DirectToolExecutionConflictError);
+  });
+
   it("rejects invalid direct-tool configuration before enqueue", async () => {
     const tools = registry(false, {
       configSchema: {
