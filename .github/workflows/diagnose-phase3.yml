@@ -1,0 +1,73 @@
+name: Diagnose Phase 3 quality
+
+on:
+  push:
+    branches:
+      - phase-3-tool-workflow-core
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workbench -d workbench_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-3-tool-workflow-core
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - name: Run quality diagnostics
+        env:
+          TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+        shell: bash
+        run: |
+          set +e
+          : > phase3-ci-diagnostic.txt
+
+          run_check() {
+            name="$1"
+            shift
+            echo "===== $name =====" >> phase3-ci-diagnostic.txt
+            "$@" > .phase3-step.log 2>&1
+            status=$?
+            echo "status=$status" >> phase3-ci-diagnostic.txt
+            if [ "$status" -ne 0 ]; then
+              tail -n 160 .phase3-step.log >> phase3-ci-diagnostic.txt
+            fi
+            echo >> phase3-ci-diagnostic.txt
+          }
+
+          run_check "npm ci" npm ci
+          run_check "production audit" npm audit --omit=dev --audit-level=high
+          run_check "verify workspaces" npm run verify:workspaces
+          run_check "format" npm run format:check
+          run_check "lint" npm run lint
+          run_check "typecheck" npm run typecheck
+          run_check "tests" npm test
+          run_check "build" npm run build
+          run_check "pwa verify" node scripts/verify-pwa.mjs
+      - name: Commit diagnostic report
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add phase3-ci-diagnostic.txt
+          git commit -m "chore: capture phase 3 quality diagnostic"
+          git push origin HEAD:phase-3-tool-workflow-core
