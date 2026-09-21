@@ -6,6 +6,7 @@ interface WorkflowStepEditorProps {
   tool: ToolDefinition | undefined;
   index: number;
   total: number;
+  readOnly?: boolean | undefined;
   onMoveUp(): void;
   onMoveDown(): void;
   onRemove(): void;
@@ -17,6 +18,7 @@ export function WorkflowStepEditor({
   tool,
   index,
   total,
+  readOnly = false,
   onMoveUp,
   onMoveDown,
   onRemove,
@@ -57,7 +59,7 @@ export function WorkflowStepEditor({
         <button
           type="button"
           aria-label={`Move ${label} up`}
-          disabled={index === 0}
+          disabled={readOnly || index === 0}
           onClick={onMoveUp}
         >
           Move up
@@ -65,7 +67,7 @@ export function WorkflowStepEditor({
         <button
           type="button"
           aria-label={`Move ${label} down`}
-          disabled={index === total - 1}
+          disabled={readOnly || index === total - 1}
           onClick={onMoveDown}
         >
           Move down
@@ -73,6 +75,7 @@ export function WorkflowStepEditor({
         <button
           type="button"
           aria-label={`Remove ${label}`}
+          disabled={readOnly}
           onClick={onRemove}
         >
           Remove
@@ -83,6 +86,7 @@ export function WorkflowStepEditor({
         <textarea
           value={draft}
           rows={6}
+          disabled={readOnly}
           aria-invalid={configError ? "true" : "false"}
           onChange={(event) => setDraft(event.target.value)}
           onBlur={(event) => commitConfig(event.target.value)}

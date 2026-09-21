@@ -279,6 +279,60 @@ describe("WorkflowEditor", () => {
     expect(gate.updateWorkflow).not.toHaveBeenCalled();
   });
 
+  it("keeps imported branched DAGs read-only instead of linearizing them", async () => {
+    const initial = workflowView();
+    initial.revision.content.workflow.nodes = [
+      {
+        id: "root",
+        tool: { id: "builtin.text.template", version: "1" },
+        config: { template: "root" },
+      },
+      {
+        id: "left",
+        tool: { id: "builtin.text.template", version: "1" },
+        config: { template: "left" },
+      },
+      {
+        id: "right",
+        tool: { id: "builtin.text.template", version: "1" },
+        config: { template: "right" },
+      },
+    ];
+    initial.revision.content.workflow.edges = [
+      {
+        from: { nodeId: "root", output: "output" },
+        to: { nodeId: "left", input: "input" },
+      },
+      {
+        from: { nodeId: "root", output: "output" },
+        to: { nodeId: "right", input: "input" },
+      },
+    ];
+    initial.revision.content.workflow.outputs = [
+      { name: "left", from: { nodeId: "left", output: "output" } },
+      { name: "right", from: { nodeId: "right", output: "output" } },
+    ];
+
+    render(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={initial}
+        coordinator={coordinator()}
+        api={api()}
+        tools={tools}
+      />,
+    );
+
+    expect(
+      screen.getByText(/linear editor cannot modify safely/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /save workflow/i })).toBeDisabled();
+    expect(screen.getByLabelText("Workflow title")).toBeDisabled();
+    expect(screen.getByLabelText("Text Template configuration").closest("textarea"))
+      .toBeDisabled();
+    expect(screen.getByRole("button", { name: /^run$/i })).toBeEnabled();
+  });
+
   it("disables Run after an unsaved editor change", async () => {
     render(
       <WorkflowEditor

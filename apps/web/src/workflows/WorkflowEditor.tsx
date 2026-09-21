@@ -71,6 +71,7 @@ function linearDefinition(
   name: string,
   nodes: WorkflowNode[],
   tools: ToolDefinition[],
+  description?: string,
 ): WorkflowDefinitionV1 {
   const edges: WorkflowEdge[] = [];
   for (let index = 0; index < nodes.length - 1; index += 1) {
@@ -92,6 +93,7 @@ function linearDefinition(
   return {
     schemaVersion: 1,
     name,
+    ...(description === undefined ? {} : { description }),
     nodes: structuredClone(nodes),
     edges,
     outputs:
@@ -99,6 +101,34 @@ function linearDefinition(
         ? [{ name: "result", from: { nodeId: last.id, output: output.name } }]
         : [],
   };
+}
+
+function isLinearEditableWorkflow(
+  workflow: WorkflowDefinitionV1,
+): boolean {
+  if (workflow.outputs.length > 1) return false;
+
+  const indexByNode = new Map(
+    workflow.nodes.map((node, index) => [node.id, index] as const),
+  );
+  const incoming = new Map<string, number>();
+  const outgoing = new Map<string, number>();
+
+  for (const edge of workflow.edges) {
+    const from = indexByNode.get(edge.from.nodeId);
+    const to = indexByNode.get(edge.to.nodeId);
+    if (from === undefined || to === undefined || to !== from + 1) {
+      return false;
+    }
+
+    const nextOutgoing = (outgoing.get(edge.from.nodeId) ?? 0) + 1;
+    const nextIncoming = (incoming.get(edge.to.nodeId) ?? 0) + 1;
+    outgoing.set(edge.from.nodeId, nextOutgoing);
+    incoming.set(edge.to.nodeId, nextIncoming);
+    if (nextOutgoing > 1 || nextIncoming > 1) return false;
+  }
+
+  return true;
 }
 
 function initialNodes(initial: WorkflowDocumentView | undefined): WorkflowNode[] {
@@ -227,9 +257,19 @@ export function WorkflowEditor({
     };
   }, [coordinator, saved, syncVersion]);
 
+  const readOnlyDag = Boolean(
+    initial &&
+      !isLinearEditableWorkflow(initial.revision.content.workflow),
+  );
   const definition = useMemo(
-    () => linearDefinition(title || "Untitled workflow", nodes, catalog),
-    [catalog, nodes, title],
+    () =>
+      linearDefinition(
+        title || "Untitled workflow",
+        nodes,
+        catalog,
+        initial?.revision.content.workflow.description,
+      ),
+    [catalog, initial?.revision.content.workflow.description, nodes, title],
   );
 
   function move(index: number, delta: -1 | 1) {
@@ -378,6 +418,7 @@ export function WorkflowEditor({
           Workflow title
           <input
             required
+            disabled={readOnlyDag}
             value={title}
             onChange={(event) => {
               setTitle(event.target.value);
@@ -394,6 +435,7 @@ export function WorkflowEditor({
               tool={toolFor(catalog, node)}
               index={index}
               total={nodes.length}
+              readOnly={readOnlyDag}
               onMoveUp={() => move(index, -1)}
               onMoveDown={() => move(index, 1)}
               onRemove={() => {
@@ -419,6 +461,7 @@ export function WorkflowEditor({
         <label>
           Add step
           <select
+            disabled={readOnlyDag}
             value={selectedTool}
             onChange={(event) => setSelectedTool(event.target.value)}
           >
@@ -435,17 +478,26 @@ export function WorkflowEditor({
         </label>
         <button
           type="button"
-          disabled={!selectedTool}
+          disabled={readOnlyDag || !selectedTool}
           onClick={addStep}
         >
           Add Step
         </button>
 
-        <button type="submit" disabled={busy || title.trim().length === 0}>
+        <button
+          type="submit"
+          disabled={readOnlyDag || busy || title.trim().length === 0}
+        >
           {busy ? "Saving…" : "Save Workflow"}
         </button>
       </form>
 
+      {readOnlyDag ? (
+        <p role="note">
+          This workflow uses a DAG shape that the Phase 3 linear editor cannot
+          modify safely. You can still validate and run the canonical revision.
+        </p>
+      ) : null}
       {runBlocked ? (
         <p>Run unavailable until this workflow is synced</p>
       ) : null}
