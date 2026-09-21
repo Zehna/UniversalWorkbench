@@ -71,7 +71,7 @@ export const HTTP_REQUEST_TOOL_DEFINITION: ToolDefinition = {
     required: ["url"],
     additionalProperties: false,
     properties: {
-      url: { type: "string" },
+      url: { type: "string", minLength: 1 },
       method: {
         type: "string",
         enum: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],

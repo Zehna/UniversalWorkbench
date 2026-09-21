@@ -55,7 +55,7 @@ export const NOTE_WRITE_TOOL_DEFINITION: ToolDefinition = {
     required: ["title"],
     additionalProperties: false,
     properties: {
-      title: { type: "string" },
+      title: { type: "string", minLength: 1, maxLength: 200 },
     },
   },
   requiredCapabilities: ["project.documents.write"],

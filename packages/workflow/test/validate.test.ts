@@ -199,6 +199,45 @@ describe("validateWorkflowDefinition", () => {
     expect(codes(definition)).toContain("NO_TERMINAL");
   });
 
+  it("rejects string configuration outside declared length constraints", () => {
+    const value = registry();
+    value.register(
+      tool("test.titled", {
+        accepts: [],
+        configSchema: {
+          type: "object",
+          required: ["title"],
+          additionalProperties: false,
+          properties: {
+            title: { type: "string", minLength: 1, maxLength: 4 },
+          },
+        },
+      }),
+      runner,
+    );
+    const definition: WorkflowDefinitionV1 = {
+      schemaVersion: 1,
+      name: "Invalid title",
+      nodes: [
+        {
+          id: "title",
+          tool: { id: "test.titled", version: "1" },
+          config: { title: "" },
+        },
+      ],
+      edges: [],
+      outputs: [{ name: "result", from: { nodeId: "title", output: "output" } }],
+    };
+
+    const result = validateWorkflowDefinition(definition, value, [], budget);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({ code: "INVALID_CONFIG", nodeId: "title" }),
+      );
+    }
+  });
+
   it("rejects tool configuration that does not match the pinned schema", () => {
     const definition = validWorkflow();
     definition.nodes[1]!.tool = { id: "test.configured", version: "1" };
