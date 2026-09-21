@@ -589,6 +589,43 @@ describe("ExecutionEngine", () => {
     expect(queue.completed).toBe(1);
   });
 
+  it("keeps a cancelling workflow running until the lifecycle settles every step", async () => {
+    const runner: ToolRunner = {
+      run: vi.fn(async () => {
+        throw new Error("cancelled workflow must not run the tool");
+      }),
+    };
+    const otherRoot = step({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      nodeId: "other-root",
+      status: "queued",
+    });
+    const lifecycle: ExecutionStepLifecycle = {
+      onTerminalStep: vi.fn(async ({ execution: current }) => {
+        expect(current.status).toBe("running");
+        return [];
+      }),
+    };
+    const { engine, executions, steps, receipts, queue } = setup(runner, {
+      execution: execution({
+        kind: "workflow",
+        workflowRevisionId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        cancellationRequestedAt: NOW.toISOString(),
+      }),
+      otherSteps: [otherRoot],
+      lifecycle,
+    });
+
+    await engine.runClaimedJob(job(), "worker-1");
+
+    expect(runner.run).not.toHaveBeenCalled();
+    expect(steps.row.status).toBe("cancelled");
+    expect(executions.row.status).toBe("running");
+    expect(receipts.rows[0]?.status).toBe("cancelled");
+    expect(queue.completed).toBe(1);
+    expect(lifecycle.onTerminalStep).toHaveBeenCalledTimes(1);
+  });
+
   it("releases retry-safe transient failures with a future attempt", async () => {
     const runner: ToolRunner = {
       async run() {
