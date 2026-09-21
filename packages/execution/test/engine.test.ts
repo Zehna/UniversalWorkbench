@@ -650,6 +650,39 @@ describe("ExecutionEngine", () => {
     expect(receipts.rows).toHaveLength(0);
   });
 
+  it("does not turn worker shutdown into a user cancellation", async () => {
+    const runner: ToolRunner = {
+      run: vi.fn(
+        async ({ signal }) =>
+          new Promise<never>((_, reject) => {
+            signal.addEventListener(
+              "abort",
+              () => reject(signal.reason),
+              { once: true },
+            );
+          }),
+      ),
+    };
+    const controller = new AbortController();
+    const { engine, executions, steps, receipts, queue } = setup(runner);
+
+    const pending = engine.runClaimedJob(
+      job(),
+      "worker-1",
+      controller.signal,
+    );
+    await vi.waitFor(() => expect(runner.run).toHaveBeenCalledTimes(1));
+    controller.abort(new DOMException("worker stopping", "AbortError"));
+
+    await expect(pending).rejects.toMatchObject({
+      name: "ExecutionWorkerInterruptedError",
+    });
+    expect(executions.row.status).toBe("running");
+    expect(steps.row.status).toBe("running");
+    expect(receipts.rows).toHaveLength(0);
+    expect(queue.completed).toBe(0);
+  });
+
   it("times out a cancellable tool and writes one timed-out receipt", async () => {
     const runner: ToolRunner = {
       async run({ signal }) {
