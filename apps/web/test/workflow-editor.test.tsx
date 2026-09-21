@@ -362,7 +362,7 @@ describe("WorkflowEditor", () => {
     ).toBeInTheDocument();
   });
 
-  it("runs the canonical revision returned by eligibility", async () => {
+  it("blocks Run when the displayed revision differs from canonical eligibility", async () => {
     const client = api();
     const gate = coordinator();
     vi.mocked(gate.workflowRunEligibility).mockResolvedValue({
@@ -381,6 +381,56 @@ describe("WorkflowEditor", () => {
     );
 
     const run = await screen.findByRole("button", { name: /^run$/i });
+    await waitFor(() => expect(run).toBeDisabled());
+    fireEvent.click(run);
+
+    expect(client.runWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("adopts a newer clean revision before enabling Run", async () => {
+    const client = api();
+    const gate = coordinator();
+    const nextRevisionId = "77777777-7777-4777-8777-777777777777";
+    vi.mocked(gate.workflowRunEligibility).mockResolvedValue({
+      state: "ready",
+      revisionId: nextRevisionId,
+    });
+
+    const initial = workflowView();
+    const rendered = render(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={initial}
+        coordinator={gate}
+        api={client}
+        tools={tools}
+        syncVersion="1"
+      />,
+    );
+
+    const next = workflowView();
+    next.document.title = "Remote flow";
+    next.document.currentRevisionId = nextRevisionId;
+    next.revision.id = nextRevisionId;
+    next.revision.revisionNumber = 2;
+    next.revision.parentRevisionId = REVISION_ID;
+    next.revision.content.workflow.name = "Remote flow";
+
+    rendered.rerender(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={next}
+        coordinator={gate}
+        api={client}
+        tools={tools}
+        syncVersion="2"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByDisplayValue("Remote flow")).toBeInTheDocument(),
+    );
+    const run = screen.getByRole("button", { name: /^run$/i });
     await waitFor(() => expect(run).toBeEnabled());
     fireEvent.click(run);
 
@@ -388,10 +438,52 @@ describe("WorkflowEditor", () => {
       expect(client.runWorkflow).toHaveBeenCalledWith(
         PROJECT_ID,
         WORKFLOW_ID,
-        "77777777-7777-4777-8777-777777777777",
+        nextRevisionId,
         expect.any(String),
       ),
     );
+  });
+
+  it("preserves a dirty local draft when a newer remote revision arrives", async () => {
+    const gate = coordinator();
+    const initial = workflowView();
+    const rendered = render(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={initial}
+        coordinator={gate}
+        api={api()}
+        tools={tools}
+        syncVersion="1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Workflow title"), {
+      target: { value: "My unsaved draft" },
+    });
+
+    const remote = workflowView();
+    remote.document.title = "Remote flow";
+    remote.document.currentRevisionId =
+      "77777777-7777-4777-8777-777777777777";
+    remote.revision.id = "77777777-7777-4777-8777-777777777777";
+    remote.revision.revisionNumber = 2;
+    remote.revision.parentRevisionId = REVISION_ID;
+    remote.revision.content.workflow.name = "Remote flow";
+
+    rendered.rerender(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={remote}
+        coordinator={gate}
+        api={api()}
+        tools={tools}
+        syncVersion="2"
+      />,
+    );
+
+    expect(screen.getByDisplayValue("My unsaved draft")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^run$/i })).toBeDisabled();
   });
 
   it("offers explicit workflow conflict resolution", async () => {

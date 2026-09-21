@@ -269,6 +269,16 @@ export function WorkflowEditor({
     };
   }, [api, catalog, nodes]);
 
+  const initialDocumentId = initial?.document.id;
+  const initialRevisionId = initial?.revision.id;
+
+  useEffect(() => {
+    if (!initial || dirty) return;
+    setSaved(initial);
+    setTitle(initial.document.title);
+    setNodes(structuredClone(initial.revision.content.workflow.nodes));
+  }, [initialDocumentId, initialRevisionId]);
+
   useEffect(() => {
     if (!saved) {
       setEligibility({ state: "missing" });
@@ -284,8 +294,8 @@ export function WorkflowEditor({
   }, [coordinator, saved, syncVersion]);
 
   const readOnlyDag = Boolean(
-    initial &&
-      !isLinearEditableWorkflow(initial.revision.content.workflow, catalog),
+    saved &&
+      !isLinearEditableWorkflow(saved.revision.content.workflow, catalog),
   );
   const definition = useMemo(
     () =>
@@ -293,9 +303,9 @@ export function WorkflowEditor({
         title || "Untitled workflow",
         nodes,
         catalog,
-        initial?.revision.content.workflow.description,
+        saved?.revision.content.workflow.description,
       ),
-    [catalog, initial?.revision.content.workflow.description, nodes, title],
+    [catalog, nodes, saved?.revision.content.workflow.description, title],
   );
 
   function move(index: number, delta: -1 | 1) {
@@ -396,7 +406,14 @@ export function WorkflowEditor({
   }
 
   async function validate() {
-    if (!saved || eligibility?.state !== "ready") return;
+    if (
+      !saved ||
+      dirty ||
+      eligibility?.state !== "ready" ||
+      saved.revision.id !== eligibility.revisionId
+    ) {
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -416,7 +433,14 @@ export function WorkflowEditor({
   }
 
   async function run() {
-    if (!saved || eligibility?.state !== "ready") return;
+    if (
+      !saved ||
+      dirty ||
+      eligibility?.state !== "ready" ||
+      saved.revision.id !== eligibility.revisionId
+    ) {
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -434,7 +458,11 @@ export function WorkflowEditor({
     }
   }
 
-  const runBlocked = dirty || !saved || eligibility?.state !== "ready";
+  const runBlocked =
+    dirty ||
+    !saved ||
+    eligibility?.state !== "ready" ||
+    saved.revision.id !== eligibility.revisionId;
 
   return (
     <section aria-label="Workflow editor">
