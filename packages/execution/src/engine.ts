@@ -368,6 +368,10 @@ export function createExecutionEngine(
 
   return {
     async runClaimedJob(job, workerId, signal) {
+      if (signal?.aborted) {
+        throw new ExecutionWorkerInterruptedError();
+      }
+
       if (job.leaseOwner && job.leaseOwner !== workerId) {
         throw new Error("Queue job is leased by another worker");
       }
