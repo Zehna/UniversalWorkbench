@@ -328,9 +328,14 @@ describe("WorkflowEditor", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /save workflow/i })).toBeDisabled();
     expect(screen.getByLabelText("Workflow title")).toBeDisabled();
-    expect(screen.getByLabelText("Text Template configuration").closest("textarea"))
-      .toBeDisabled();
-    expect(screen.getByRole("button", { name: /^run$/i })).toBeEnabled();
+    for (const textarea of screen.getAllByLabelText(
+      "Text Template configuration",
+    )) {
+      expect(textarea).toBeDisabled();
+    }
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^run$/i })).toBeEnabled(),
+    );
   });
 
   it("disables Run after an unsaved editor change", async () => {

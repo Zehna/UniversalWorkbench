@@ -186,7 +186,7 @@ describe("sync operation apply engine", () => {
   });
 
   it("validates new mutations before applying them but not exact replays", async () => {
-    const validateOperation = vi.fn<(operation: SyncOperation) => void>();
+    const validateOperation = vi.fn((_operation: SyncOperation) => undefined);
     const harness = createHarness({ validateOperation });
     const syncOperation = operation();
 

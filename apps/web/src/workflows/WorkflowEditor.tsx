@@ -103,32 +103,58 @@ function linearDefinition(
   };
 }
 
+function sameEdge(left: WorkflowEdge, right: WorkflowEdge): boolean {
+  return (
+    left.from.nodeId === right.from.nodeId &&
+    left.from.output === right.from.output &&
+    left.to.nodeId === right.to.nodeId &&
+    left.to.input === right.to.input
+  );
+}
+
 function isLinearEditableWorkflow(
   workflow: WorkflowDefinitionV1,
+  tools: ToolDefinition[],
 ): boolean {
-  if (workflow.outputs.length > 1) return false;
-
-  const indexByNode = new Map(
-    workflow.nodes.map((node, index) => [node.id, index] as const),
-  );
-  const incoming = new Map<string, number>();
-  const outgoing = new Map<string, number>();
-
-  for (const edge of workflow.edges) {
-    const from = indexByNode.get(edge.from.nodeId);
-    const to = indexByNode.get(edge.to.nodeId);
-    if (from === undefined || to === undefined || to !== from + 1) {
-      return false;
-    }
-
-    const nextOutgoing = (outgoing.get(edge.from.nodeId) ?? 0) + 1;
-    const nextIncoming = (incoming.get(edge.to.nodeId) ?? 0) + 1;
-    outgoing.set(edge.from.nodeId, nextOutgoing);
-    incoming.set(edge.to.nodeId, nextIncoming);
-    if (nextOutgoing > 1 || nextIncoming > 1) return false;
+  if (workflow.edges.length === 0 && workflow.outputs.length === 0) {
+    return true;
   }
 
-  return true;
+  if (
+    workflow.nodes.some((node) => toolFor(tools, node) === undefined)
+  ) {
+    return false;
+  }
+
+  const expected = linearDefinition(
+    workflow.name,
+    workflow.nodes,
+    tools,
+    workflow.description,
+  );
+  if (
+    expected.edges.length !== workflow.edges.length ||
+    expected.outputs.length !== workflow.outputs.length
+  ) {
+    return false;
+  }
+
+  if (
+    !workflow.edges.every((edge, index) =>
+      sameEdge(edge, expected.edges[index]!),
+    )
+  ) {
+    return false;
+  }
+
+  return workflow.outputs.every((output, index) => {
+    const expectedOutput = expected.outputs[index]!;
+    return (
+      output.name === expectedOutput.name &&
+      output.from.nodeId === expectedOutput.from.nodeId &&
+      output.from.output === expectedOutput.from.output
+    );
+  });
 }
 
 function initialNodes(initial: WorkflowDocumentView | undefined): WorkflowNode[] {
@@ -259,7 +285,7 @@ export function WorkflowEditor({
 
   const readOnlyDag = Boolean(
     initial &&
-      !isLinearEditableWorkflow(initial.revision.content.workflow),
+      !isLinearEditableWorkflow(initial.revision.content.workflow, catalog),
   );
   const definition = useMemo(
     () =>
