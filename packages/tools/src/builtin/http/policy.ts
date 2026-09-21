@@ -21,7 +21,13 @@ function isCredentialQueryKey(name: string): boolean {
     compact.includes("clientsecret") ||
     compact.includes("credential") ||
     compact.includes("secret") ||
-    compact.includes("signature")
+    compact.includes("signature") ||
+    compact.endsWith("token") ||
+    compact === "jwt" ||
+    compact === "bearer" ||
+    compact.includes("sessionid") ||
+    compact.includes("sessiontoken") ||
+    compact.includes("accesskey")
   );
 }
 
@@ -206,8 +212,17 @@ function isCredentialHeader(name: string): boolean {
     compact.endsWith("authtoken") ||
     compact.endsWith("accesstoken") ||
     compact.includes("clientsecret") ||
+    compact.includes("credential") ||
+    compact.includes("signature") ||
+    compact.endsWith("token") ||
+    compact.includes("sessionid") ||
+    compact.includes("sessiontoken") ||
+    compact.includes("accesskey") ||
     compact === "secret" ||
-    compact === "password"
+    compact === "password" ||
+    compact === "passwd" ||
+    compact === "jwt" ||
+    compact === "bearer"
   );
 }
 

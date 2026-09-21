@@ -48,6 +48,9 @@ describe("safe public HTTP egress policy", () => {
     "https://example.com/?password=secret",
     "https://example.com/?X-Amz-Signature=secret",
     "https://example.com/?X-Goog-Credential=secret",
+    "https://example.com/?session_token=secret",
+    "https://example.com/?access_key=secret",
+    "https://example.com/?jwt=secret",
   ])("rejects unsafe URL %s", (url) => {
     const policy = new SafeEgressPolicy();
     expect(() => policy.validateUrl(url)).toThrow(ToolExecutionError);
@@ -69,6 +72,9 @@ describe("safe public HTTP egress policy", () => {
     "Api-Key",
     "X-Auth-Token",
     "X-Access-Token",
+    "X-Session-Token",
+    "X-Access-Key",
+    "X-JWT",
   ])("rejects credential-bearing request header %s", (name) => {
     const policy = new SafeEgressPolicy();
     expect(() => policy.validateHeaders({ [name]: "secret" })).toThrow(
