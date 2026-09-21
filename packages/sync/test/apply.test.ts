@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SyncChange, SyncOperation } from "@uw/contracts";
 import {
   createSyncOperationApplier,
@@ -28,7 +28,9 @@ function operation(overrides: Partial<SyncOperation> = {}): SyncOperation {
   };
 }
 
-function createHarness() {
+function createHarness(options: {
+  validateOperation?: (operation: SyncOperation) => void | Promise<void>;
+} = {}) {
   let cursor = 0n;
   const changes = new Map<string, SyncChange>();
   const tombstones = new Map<string, { cursor: string }>();
@@ -157,6 +159,9 @@ function createHarness() {
     },
     clock: { now: () => NOW },
     idGenerator: { next: () => crypto.randomUUID() },
+    ...(options.validateOperation
+      ? { validateOperation: options.validateOperation }
+      : {}),
   });
 
   return {
@@ -178,6 +183,19 @@ describe("sync operation apply engine", () => {
     expect(replay).toEqual(first);
     expect(harness.getProjectApplyCount()).toBe(1);
     expect(harness.audits).toEqual(["sync.project.update"]);
+  });
+
+  it("validates new mutations before applying them but not exact replays", async () => {
+    const validateOperation = vi.fn<(operation: SyncOperation) => void>();
+    const harness = createHarness({ validateOperation });
+    const syncOperation = operation();
+
+    await harness.applier.apply(OWNER_ID, syncOperation);
+    await harness.applier.apply(OWNER_ID, syncOperation);
+
+    expect(validateOperation).toHaveBeenCalledTimes(1);
+    expect(validateOperation).toHaveBeenCalledWith(syncOperation);
+    expect(harness.getProjectApplyCount()).toBe(1);
   });
 
   it("preserves both note versions on stale base revision", async () => {

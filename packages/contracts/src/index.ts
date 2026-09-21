@@ -10,3 +10,4 @@ export * from "./context.js";
 export * from "./execution.js";
 export * from "./tool.js";
 export * from "./workflow.js";
+export * from "./tool-config.js";

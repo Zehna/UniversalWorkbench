@@ -22,7 +22,12 @@ const tools: ToolDefinition[] = [
     executionMode: "worker",
     accepts: [{ name: "input", types: ["json"], required: true }],
     produces: [{ name: "output", types: ["json"] }],
-    configSchema: {},
+    configSchema: {
+      type: "object",
+      required: ["pointer"],
+      additionalProperties: false,
+      properties: { pointer: { type: "string" } },
+    },
     requiredCapabilities: [],
     defaults: { timeoutMs: 5_000, maxAttempts: 1 },
   },
@@ -243,6 +248,35 @@ describe("WorkflowEditor", () => {
       from: { nodeId: "select", output: "output" },
       to: { nodeId: "template", input: "json" },
     });
+  });
+
+  it("does not append a local mutation for an invalid linear workflow", async () => {
+    const gate = coordinator();
+    const initial = workflowView();
+    initial.revision.content.workflow.nodes = [
+      {
+        id: "select",
+        tool: { id: "builtin.json.select", version: "1" },
+        config: {},
+      },
+    ];
+
+    render(
+      <WorkflowEditor
+        projectId={PROJECT_ID}
+        initial={initial}
+        coordinator={gate}
+        api={api()}
+        tools={tools}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /save workflow/i }));
+
+    expect(
+      await screen.findByText(/workflow is invalid/i),
+    ).toBeInTheDocument();
+    expect(gate.updateWorkflow).not.toHaveBeenCalled();
   });
 
   it("disables Run after an unsaved editor change", async () => {

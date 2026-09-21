@@ -47,6 +47,7 @@ export interface CreateSyncOperationApplierOptions {
   audit: AuditRepository;
   clock: Clock;
   idGenerator: IdGenerator;
+  validateOperation?: (operation: SyncOperation) => void | Promise<void>;
 }
 
 function projectIdForOperation(operation: SyncOperation): string | undefined {
@@ -57,8 +58,15 @@ function projectIdForOperation(operation: SyncOperation): string | undefined {
 export function createSyncOperationApplier(
   options: CreateSyncOperationApplierOptions,
 ): SyncOperationApplier {
-  const { repository, projects, documents, audit, clock, idGenerator } =
-    options;
+  const {
+    repository,
+    projects,
+    documents,
+    audit,
+    clock,
+    idGenerator,
+    validateOperation,
+  } = options;
 
   return {
     async apply(ownerId, operation) {
@@ -86,6 +94,8 @@ export function createSyncOperationApplier(
           now: clock.now(),
         });
       }
+
+      await validateOperation?.(operation);
 
       const store =
         operation.entityType === "project"

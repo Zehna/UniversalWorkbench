@@ -1,6 +1,10 @@
 import { createAuthService, createPasswordHasher } from "@uw/auth";
 import { createArtifactService } from "@uw/artifacts";
-import type { ToolCapability } from "@uw/contracts";
+import {
+  WorkflowDefinitionV1Schema,
+  type SyncOperation,
+  type ToolCapability,
+} from "@uw/contracts";
 import { createProjectService } from "@uw/core";
 import {
   createDocumentService,
@@ -269,6 +273,27 @@ export function composeApplication(config: ServerConfig) {
       audit,
       clock,
       idGenerator,
+      validateOperation(operation: SyncOperation) {
+        if (
+          operation.entityType !== "document" ||
+          operation.payload.kind !== "workflow" ||
+          (operation.action !== "document.create" &&
+            operation.action !== "document.update")
+        ) {
+          return;
+        }
+
+        const definition = WorkflowDefinitionV1Schema.parse(
+          operation.payload.workflow,
+        );
+        const result = validateWorkflowDefinition(
+          definition,
+          toolRegistry,
+          OWNER_CAPABILITIES,
+          DEFAULT_EXECUTION_BUDGET,
+        );
+        if (!result.ok) throw new WorkflowPreflightError(result.errors);
+      },
     }),
     clock,
   });

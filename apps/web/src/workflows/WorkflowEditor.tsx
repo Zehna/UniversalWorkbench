@@ -10,6 +10,7 @@ import type { SyncCoordinator } from "../sync/coordinator";
 import { ExecutionTimeline } from "./ExecutionTimeline";
 import { WorkflowStepEditor } from "./WorkflowStepEditor";
 import type { WorkflowApiClient } from "./api";
+import { validateLinearWorkflowDraft } from "./validation";
 
 type EditorCoordinator = Pick<
   SyncCoordinator,
@@ -267,6 +268,11 @@ export function WorkflowEditor({
     setError(null);
     setMessage(null);
     try {
+      const issues = validateLinearWorkflowDraft(definition, catalog);
+      if (issues.length > 0) {
+        throw new Error(`Workflow is invalid: ${issues.join("; ")}`);
+      }
+
       const view = saved
         ? await coordinator.updateWorkflow(saved, {
             title,
