@@ -8,6 +8,7 @@ export type WorkflowValidationErrorCode =
   | "WORKFLOW_CYCLE"
   | "NO_TERMINAL"
   | "CAPABILITY_DENIED"
+  | "INVALID_CONFIG"
   | "BUDGET_EXCEEDED";
 
 export interface WorkflowValidationError {

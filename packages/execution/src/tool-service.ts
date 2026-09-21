@@ -3,10 +3,15 @@ import type {
   Execution,
   ExecutionBudget,
   JsonObject,
+  ToolCapability,
   ToolReference,
 } from "@uw/contracts";
 import type { Clock, IdGenerator } from "@uw/shared";
-import type { ToolRegistry } from "@uw/tools";
+import {
+  missingCapabilities,
+  validateToolConfig,
+  type ToolRegistry,
+} from "@uw/tools";
 import type { ExecutionQueue } from "./queue.js";
 import type {
   ExecutionStepRecord,
@@ -20,6 +25,20 @@ export class DirectToolInputRequiredError extends Error {
       `Tool ${toolId}@${toolVersion} requires bound input contexts; use a workflow`,
     );
     this.name = "DirectToolInputRequiredError";
+  }
+}
+
+export class DirectToolConfigError extends Error {
+  constructor(readonly issues: { path: string; message: string }[]) {
+    super("Direct tool configuration is invalid");
+    this.name = "DirectToolConfigError";
+  }
+}
+
+export class DirectToolCapabilityError extends Error {
+  constructor(readonly missing: ToolCapability[]) {
+    super(`Direct tool execution is missing capabilities: ${missing.join(", ")}`);
+    this.name = "DirectToolCapabilityError";
   }
 }
 
@@ -55,6 +74,7 @@ interface CreateDirectToolExecutionServiceOptions {
   steps: Pick<ExecutionStepRepository, "listByExecution" | "create">;
   queue: Pick<ExecutionQueue, "enqueue">;
   tools: ToolRegistry;
+  allowedCapabilities?: Iterable<ToolCapability>;
   clock: Clock;
   idGenerator: IdGenerator;
 }
@@ -79,10 +99,24 @@ export function createDirectToolExecutionService(
   options: CreateDirectToolExecutionServiceOptions,
 ): DirectToolExecutionService {
   const { executions, steps, queue, tools, clock, idGenerator } = options;
+  const allowedCapabilities = [...(options.allowedCapabilities ?? [])];
 
   return {
     async enqueueToolRun(input) {
       const registered = tools.resolve(input.tool.id, input.tool.version);
+      const configResult = validateToolConfig(registered.definition, input.config);
+      if (!configResult.ok) {
+        throw new DirectToolConfigError(configResult.issues);
+      }
+
+      const missing = missingCapabilities(
+        registered.definition.requiredCapabilities,
+        allowedCapabilities,
+      );
+      if (missing.length > 0) {
+        throw new DirectToolCapabilityError(missing);
+      }
+
       if (registered.definition.accepts.some((port) => port.required)) {
         throw new DirectToolInputRequiredError(
           registered.definition.id,

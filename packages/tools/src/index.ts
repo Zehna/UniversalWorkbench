@@ -19,6 +19,7 @@ export type {
   ToolReference,
 } from "@uw/contracts";
 export * from "./contract.js";
+export * from "./config.js";
 export * from "./errors.js";
 export * from "./permissions.js";
 export * from "./registry.js";

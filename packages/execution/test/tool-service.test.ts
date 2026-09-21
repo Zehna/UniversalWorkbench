@@ -3,6 +3,8 @@ import type { Execution, JsonObject } from "@uw/contracts";
 import { ToolRegistry, type ToolRunner } from "@uw/tools";
 import {
   createDirectToolExecutionService,
+  DirectToolCapabilityError,
+  DirectToolConfigError,
   DirectToolExecutionConflictError,
   DirectToolInputRequiredError,
   type ExecutionQueue,
@@ -44,7 +46,13 @@ function execution(status: Execution["status"] = "queued"): Execution {
   };
 }
 
-function registry(required = false) {
+function registry(
+  required = false,
+  options: {
+    configSchema?: JsonObject;
+    requiredCapabilities?: ("network.public")[];
+  } = {},
+) {
   const tools = new ToolRegistry();
   tools.register(
     {
@@ -57,8 +65,8 @@ function registry(required = false) {
         ? [{ name: "input", types: ["json"], required: true }]
         : [{ name: "input", types: ["json"], required: false }],
       produces: [{ name: "output", types: ["json"] }],
-      configSchema: {},
-      requiredCapabilities: [],
+      configSchema: options.configSchema ?? {},
+      requiredCapabilities: options.requiredCapabilities ?? [],
       defaults: { timeoutMs: 1000, maxAttempts: 1 },
     },
     runner,
@@ -85,7 +93,13 @@ function step(config: JsonObject): ExecutionStepRecord {
   };
 }
 
-function setup(existing: ExecutionStepRecord[] = []) {
+function setup(
+  existing: ExecutionStepRecord[] = [],
+  options: {
+    tools?: ToolRegistry;
+    allowedCapabilities?: ("network.public")[];
+  } = {},
+) {
   const rows = existing.map((value) => structuredClone(value));
   const executions = {
     enqueueToolExecution: vi.fn(async () => execution()),
@@ -116,7 +130,8 @@ function setup(existing: ExecutionStepRecord[] = []) {
     executions,
     steps,
     queue,
-    tools: registry(),
+    tools: options.tools ?? registry(),
+    allowedCapabilities: options.allowedCapabilities ?? [],
     clock: { now: () => new Date(NOW) },
     idGenerator: { next: () => STEP_ID },
   });
@@ -183,6 +198,50 @@ describe("DirectToolExecutionService", () => {
     ).rejects.toBeInstanceOf(DirectToolExecutionConflictError);
   });
 
+  it("rejects invalid direct-tool configuration before enqueue", async () => {
+    const tools = registry(false, {
+      configSchema: {
+        type: "object",
+        required: ["mode"],
+        additionalProperties: false,
+        properties: { mode: { type: "string" } },
+      },
+    });
+    const { service, executions } = setup([], { tools });
+
+    await expect(
+      service.enqueueToolRun({
+        ownerId: OWNER_ID,
+        projectId: PROJECT_ID,
+        idempotencyKey: "direct-1",
+        tool: { id: "builtin.fixture.direct", version: "1" },
+        config: { unexpected: true },
+      }),
+    ).rejects.toBeInstanceOf(DirectToolConfigError);
+    expect(executions.enqueueToolExecution).not.toHaveBeenCalled();
+  });
+
+  it("rejects direct execution when required capabilities are unavailable", async () => {
+    const tools = registry(false, {
+      requiredCapabilities: ["network.public"],
+    });
+    const { service, executions } = setup([], {
+      tools,
+      allowedCapabilities: [],
+    });
+
+    await expect(
+      service.enqueueToolRun({
+        ownerId: OWNER_ID,
+        projectId: PROJECT_ID,
+        idempotencyKey: "direct-1",
+        tool: { id: "builtin.fixture.direct", version: "1" },
+        config: {},
+      }),
+    ).rejects.toBeInstanceOf(DirectToolCapabilityError);
+    expect(executions.enqueueToolExecution).not.toHaveBeenCalled();
+  });
+
   it("rejects direct execution for a tool with required inputs", async () => {
     const executions = {
       enqueueToolExecution: vi.fn(),
@@ -195,6 +254,7 @@ describe("DirectToolExecutionService", () => {
       },
       queue: { enqueue: vi.fn() },
       tools: registry(true),
+      allowedCapabilities: [],
       clock: { now: () => new Date(NOW) },
       idGenerator: { next: () => STEP_ID },
     });

@@ -5,7 +5,7 @@ import type {
   WorkflowDefinitionV1,
   WorkflowNode,
 } from "@uw/contracts";
-import { ToolNotFoundError } from "@uw/tools";
+import { ToolNotFoundError, validateToolConfig } from "@uw/tools";
 import type { ToolRegistry } from "@uw/tools";
 import type { WorkflowValidationError } from "./errors.js";
 import type { WorkflowValidationResult } from "./model.js";
@@ -104,6 +104,19 @@ export function validateWorkflowDefinition(
         );
       }
     }
+    const configResult = validateToolConfig(tool, node.config);
+    if (!configResult.ok) {
+      errors.push(
+        error(
+          "INVALID_CONFIG",
+          `Tool ${tool.id}@${tool.version} configuration is invalid: ${configResult.issues
+            .map((issue) => `${issue.path} ${issue.message}`)
+            .join(", ")}`,
+          node.id,
+        ),
+      );
+    }
+
   }
 
   const inputBindings = new Map<string, number>();

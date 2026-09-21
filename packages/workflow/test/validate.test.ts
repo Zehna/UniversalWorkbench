@@ -36,6 +36,17 @@ function tool(
 function registry(): ToolRegistry {
   const value = new ToolRegistry();
   value.register(tool("test.source", { accepts: [] }), runner);
+  value.register(
+    tool("test.configured", {
+      configSchema: {
+        type: "object",
+        required: ["pointer"],
+        additionalProperties: false,
+        properties: { pointer: { type: "string" } },
+      },
+    }),
+    runner,
+  );
   value.register(tool("test.json"), runner);
   value.register(
     tool("test.text", {
@@ -186,6 +197,14 @@ describe("validateWorkflowDefinition", () => {
     const definition = validWorkflow();
     definition.outputs = [];
     expect(codes(definition)).toContain("NO_TERMINAL");
+  });
+
+  it("rejects tool configuration that does not match the pinned schema", () => {
+    const definition = validWorkflow();
+    definition.nodes[1]!.tool = { id: "test.configured", version: "1" };
+    definition.nodes[1]!.config = { extra: true };
+
+    expect(codes(definition)).toContain("INVALID_CONFIG");
   });
 
   it("rejects unavailable capabilities", () => {

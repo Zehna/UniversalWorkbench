@@ -254,6 +254,7 @@ export function composeApplication(config: ServerConfig) {
     steps: stepRepository,
     queue: executionQueue,
     tools: toolRegistry,
+    allowedCapabilities: OWNER_CAPABILITIES,
     clock,
     idGenerator,
   });

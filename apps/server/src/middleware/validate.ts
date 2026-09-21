@@ -46,6 +46,18 @@ export function mapDomainError(error: unknown): unknown {
       return new HttpError(400, "BAD_REQUEST", "Invalid sync operation");
     case "ToolNotFoundError":
       return new HttpError(404, "TOOL_NOT_FOUND", "Tool version not found");
+    case "DirectToolConfigError":
+      return new HttpError(
+        400,
+        "TOOL_CONFIG_INVALID",
+        "Direct tool configuration is invalid",
+      );
+    case "DirectToolCapabilityError":
+      return new HttpError(
+        403,
+        "TOOL_CAPABILITY_DENIED",
+        "Direct tool capability is not available",
+      );
     case "DirectToolInputRequiredError":
       return new HttpError(
         400,
