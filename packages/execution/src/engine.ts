@@ -440,6 +440,22 @@ export function createExecutionEngine(
 
       if (execution.cancellationRequestedAt) {
         const at = nowIso(clock);
+
+        if (execution.kind === "workflow" && execution.status === "queued") {
+          const running = await executions.transition({
+            ownerId: execution.ownerId,
+            executionId: execution.id,
+            from: "queued",
+            to: "running",
+            now: at,
+            error: null,
+          });
+          execution =
+            running ??
+            (await executions.getByIdForWorker(execution.id)) ??
+            execution;
+        }
+
         const cancelledStep = await steps.transition({
           stepExecutionId: step.id,
           from: step.status,
@@ -449,12 +465,16 @@ export function createExecutionEngine(
           usage: zeroUsage,
         });
         if (cancelledStep) step = cancelledStep;
-        execution = await transitionExecutionTerminal(
-          execution,
-          "cancelled",
-          cancellationFailure().sanitized(),
-          at,
-        );
+
+        if (execution.kind === "tool") {
+          execution = await transitionExecutionTerminal(
+            execution,
+            "cancelled",
+            cancellationFailure().sanitized(),
+            at,
+          );
+        }
+
         const provenanceEdgeIds = await lifecycle.onTerminalStep({
           execution,
           step,
