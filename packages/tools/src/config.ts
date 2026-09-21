@@ -1,4 +1,3 @@
-import { isDeepStrictEqual } from "node:util";
 import type {
   JsonObject,
   JsonValue,
@@ -13,6 +12,37 @@ export interface ToolConfigValidationIssue {
 export type ToolConfigValidationResult =
   | { ok: true; issues: [] }
   | { ok: false; issues: ToolConfigValidationIssue[] };
+
+function sameJsonValue(left: JsonValue, right: JsonValue): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((item, index) => sameJsonValue(item, right[index]!))
+    );
+  }
+  if (
+    typeof left !== "object" ||
+    left === null ||
+    typeof right !== "object" ||
+    right === null
+  ) {
+    return false;
+  }
+
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key, index) =>
+        key === rightKeys[index] &&
+        sameJsonValue(left[key]!, right[key]!),
+    )
+  );
+}
 
 function asObject(value: JsonValue | undefined): JsonObject | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -37,7 +67,7 @@ function validateValue(
   const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
   if (
     enumValues &&
-    !enumValues.some((candidate) => isDeepStrictEqual(candidate, value))
+    !enumValues.some((candidate) => sameJsonValue(candidate, value))
   ) {
     issues.push({ path, message: "value is not in the allowed enum" });
     return;
