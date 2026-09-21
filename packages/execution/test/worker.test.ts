@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Clock } from "@uw/shared";
 import {
   createExecutionWorker,
+  ExecutionWorkerInterruptedError,
   type ExecutionEngine,
   type ExecutionQueue,
   type QueueJob,
@@ -77,6 +78,53 @@ describe("ExecutionWorker", () => {
       claimedJob().id,
       "worker-test",
     );
+  });
+
+  it("abandons the active lease when shutdown interrupts the engine", async () => {
+    const queue = {
+      claim: vi.fn(async () => claimedJob()),
+      abandon: vi.fn(async () => true),
+    } as unknown as ExecutionQueue;
+    const engine = {
+      runClaimedJob: vi.fn(
+        async (
+          _job: QueueJob,
+          _workerId: string,
+          signal?: AbortSignal,
+        ) =>
+          new Promise<void>((_, reject) => {
+            if (signal?.aborted) {
+              reject(new ExecutionWorkerInterruptedError());
+              return;
+            }
+            signal?.addEventListener(
+              "abort",
+              () => reject(new ExecutionWorkerInterruptedError()),
+              { once: true },
+            );
+          }),
+      ),
+    } as unknown as ExecutionEngine;
+    const worker = createExecutionWorker({
+      workerId: "worker-test",
+      queue,
+      engine,
+      clock: new FixedClock(),
+      leaseMs: 30_000,
+      pollIntervalMs: 100,
+    });
+
+    worker.start();
+    await vi.waitFor(() =>
+      expect(engine.runClaimedJob).toHaveBeenCalledTimes(1),
+    );
+    await worker.stop();
+
+    expect(queue.abandon).toHaveBeenCalledWith(
+      claimedJob().id,
+      "worker-test",
+    );
+    expect(worker.isRunning()).toBe(false);
   });
 
   it("starts and stops an idle polling loop cooperatively", async () => {
