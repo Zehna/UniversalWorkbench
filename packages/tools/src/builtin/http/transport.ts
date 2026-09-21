@@ -139,6 +139,12 @@ function firstHeader(
   return Array.isArray(value) ? value[0] : value;
 }
 
+function redirectedMethod(status: number, method: HttpMethod): HttpMethod {
+  if (status === 303 && method !== "HEAD") return "GET";
+  if ((status === 301 || status === 302) && method === "POST") return "GET";
+  return method;
+}
+
 async function readBody(
   response: HttpConnectorResponse,
   limit: number,
@@ -326,7 +332,7 @@ export class SafeHttpTransport implements SafeHttpTransportLike {
           retrySafe: false,
         });
       }
-      const nextMethod = response.status === 303 ? "GET" : input.method;
+      const nextMethod = redirectedMethod(response.status, input.method);
       const nextHeaders = { ...input.headers };
       if (nextMethod === "GET" && input.method !== "GET") {
         delete nextHeaders["content-type"];

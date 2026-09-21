@@ -110,6 +110,45 @@ describe("SafeHttpTransport", () => {
     expect(http.request).toHaveBeenCalledTimes(1);
   });
 
+  it("does not replay a POST body across a 302 redirect", async () => {
+    const dns = resolver({
+      "public.example": [{ address: "93.184.216.34", family: 4 }],
+      "next.example": [{ address: "93.184.216.35", family: 4 }],
+    });
+    const requests: HttpConnectorRequest[] = [];
+    const http = connector(async (request) => {
+      requests.push(request);
+      if (requests.length === 1) {
+        return response(302, { location: "https://next.example/result" });
+      }
+      return response(200, {}, [new TextEncoder().encode("ok")]);
+    });
+    const transport = new SafeHttpTransport({ resolver: dns, connector: http });
+    const payload = new TextEncoder().encode('{"value":1}');
+
+    await expect(
+      transport.request({
+        url: "https://public.example/start",
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: payload,
+      }),
+    ).resolves.toMatchObject({
+      status: 200,
+      finalUrl: "https://next.example/result",
+      requestCount: 2,
+    });
+
+    expect(requests).toHaveLength(2);
+    expect(requests[0]).toMatchObject({
+      method: "POST",
+      body: payload,
+    });
+    expect(requests[1]?.method).toBe("GET");
+    expect(requests[1]?.body).toBeUndefined();
+    expect(requests[1]?.headers["content-type"]).toBeUndefined();
+  });
+
   it("sanitizes credential-bearing response headers", async () => {
     const dns = resolver({
       "public.example": [{ address: "93.184.216.34", family: 4 }],
