@@ -12,20 +12,6 @@ jobs:
   diagnose:
     if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: workbench
-          POSTGRES_PASSWORD: workbench
-          POSTGRES_DB: workbench_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U workbench -d workbench_test"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,6 +20,23 @@ jobs:
         with:
           node-version: 24.21.0
       - run: mkdir -p .phase3-diag
+
+      - id: postgres
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            docker run -d --name uw-phase3-diag-postgres               -e POSTGRES_USER=workbench               -e POSTGRES_PASSWORD=workbench               -e POSTGRES_DB=workbench_test               -p 5432:5432               postgres:17-alpine
+            for attempt in {1..30}; do
+              if docker exec uw-phase3-diag-postgres pg_isready -U workbench -d workbench_test; then
+                exit 0
+              fi
+              sleep 1
+            done
+            docker logs uw-phase3-diag-postgres
+            exit 1
+          } 2>&1 | tee .phase3-diag/postgres.log
 
       - id: install
         continue-on-error: true
@@ -87,6 +90,7 @@ jobs:
         shell: bash
         run: |
           {
+            echo "postgres=${{ steps.postgres.outcome }}"
             echo "install=${{ steps.install.outcome }}"
             echo "audit=${{ steps.audit.outcome }}"
             echo "workspaces=${{ steps.workspaces.outcome }}"
@@ -109,3 +113,7 @@ jobs:
           git add phase3-ci-diagnostic.txt
           git commit -m "chore: capture phase 3 quality diagnostic"
           git push origin HEAD:phase-3-tool-workflow-core
+
+      - name: Cleanup diagnostic database
+        if: always()
+        run: docker rm -f uw-phase3-diag-postgres || true
