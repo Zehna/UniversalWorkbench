@@ -68,11 +68,7 @@
 
 ```ts
 type ContextType =
-  | "text"
-  | "markdown"
-  | "json"
-  | "api_response"
-  | "artifact_ref";
+  "text" | "markdown" | "json" | "api_response" | "artifact_ref";
 
 interface ContextEnvelope<T = unknown> {
   id: string;
@@ -116,12 +112,7 @@ interface WorkflowDefinition {
 }
 
 type ExecutionStatus =
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "interrupted";
+  "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
 ```
 
 - [ ] **Step 1: Write RED contract tests** proving valid envelopes/tool descriptors/workflow definitions parse, malformed versions/types fail, duplicate node IDs fail schema-level uniqueness, and execution status is closed over the six declared values.
