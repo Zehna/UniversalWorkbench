@@ -13,6 +13,7 @@ export interface ToolRunContext {
   traceId: string;
   signal: AbortSignal;
   permissions: ReadonlySet<string>;
+  idempotencyKey?: string;
 }
 
 export interface ToolRunResult {

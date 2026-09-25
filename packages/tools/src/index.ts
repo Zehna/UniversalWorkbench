@@ -17,3 +17,20 @@ export { createToolRegistry } from "./registry.js";
 export type { ToolRegistry } from "./registry.js";
 export { createLocalResult, runTool, validateInvocation } from "./runtime.js";
 export type { ToolExecutor, ToolRunContext, ToolRunResult } from "./runtime.js";
+export {
+  createEgressPolicy,
+  EgressPolicyError,
+  isPublicAddress,
+} from "./network/egress-policy.js";
+export type { DnsResolver, EgressPolicy } from "./network/egress-policy.js";
+export {
+  classifyHttpIdempotency,
+  createHttpTool,
+  createNodeHttpTransport,
+} from "./network/http-tool.js";
+export type {
+  HttpMethod,
+  HttpToolConfig,
+  HttpTransport,
+  HttpTransportResponse,
+} from "./network/http-tool.js";

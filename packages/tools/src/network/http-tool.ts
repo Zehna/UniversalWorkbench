@@ -144,6 +144,7 @@ export function createNodeHttpTransport(): HttpTransport {
             method: options.method,
             headers: options.headers,
             lookup: pinnedLookup,
+            agent: false,
             signal: options.signal,
           },
           (response) => {
@@ -187,6 +188,25 @@ export function createNodeHttpTransport(): HttpTransport {
       });
     },
   };
+}
+
+
+function withAbort<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new Error("HTTP request cancelled"));
+  return new Promise<T>((resolve, reject) => {
+    const cancelled = () => reject(new Error("HTTP request cancelled"));
+    signal.addEventListener("abort", cancelled, { once: true });
+    void task.then(
+      (value) => {
+        signal.removeEventListener("abort", cancelled);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", cancelled);
+        reject(error);
+      },
+    );
+  });
 }
 
 export function createHttpTool(
@@ -234,7 +254,7 @@ export function createHttpTool(
             throw new ToolRuntimeError("ABORTED", "HTTP request was cancelled");
           }
           // Validate every redirect; pass the IP into the pinned transport.
-          const addresses = await policy.resolveAllowed(current);
+          const addresses = await withAbort(policy.resolveAllowed(current), signal);
           if (signal.aborted) {
             throw new ToolRuntimeError("ABORTED", "HTTP request was cancelled");
           }
@@ -253,13 +273,14 @@ export function createHttpTool(
             requestOptions.body = requestConfig.body;
           }
 
-          const response = await transport.request(current, addresses[0]!, requestOptions);
+          const response = await withAbort(transport.request(current, addresses[0]!, requestOptions), signal);
           if (!Number.isInteger(response.status) || response.status < 100 || response.status > 599 ||
             response.body.byteLength > maxResponseBytes) {
             throw new ToolRuntimeError("INVALID_OUTPUT", "HTTP transport returned an invalid response");
           }
           const location = Object.entries(response.headers).find(([key]) => key.toLowerCase() === "location");
-          if ([301, 302, 303, 307, 308].includes(response.status) && firstHeader(location?.[1])) {
+          const redirectLocation = firstHeader(location?.[1]);
+          if ([301, 302, 303, 307, 308].includes(response.status) && redirectLocation) {
             if (hops === 5) {
               throw new ToolRuntimeError("NETWORK_FAILURE", "HTTP redirect limit was exceeded");
             }
@@ -268,7 +289,7 @@ export function createHttpTool(
             }
             let next: URL;
             try {
-              next = new URL(firstHeader(location?.[1]), current);
+              next = new URL(redirectLocation, current);
             } catch {
               throw new ToolRuntimeError("NETWORK_FAILURE", "HTTP redirect target was invalid");
             }

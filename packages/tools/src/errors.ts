@@ -14,7 +14,10 @@ export type ToolRuntimeErrorCode =
   | "INVALID_CONFIG"
   | "PERMISSION_DENIED"
   | "ABORTED"
-  | "INVALID_OUTPUT";
+  | "INVALID_OUTPUT"
+  | "NETWORK_FAILURE"
+  | "TIMEOUT"
+  | "RESPONSE_TOO_LARGE";
 
 export class ToolRuntimeError extends Error {
   constructor(
