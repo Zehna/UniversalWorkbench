@@ -29,7 +29,7 @@ const descriptor = ToolDescriptorSchema.parse({
 
 export function createJsonExtractTool(): ToolExecutor {
   return {
-    descriptor,
+    descriptor: ToolDescriptorSchema.parse(descriptor),
     async run(input, config, context) {
       const valid = validateInvocation(descriptor, input, context);
       const parsed = configSchema.safeParse(config);

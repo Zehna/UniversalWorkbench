@@ -20,7 +20,7 @@ const descriptor = ToolDescriptorSchema.parse({
 
 export function createTextTrimTool(): ToolExecutor {
   return {
-    descriptor,
+    descriptor: ToolDescriptorSchema.parse(descriptor),
     async run(input, config, context) {
       const valid = validateInvocation(descriptor, input, context);
       if (!z.strictObject({}).safeParse(config).success) {
