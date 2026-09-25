@@ -1,4 +1,8 @@
-import type { ContextEnvelope, ContextType, ToolDescriptor } from "@uw/contracts";
+import type {
+  ContextEnvelope,
+  ContextType,
+  ToolDescriptor,
+} from "@uw/contracts";
 import { describe, expect, it } from "vitest";
 import { createContextBus } from "../src/index.js";
 
@@ -62,7 +66,11 @@ describe("Context Bus", () => {
   it("returns one candidate for a tool accepting multiple types", () => {
     const candidates = bus.compatibleTools(
       CONTEXT,
-      [tool("builtin.multi", { accepts: ["text", "json", "markdown", "json"] })],
+      [
+        tool("builtin.multi", {
+          accepts: ["text", "json", "markdown", "json"],
+        }),
+      ],
       new Set(),
     );
 
@@ -90,11 +98,7 @@ describe("Context Bus", () => {
 
     expect(
       bus
-        .compatibleTools(
-          CONTEXT,
-          tools,
-          new Set(["network", "read:private"]),
-        )
+        .compatibleTools(CONTEXT, tools, new Set(["network", "read:private"]))
         .map((candidate) => candidate.toolId),
     ).toEqual(["builtin.local", "builtin.network", "builtin.private"]);
   });
