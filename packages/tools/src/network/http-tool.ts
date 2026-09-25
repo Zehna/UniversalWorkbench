@@ -111,7 +111,7 @@ function cleanHeaders(
   for (const [name, value] of Object.entries(raw ?? {})) {
     const key = name.toLowerCase();
     if (
-      !/^[a-z0-9!#$%&'*+.^_\`|~-]+$/.test(key) ||
+      !/^[a-z0-9!#$%&'*+.^_`|~-]+$/.test(key) ||
       forbiddenRequestHeaders.has(key) ||
       hasForbiddenHeaderValue(value)
     ) {
