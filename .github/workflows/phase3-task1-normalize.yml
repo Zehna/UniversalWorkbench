@@ -1,4 +1,4 @@
-name: Normalize Phase 3 Task 1
+name: Diagnose Phase 3 Task 1
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  normalize:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,25 +20,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24.21.0
-      - run: npm install --package-lock-only --ignore-scripts
-      - run: >-
-          npx prettier --write
-          packages/contracts/src/context.ts
-          packages/contracts/src/tool.ts
-          packages/contracts/src/workflow.ts
-          packages/contracts/src/execution.ts
-          packages/contracts/src/index.ts
-          packages/context
-          packages/tools
-          packages/workflow
-          packages/execution
-          scripts/verify-workspaces.mjs
-          package.json
-      - name: Commit normalized Task 1
+      - name: Capture diagnostics
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "=== npm install --package-lock-only ==="
+            npm install --package-lock-only --ignore-scripts
+            echo "npm_install_exit=$?"
+            echo
+            echo "=== prettier check ==="
+            npx prettier --check packages/contracts/src/context.ts packages/contracts/src/tool.ts packages/contracts/src/workflow.ts packages/contracts/src/execution.ts packages/contracts/src/index.ts packages/context packages/tools packages/workflow packages/execution scripts/verify-workspaces.mjs package.json
+            echo "prettier_exit=$?"
+            echo
+            echo "=== git status ==="
+            git status --short
+          } > phase3-task1-diagnostic.txt 2>&1
+          cat phase3-task1-diagnostic.txt
+          exit 0
+      - name: Commit diagnostics
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .github/workflows/phase3-task1-normalize.yml
-          git add package-lock.json package.json scripts/verify-workspaces.mjs packages/contracts packages/context packages/tools packages/workflow packages/execution
-          git commit -m "chore: normalize phase 3 task 1"
+          git add phase3-task1-diagnostic.txt package-lock.json
+          git commit -m "chore: capture phase 3 task 1 diagnostics"
           git push origin HEAD:phase-3-tools-workflow
