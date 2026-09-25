@@ -1,0 +1,88 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@5.0.3
+
+jobs:
+  quality:
+    docker:
+      - image: cimg/node:24.21.0
+      - image: postgres:17-alpine
+        environment:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+    environment:
+      TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run verify:workspaces
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: node scripts/verify-pwa.mjs
+
+  docker-smoke:
+    machine:
+      image: ubuntu-2404:current
+    environment:
+      SMOKE_SECRET_CANARY: phase2-smoke-secret-canary-do-not-log
+    steps:
+      - checkout
+      - node/install:
+          node-version: "24.21.0"
+      - run: node --version && npm --version
+      - run: npm ci
+      - run:
+          name: Build and start reference deployment
+          command: docker compose -f deploy/docker/compose.yml up -d --build
+      - run:
+          name: Smoke deployment
+          command: node scripts/smoke-http.mjs
+      - run:
+          name: Capture deployment logs
+          when: always
+          command: docker compose -f deploy/docker/compose.yml logs --no-color | tee phase2-docker.log
+      - run:
+          name: Check deployment logs for secrets
+          when: always
+          command: node scripts/verify-no-secrets.mjs phase2-docker.log
+      - run:
+          name: Tear down
+          when: always
+          command: docker compose -f deploy/docker/compose.yml down -v
+      - store_artifacts:
+          path: phase2-docker.log
+
+  browser-sync:
+    docker:
+      - image: cimg/node:24.21.0-browsers
+      - image: postgres:17-alpine
+        environment:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+    environment:
+      TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run e2e:sync
+      - store_artifacts:
+          path: test-results
+      - store_artifacts:
+          path: playwright-report
+
+workflows:
+  universal-workbench-ci:
+    jobs:
+      - quality
+      - docker-smoke
+      - browser-sync
