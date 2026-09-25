@@ -63,7 +63,9 @@
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Produces:
+
 ```ts
 type ContextType =
   | "text"
@@ -140,8 +142,10 @@ type ExecutionStatus =
 - Test: `packages/context/test/context-bus.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ContextEnvelope`, `ToolDescriptor`.
 - Produces:
+
 ```ts
 interface ContextCandidate {
   toolId: string;
@@ -252,6 +256,7 @@ interface HttpToolConfig {
 ```
 
 Descriptor:
+
 - ID/version: `builtin.http.request@1.0.0`
 - accepts: `json | text | markdown`
 - produces: `api_response`
@@ -356,7 +361,11 @@ interface ExecutionRepository {
   complete(input: CompleteExecutionRecord): Promise<void>;
   fail(input: FailExecutionRecord): Promise<void>;
   cancel(executionId: string, finishedAt: Date): Promise<void>;
-  get(ownerId: string, projectId: string, executionId: string): Promise<ExecutionView | null>;
+  get(
+    ownerId: string,
+    projectId: string,
+    executionId: string,
+  ): Promise<ExecutionView | null>;
 }
 ```
 
@@ -389,7 +398,11 @@ interface ExecutionRepository {
 ```ts
 interface ExecutionQueue {
   enqueue(executionId: string, availableAt: Date): Promise<void>;
-  claim(workerId: string, now: Date, leaseMs: number): Promise<QueueLease | null>;
+  claim(
+    workerId: string,
+    now: Date,
+    leaseMs: number,
+  ): Promise<QueueLease | null>;
   ack(lease: QueueLease): Promise<void>;
   release(lease: QueueLease, availableAt: Date): Promise<void>;
 }
@@ -545,6 +558,7 @@ interface WorkflowEngine {
 - Modify: `README.md`
 
 **Golden workflows implemented in Phase 3:**
+
 1. `HTTP -> JSON extract -> text/markdown transform`
 2. `JSON -> transform -> Artifact`
 3. `failing HTTP -> retry -> structured Error`
@@ -578,6 +592,7 @@ Linear workflow Chromium E2E                    PASS
 Docker Phase 3 vertical smoke                   PASS
 Deployment secret-canary scan                   PASS
 ```
+
 - [ ] **Step 7: Confirm by repository search/log inspection** that no raw password, session token, Authorization header, secret value, or secret-like config value appears in execution rows, queue rows, provenance, receipts, audit rows, error envelopes, or Docker logs.
 - [ ] **Step 8: Commit:** `docs: close phase 3 tool workflow core`.
 - [ ] **Step 9: Open PR `Phase 3: Tool & Workflow Core` against `main` only after the same head commit has complete green CI evidence.**
