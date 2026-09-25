@@ -74,7 +74,11 @@ describe("safe HTTP tool", () => {
 
   it("validates each redirect before sending another request", async () => {
     const request = vi.fn<HttpTransport["request"]>(async () =>
-      response(302, { location: "http://169.254.169.254/latest/meta-data/" }, ""),
+      response(
+        302,
+        { location: "http://169.254.169.254/latest/meta-data/" },
+        "",
+      ),
     );
     await expect(
       runTool(
@@ -89,7 +93,11 @@ describe("safe HTTP tool", () => {
 
   it("never forwards bearer tokens after a redirect", async () => {
     const calls: Array<Record<string, string>> = [];
-    const request: HttpTransport["request"] = async (_url, _address, options) => {
+    const request: HttpTransport["request"] = async (
+      _url,
+      _address,
+      options,
+    ) => {
       calls.push({ ...options.headers });
       return calls.length === 1
         ? response(302, { location: "https://other.example.net/next" }, "")
@@ -98,7 +106,11 @@ describe("safe HTTP tool", () => {
     await runTool(
       createHttpTool({ policy, transport: { request } }),
       input,
-      { method: "GET", url: "https://public.example.net/", headers: { Authorization: "Bearer private" } },
+      {
+        method: "GET",
+        url: "https://public.example.net/",
+        headers: { Authorization: "Bearer private" },
+      },
       baseContext,
     );
     expect(calls[0]?.authorization).toBe("Bearer private");
@@ -128,7 +140,12 @@ describe("safe HTTP tool", () => {
     const request = vi.fn<HttpTransport["request"]>(async () => response());
     const tool = createHttpTool({ policy, transport: { request } });
     await expect(
-      runTool(tool, input, { method: "POST", url: "https://public.example.net/" }, baseContext),
+      runTool(
+        tool,
+        input,
+        { method: "POST", url: "https://public.example.net/" },
+        baseContext,
+      ),
     ).rejects.toMatchObject({ code: "INVALID_CONFIG" });
     await runTool(
       tool,
@@ -136,7 +153,9 @@ describe("safe HTTP tool", () => {
       { method: "POST", url: "https://public.example.net/", body: "hello" },
       { ...baseContext, idempotencyKey: "op-123" },
     );
-    expect(request.mock.calls[0]?.[2].headers["idempotency-key"]).toBe("op-123");
+    expect(request.mock.calls[0]?.[2].headers["idempotency-key"]).toBe(
+      "op-123",
+    );
   });
 
   it("rejects forbidden request headers and disallowed input types", async () => {
@@ -146,7 +165,11 @@ describe("safe HTTP tool", () => {
       runTool(
         tool,
         input,
-        { method: "GET", url: "https://public.example.net/", headers: { Cookie: "private" } },
+        {
+          method: "GET",
+          url: "https://public.example.net/",
+          headers: { Cookie: "private" },
+        },
         baseContext,
       ),
     ).rejects.toMatchObject({ code: "INVALID_CONFIG" });
@@ -164,9 +187,13 @@ describe("safe HTTP tool", () => {
   it("aborts an unresponsive transport when the timeout elapses", async () => {
     const request: HttpTransport["request"] = async (_url, _address, options) =>
       new Promise((_resolve, reject) => {
-        options.signal.addEventListener("abort", () => reject(new Error("private key in transport")), {
-          once: true,
-        });
+        options.signal.addEventListener(
+          "abort",
+          () => reject(new Error("private key in transport")),
+          {
+            once: true,
+          },
+        );
       });
     await expect(
       runTool(
@@ -175,16 +202,24 @@ describe("safe HTTP tool", () => {
         { method: "GET", url: "https://public.example.net/", timeoutMs: 20 },
         baseContext,
       ),
-    ).rejects.toMatchObject({ code: "TIMEOUT", message: "HTTP request timed out" });
+    ).rejects.toMatchObject({
+      code: "TIMEOUT",
+      message: "HTTP request timed out",
+    });
   });
 
   it("rejects oversized transport responses without returning partial data", async () => {
-    const request: HttpTransport["request"] = async () => response(200, {}, "123456789");
+    const request: HttpTransport["request"] = async () =>
+      response(200, {}, "123456789");
     await expect(
       runTool(
         createHttpTool({ policy, transport: { request } }),
         input,
-        { method: "GET", url: "https://public.example.net/", maxResponseBytes: 5 },
+        {
+          method: "GET",
+          url: "https://public.example.net/",
+          maxResponseBytes: 5,
+        },
         baseContext,
       ),
     ).rejects.toMatchObject({ code: "INVALID_OUTPUT" });
@@ -196,7 +231,9 @@ describe("safe HTTP tool", () => {
       res.setHeader("set-cookie", "secret=true");
       res.end(req.headers.host ?? "");
     });
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
     try {
       const port = (server.address() as AddressInfo).port;
       const fakePolicy: EgressPolicy = {
@@ -216,7 +253,7 @@ describe("safe HTTP tool", () => {
       });
     } finally {
       await new Promise<void>((resolve, reject) => {
-        server.close((error) => error ? reject(error) : resolve());
+        server.close((error) => (error ? reject(error) : resolve()));
       });
     }
   });
@@ -227,7 +264,9 @@ describe("safe HTTP tool", () => {
       res.write("1234");
       res.end("56789");
     });
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
     try {
       const port = (server.address() as AddressInfo).port;
       const fakePolicy: EgressPolicy = {
@@ -238,13 +277,17 @@ describe("safe HTTP tool", () => {
         runTool(
           createHttpTool({ policy: fakePolicy }),
           input,
-          { method: "GET", url: "http://public.example.net:" + port, maxResponseBytes: 5 },
+          {
+            method: "GET",
+            url: "http://public.example.net:" + port,
+            maxResponseBytes: 5,
+          },
           baseContext,
         ),
       ).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" });
     } finally {
       await new Promise<void>((resolve, reject) => {
-        server.close((error) => error ? reject(error) : resolve());
+        server.close((error) => (error ? reject(error) : resolve()));
       });
     }
   });

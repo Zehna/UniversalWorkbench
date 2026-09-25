@@ -75,33 +75,64 @@ const descriptor = ToolDescriptorSchema.parse({
 });
 
 const forbiddenRequestHeaders = new Set([
-  "connection", "cookie", "cookie2", "host", "proxy-authorization",
-  "proxy-connection", "transfer-encoding", "content-length", "upgrade",
-  "te", "trailer", "keep-alive", "idempotency-key", "forwarded",
-  "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto",
+  "connection",
+  "cookie",
+  "cookie2",
+  "host",
+  "proxy-authorization",
+  "proxy-connection",
+  "transfer-encoding",
+  "content-length",
+  "upgrade",
+  "te",
+  "trailer",
+  "keep-alive",
+  "idempotency-key",
+  "forwarded",
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
 ]);
 
-function cleanHeaders(raw: Record<string, string> | undefined): Record<string, string> {
-  const cleaned: Record<string, string> = Object.create(null) as Record<string, string>;
+function cleanHeaders(
+  raw: Record<string, string> | undefined,
+): Record<string, string> {
+  const cleaned: Record<string, string> = Object.create(null) as Record<
+    string,
+    string
+  >;
   for (const [name, value] of Object.entries(raw ?? {})) {
     const key = name.toLowerCase();
-    if (!/^[a-z0-9!#$%&'*+.^_\`|~-]+$/.test(key) ||
-      forbiddenRequestHeaders.has(key) || /[\u0000-\u001f\u007f]/.test(value)) {
-      throw new ToolRuntimeError("INVALID_CONFIG", "Forbidden HTTP request header");
+    if (
+      !/^[a-z0-9!#$%&'*+.^_\`|~-]+$/.test(key) ||
+      forbiddenRequestHeaders.has(key) ||
+      /[\u0000-\u001f\u007f]/.test(value)
+    ) {
+      throw new ToolRuntimeError(
+        "INVALID_CONFIG",
+        "Forbidden HTTP request header",
+      );
     }
     cleaned[key] = value;
   }
   return cleaned;
 }
 
-function firstHeader(value: string | readonly string[] | undefined): string | undefined {
+function firstHeader(
+  value: string | readonly string[] | undefined,
+): string | undefined {
   return typeof value === "string" ? value : value?.[0];
 }
 
 function responseHeaders(
   headers: HttpTransportResponse["headers"],
 ): Record<string, string> {
-  const allowed = new Set(["content-type", "cache-control", "etag", "last-modified"]);
+  const allowed = new Set([
+    "content-type",
+    "cache-control",
+    "etag",
+    "last-modified",
+  ]);
   const selected: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers)) {
     const key = name.toLowerCase();
@@ -113,7 +144,9 @@ function responseHeaders(
   return selected;
 }
 
-function normalizeResponseHeaders(headers: IncomingHttpHeaders): Record<string, string | readonly string[] | undefined> {
+function normalizeResponseHeaders(
+  headers: IncomingHttpHeaders,
+): Record<string, string | readonly string[] | undefined> {
   const result: Record<string, string | readonly string[] | undefined> = {};
   for (const [name, value] of Object.entries(headers)) {
     result[name.toLowerCase()] = value;
@@ -129,15 +162,25 @@ export function createNodeHttpTransport(): HttpTransport {
       return new Promise<HttpTransportResponse>((resolve, reject) => {
         const family = isIP(pinnedAddress);
         if (!family) {
-          reject(new EgressPolicyError("EGRESS_BLOCKED", "Outbound destination is not permitted"));
+          reject(
+            new EgressPolicyError(
+              "EGRESS_BLOCKED",
+              "Outbound destination is not permitted",
+            ),
+          );
           return;
         }
         const pinnedLookup = ((
           _host: string,
           _opts: unknown,
-          callback: (error: null, address: string, addressFamily: number) => void,
+          callback: (
+            error: null,
+            address: string,
+            addressFamily: number,
+          ) => void,
         ) => callback(null, pinnedAddress, family)) as typeof dnsLookup;
-        const requester = url.protocol === "https:" ? httpsRequest : httpRequest;
+        const requester =
+          url.protocol === "https:" ? httpsRequest : httpRequest;
         const req = requester(
           url,
           {
@@ -150,9 +193,17 @@ export function createNodeHttpTransport(): HttpTransport {
           (response) => {
             void (async () => {
               try {
-                const declaredSize = Number(firstHeader(response.headers["content-length"]));
-                if (Number.isFinite(declaredSize) && declaredSize > options.maxResponseBytes) {
-                  throw new ToolRuntimeError("RESPONSE_TOO_LARGE", "HTTP response exceeded the configured limit");
+                const declaredSize = Number(
+                  firstHeader(response.headers["content-length"]),
+                );
+                if (
+                  Number.isFinite(declaredSize) &&
+                  declaredSize > options.maxResponseBytes
+                ) {
+                  throw new ToolRuntimeError(
+                    "RESPONSE_TOO_LARGE",
+                    "HTTP response exceeded the configured limit",
+                  );
                 }
                 const chunks: Uint8Array[] = [];
                 let length = 0;
@@ -160,7 +211,10 @@ export function createNodeHttpTransport(): HttpTransport {
                   const bytes = new Uint8Array(chunk);
                   length += bytes.byteLength;
                   if (length > options.maxResponseBytes) {
-                    throw new ToolRuntimeError("RESPONSE_TOO_LARGE", "HTTP response exceeded the configured limit");
+                    throw new ToolRuntimeError(
+                      "RESPONSE_TOO_LARGE",
+                      "HTTP response exceeded the configured limit",
+                    );
                   }
                   chunks.push(bytes);
                 }
@@ -190,9 +244,9 @@ export function createNodeHttpTransport(): HttpTransport {
   };
 }
 
-
 function withAbort<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(new Error("HTTP request cancelled"));
+  if (signal.aborted)
+    return Promise.reject(new Error("HTTP request cancelled"));
   return new Promise<T>((resolve, reject) => {
     const cancelled = () => reject(new Error("HTTP request cancelled"));
     signal.addEventListener("abort", cancelled, { once: true });
@@ -221,15 +275,29 @@ export function createHttpTool(
       const validInput = validateInvocation(descriptor, input, context);
       const parsed = httpConfigSchema.safeParse(config);
       if (!parsed.success) {
-        throw new ToolRuntimeError("INVALID_CONFIG", "HTTP configuration is invalid");
+        throw new ToolRuntimeError(
+          "INVALID_CONFIG",
+          "HTTP configuration is invalid",
+        );
       }
       const requestConfig = parsed.data;
       const method = requestConfig.method;
-      if ((method === "GET" || method === "HEAD") && requestConfig.body !== undefined) {
-        throw new ToolRuntimeError("INVALID_CONFIG", "GET and HEAD cannot include a request body");
+      if (
+        (method === "GET" || method === "HEAD") &&
+        requestConfig.body !== undefined
+      ) {
+        throw new ToolRuntimeError(
+          "INVALID_CONFIG",
+          "GET and HEAD cannot include a request body",
+        );
       }
-      if (classifyHttpIdempotency(method, context.idempotencyKey) === "unsafe") {
-        throw new ToolRuntimeError("INVALID_CONFIG", "Mutating HTTP requests require a workflow idempotency key");
+      if (
+        classifyHttpIdempotency(method, context.idempotencyKey) === "unsafe"
+      ) {
+        throw new ToolRuntimeError(
+          "INVALID_CONFIG",
+          "Mutating HTTP requests require a workflow idempotency key",
+        );
       }
 
       let url: URL;
@@ -254,7 +322,10 @@ export function createHttpTool(
             throw new ToolRuntimeError("ABORTED", "HTTP request was cancelled");
           }
           // Validate every redirect; pass the IP into the pinned transport.
-          const addresses = await withAbort(policy.resolveAllowed(current), signal);
+          const addresses = await withAbort(
+            policy.resolveAllowed(current),
+            signal,
+          );
           if (signal.aborted) {
             throw new ToolRuntimeError("ABORTED", "HTTP request was cancelled");
           }
@@ -273,28 +344,55 @@ export function createHttpTool(
             requestOptions.body = requestConfig.body;
           }
 
-          const response = await withAbort(transport.request(current, addresses[0]!, requestOptions), signal);
-          if (!Number.isInteger(response.status) || response.status < 100 || response.status > 599 ||
-            response.body.byteLength > maxResponseBytes) {
-            throw new ToolRuntimeError("INVALID_OUTPUT", "HTTP transport returned an invalid response");
+          const response = await withAbort(
+            transport.request(current, addresses[0]!, requestOptions),
+            signal,
+          );
+          if (
+            !Number.isInteger(response.status) ||
+            response.status < 100 ||
+            response.status > 599 ||
+            response.body.byteLength > maxResponseBytes
+          ) {
+            throw new ToolRuntimeError(
+              "INVALID_OUTPUT",
+              "HTTP transport returned an invalid response",
+            );
           }
-          const location = Object.entries(response.headers).find(([key]) => key.toLowerCase() === "location");
+          const location = Object.entries(response.headers).find(
+            ([key]) => key.toLowerCase() === "location",
+          );
           const redirectLocation = firstHeader(location?.[1]);
-          if ([301, 302, 303, 307, 308].includes(response.status) && redirectLocation) {
+          if (
+            [301, 302, 303, 307, 308].includes(response.status) &&
+            redirectLocation
+          ) {
             if (hops === 5) {
-              throw new ToolRuntimeError("NETWORK_FAILURE", "HTTP redirect limit was exceeded");
+              throw new ToolRuntimeError(
+                "NETWORK_FAILURE",
+                "HTTP redirect limit was exceeded",
+              );
             }
             if (method !== "GET" && method !== "HEAD") {
-              throw new ToolRuntimeError("NETWORK_FAILURE", "Redirects for mutating requests are disabled");
+              throw new ToolRuntimeError(
+                "NETWORK_FAILURE",
+                "Redirects for mutating requests are disabled",
+              );
             }
             let next: URL;
             try {
               next = new URL(redirectLocation, current);
             } catch {
-              throw new ToolRuntimeError("NETWORK_FAILURE", "HTTP redirect target was invalid");
+              throw new ToolRuntimeError(
+                "NETWORK_FAILURE",
+                "HTTP redirect target was invalid",
+              );
             }
             if (current.protocol === "https:" && next.protocol !== "https:") {
-              throw new EgressPolicyError("EGRESS_BLOCKED", "Outbound destination is not permitted");
+              throw new EgressPolicyError(
+                "EGRESS_BLOCKED",
+                "Outbound destination is not permitted",
+              );
             }
             current = next;
             continue;
@@ -310,7 +408,10 @@ export function createHttpTool(
             },
           });
         }
-        throw new ToolRuntimeError("NETWORK_FAILURE", "HTTP redirect limit was exceeded");
+        throw new ToolRuntimeError(
+          "NETWORK_FAILURE",
+          "HTTP redirect limit was exceeded",
+        );
       } catch (error) {
         if (timeout.aborted && !context.signal.aborted) {
           throw new ToolRuntimeError("TIMEOUT", "HTTP request timed out");
@@ -318,7 +419,10 @@ export function createHttpTool(
         if (context.signal.aborted) {
           throw new ToolRuntimeError("ABORTED", "HTTP request was cancelled");
         }
-        if (error instanceof ToolRuntimeError || error instanceof EgressPolicyError) {
+        if (
+          error instanceof ToolRuntimeError ||
+          error instanceof EgressPolicyError
+        ) {
           throw error;
         }
         throw new ToolRuntimeError("NETWORK_FAILURE", "HTTP request failed");

@@ -43,26 +43,37 @@ describe("policy-gated HTTP egress", () => {
   it("allows routable literals without external DNS", async () => {
     const resolver = vi.fn(async () => ["93.184.216.34"]);
     const policy = createEgressPolicy({ resolver });
-    await expect(policy.resolveAllowed(new URL("https://8.8.8.8/"))).resolves.toEqual(["8.8.8.8"]);
-    await expect(policy.resolveAllowed(new URL("https://[2606:4700:4700::1111]/"))).resolves.toEqual(["2606:4700:4700::1111"]);
+    await expect(
+      policy.resolveAllowed(new URL("https://8.8.8.8/")),
+    ).resolves.toEqual(["8.8.8.8"]);
+    await expect(
+      policy.resolveAllowed(new URL("https://[2606:4700:4700::1111]/")),
+    ).resolves.toEqual(["2606:4700:4700::1111"]);
     expect(resolver).not.toHaveBeenCalled();
   });
 
   it("fails closed if any DNS answer is restricted", async () => {
     const resolver = vi.fn(async () => ["93.184.216.34", "10.0.0.7"]);
     await expect(
-      createEgressPolicy({ resolver }).resolveAllowed(new URL("https://example.com/")),
+      createEgressPolicy({ resolver }).resolveAllowed(
+        new URL("https://example.com/"),
+      ),
     ).rejects.toMatchObject({ code: "EGRESS_BLOCKED" });
     expect(resolver).toHaveBeenCalledWith("example.com");
   });
 
   it("does not accept empty or failing DNS resolutions", async () => {
     await expect(
-      createEgressPolicy({ resolver: async () => [] }).assertAllowed(new URL("https://example.com/")),
+      createEgressPolicy({ resolver: async () => [] }).assertAllowed(
+        new URL("https://example.com/"),
+      ),
     ).rejects.toMatchObject({ code: "EGRESS_BLOCKED" });
     await expect(
-      createEgressPolicy({ resolver: async () => { throw new Error("secret from DNS"); } })
-        .assertAllowed(new URL("https://example.com/")),
+      createEgressPolicy({
+        resolver: async () => {
+          throw new Error("secret from DNS");
+        },
+      }).assertAllowed(new URL("https://example.com/")),
     ).rejects.toMatchObject({
       code: "DNS_FAILURE",
       message: "Outbound hostname could not be resolved",
