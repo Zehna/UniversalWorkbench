@@ -94,6 +94,13 @@ const forbiddenRequestHeaders = new Set([
   "x-forwarded-proto",
 ]);
 
+function hasForbiddenHeaderValue(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const code = character.charCodeAt(0);
+    return code < 32 || code === 127;
+  });
+}
+
 function cleanHeaders(
   raw: Record<string, string> | undefined,
 ): Record<string, string> {
@@ -106,7 +113,7 @@ function cleanHeaders(
     if (
       !/^[a-z0-9!#$%&'*+.^_\`|~-]+$/.test(key) ||
       forbiddenRequestHeaders.has(key) ||
-      /[\u0000-\u001f\u007f]/.test(value)
+      hasForbiddenHeaderValue(value)
     ) {
       throw new ToolRuntimeError(
         "INVALID_CONFIG",
@@ -137,7 +144,7 @@ function responseHeaders(
   for (const [name, value] of Object.entries(headers)) {
     const key = name.toLowerCase();
     const header = firstHeader(value);
-    if (allowed.has(key) && header && !/[\u0000-\u001f\u007f]/.test(header)) {
+    if (allowed.has(key) && header && !hasForbiddenHeaderValue(header)) {
       selected[key] = header;
     }
   }
