@@ -8,3 +8,12 @@ export type {
   ToolExecutionMode,
   ToolIdempotency,
 } from "@uw/contracts";
+export { createJsonExtractTool } from "./builtin/json.js";
+export { createMarkdownToTextTool } from "./builtin/markdown.js";
+export { createTextTrimTool } from "./builtin/text.js";
+export { ToolRegistryError, ToolRuntimeError } from "./errors.js";
+export type { ToolRuntimeErrorCode } from "./errors.js";
+export { createToolRegistry } from "./registry.js";
+export type { ToolRegistry } from "./registry.js";
+export { createLocalResult, runTool, validateInvocation } from "./runtime.js";
+export type { ToolExecutor, ToolRunContext, ToolRunResult } from "./runtime.js";
