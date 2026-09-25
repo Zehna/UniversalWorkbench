@@ -1,0 +1,44 @@
+name: Normalize Phase 3 Task 1
+
+on:
+  push:
+    branches:
+      - phase-3-tools-workflow
+    paths:
+      - .github/workflows/phase3-task1-normalize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-3-tools-workflow
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm install --package-lock-only --ignore-scripts
+      - run: >-
+          npx prettier --write
+          packages/contracts/src/context.ts
+          packages/contracts/src/tool.ts
+          packages/contracts/src/workflow.ts
+          packages/contracts/src/execution.ts
+          packages/contracts/src/index.ts
+          packages/context
+          packages/tools
+          packages/workflow
+          packages/execution
+          scripts/verify-workspaces.mjs
+          package.json
+      - name: Commit normalized Task 1
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/phase3-task1-normalize.yml
+          git add package-lock.json package.json scripts/verify-workspaces.mjs packages/contracts packages/context packages/tools packages/workflow packages/execution
+          git commit -m "chore: normalize phase 3 task 1"
+          git push origin HEAD:phase-3-tools-workflow
