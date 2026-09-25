@@ -1,4 +1,8 @@
-import type { ContextEnvelope, ContextType, ToolDescriptor } from "@uw/contracts";
+import type {
+  ContextEnvelope,
+  ContextType,
+  ToolDescriptor,
+} from "@uw/contracts";
 import { isToolCompatible } from "./compatibility.js";
 
 export interface ContextCandidate {
