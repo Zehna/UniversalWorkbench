@@ -22,6 +22,16 @@ jobs:
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run verify:workspaces
       - run: npm run format:check
+      - run:
+          name: Capture exact Prettier diff if quality fails
+          when: on_fail
+          command: |
+            target=docs/superpowers/plans/2026-09-25-phase-3-tools-workflow-core.md
+            npx prettier "$target" > /tmp/phase3-plan-formatted.md
+            diff -u "$target" /tmp/phase3-plan-formatted.md > prettier-format.patch || true
+            cat prettier-format.patch
+      - store_artifacts:
+          path: prettier-format.patch
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
