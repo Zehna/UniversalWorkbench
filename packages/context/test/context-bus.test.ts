@@ -1,8 +1,4 @@
-import type {
-  ContextEnvelope,
-  ContextType,
-  ToolDescriptor,
-} from "@uw/contracts";
+import type { ContextEnvelope, ContextType, ToolDescriptor } from "@uw/contracts";
 import { describe, expect, it } from "vitest";
 import { createContextBus } from "../src/index.js";
 
@@ -87,17 +83,19 @@ describe("Context Bus", () => {
     ];
 
     expect(
-      bus.compatibleTools(CONTEXT, tools, new Set(["network"])).map(
-        (candidate) => candidate.toolId,
-      ),
+      bus
+        .compatibleTools(CONTEXT, tools, new Set(["network"]))
+        .map((candidate) => candidate.toolId),
     ).toEqual(["builtin.local", "builtin.network"]);
 
     expect(
-      bus.compatibleTools(
-        CONTEXT,
-        tools,
-        new Set(["network", "read:private"]),
-      ).map((candidate) => candidate.toolId),
+      bus
+        .compatibleTools(
+          CONTEXT,
+          tools,
+          new Set(["network", "read:private"]),
+        )
+        .map((candidate) => candidate.toolId),
     ).toEqual(["builtin.local", "builtin.network", "builtin.private"]);
   });
 
@@ -109,9 +107,9 @@ describe("Context Bus", () => {
     ]);
 
     expect(
-      bus.compatibleTools(CONTEXT, tools, new Set()).map(
-        (candidate) => `${candidate.toolId}@${candidate.toolVersion}`,
-      ),
+      bus
+        .compatibleTools(CONTEXT, tools, new Set())
+        .map((candidate) => `${candidate.toolId}@${candidate.toolVersion}`),
     ).toEqual([
       "builtin.alpha@1.0.0",
       "builtin.alpha@2.0.0",

@@ -1,8 +1,4 @@
-import type {
-  ContextEnvelope,
-  ContextType,
-  ToolDescriptor,
-} from "@uw/contracts";
+import type { ContextEnvelope, ContextType, ToolDescriptor } from "@uw/contracts";
 import { isToolCompatible } from "./compatibility.js";
 
 export interface ContextCandidate {
@@ -29,13 +25,11 @@ export function createContextBus(): ContextBus {
     compatibleTools(context, tools, grantedPermissions) {
       return tools
         .filter((tool) => isToolCompatible(context, tool, grantedPermissions))
-        .map(
-          (tool): ContextCandidate => ({
-            toolId: tool.id,
-            toolVersion: tool.version,
-            acceptedType: context.type,
-          }),
-        )
+        .map((tool): ContextCandidate => ({
+          toolId: tool.id,
+          toolVersion: tool.version,
+          acceptedType: context.type,
+        }))
         .sort(
           (left, right) =>
             compareStrings(left.toolId, right.toolId) ||
