@@ -40,6 +40,7 @@
 ### Task 1: Phase 3 contracts and package boundaries
 
 **Files:**
+
 - Create: `packages/contracts/src/context.ts`
 - Create: `packages/contracts/src/tool.ts`
 - Create: `packages/contracts/src/workflow.ts`
@@ -132,6 +133,7 @@ type ExecutionStatus =
 ### Task 2: Context Bus and compatibility resolution
 
 **Files:**
+
 - Create: `packages/context/src/compatibility.ts`
 - Create: `packages/context/src/bus.ts`
 - Modify: `packages/context/src/index.ts`
@@ -165,6 +167,7 @@ interface ContextBus {
 ### Task 3: Tool registry and deterministic local tools
 
 **Files:**
+
 - Create: `packages/tools/src/errors.ts`
 - Create: `packages/tools/src/registry.ts`
 - Create: `packages/tools/src/runtime.ts`
@@ -176,6 +179,7 @@ interface ContextBus {
 - Test: `packages/tools/test/local-tools.test.ts`
 
 **Interfaces:**
+
 ```ts
 interface ToolRunContext {
   executionId: string;
@@ -208,6 +212,7 @@ interface ToolRegistry {
 ```
 
 Built-ins:
+
 - `builtin.json.extract@1.0.0`: JSON input + dot-path config -> JSON output.
 - `builtin.text.trim@1.0.0`: text input -> trimmed text output.
 - `builtin.markdown.to-text@1.0.0`: markdown input -> plain text without executing/rendering HTML.
@@ -222,6 +227,7 @@ Built-ins:
 ### Task 4: Safe built-in HTTP tool
 
 **Files:**
+
 - Create: `packages/tools/src/network/egress-policy.ts`
 - Create: `packages/tools/src/network/http-tool.ts`
 - Modify: `packages/tools/src/index.ts`
@@ -229,6 +235,7 @@ Built-ins:
 - Test: `packages/tools/test/http-tool.test.ts`
 
 **Interfaces:**
+
 ```ts
 interface EgressPolicy {
   assertAllowed(url: URL): Promise<void>;
@@ -264,6 +271,7 @@ Descriptor:
 ### Task 5: Workflow DAG model, typed bindings, and preflight
 
 **Files:**
+
 - Create: `packages/workflow/src/errors.ts`
 - Create: `packages/workflow/src/graph.ts`
 - Create: `packages/workflow/src/bindings.ts`
@@ -273,6 +281,7 @@ Descriptor:
 - Test: `packages/workflow/test/preflight.test.ts`
 
 **Interfaces:**
+
 ```ts
 interface WorkflowNode {
   id: string;
@@ -318,6 +327,7 @@ function buildPreflightPlan(
 ### Task 6: Durable execution, step, provenance, and receipt persistence
 
 **Files:**
+
 - Modify: `packages/database/src/schema.ts`
 - Create: `packages/database/drizzle/0003_phase3_execution.sql`
 - Create: `packages/execution/src/model.ts`
@@ -329,6 +339,7 @@ function buildPreflightPlan(
 - Test: `packages/database/test/execution.integration.test.ts`
 
 **Tables:**
+
 - `workflow_definitions`: immutable version rows with project ownership, name, schema version, definition JSON, created_at.
 - `executions`: project/owner/workflow version/status/trace/input context/start/end/error/usage.
 - `execution_steps`: execution ID, node ID, tool ID/version, attempt, status, timing, input/output context JSON, structured error, idempotency key.
@@ -336,6 +347,7 @@ function buildPreflightPlan(
 - `execution_receipts`: one immutable final JSON receipt per execution.
 
 **Interfaces:**
+
 ```ts
 interface ExecutionRepository {
   createExecution(input: CreateExecutionRecord): Promise<ExecutionRecord>;
@@ -358,6 +370,7 @@ interface ExecutionRepository {
 ### Task 7: PostgreSQL queue, leasing, and worker runtime
 
 **Files:**
+
 - Create: `packages/execution/src/queue.ts`
 - Create: `packages/database/src/repositories/execution-queue.ts`
 - Modify: `packages/database/src/schema.ts`
@@ -372,6 +385,7 @@ interface ExecutionRepository {
 - Test: `apps/server/test/config.test.ts`
 
 **Interfaces:**
+
 ```ts
 interface ExecutionQueue {
   enqueue(executionId: string, availableAt: Date): Promise<void>;
@@ -397,6 +411,7 @@ interface ExecutionWorker {
 ### Task 8: Execution engine with retries, budgets, cancellation, and receipts
 
 **Files:**
+
 - Create: `packages/execution/src/errors.ts`
 - Create: `packages/execution/src/budget.ts`
 - Create: `packages/execution/src/retry.ts`
@@ -408,6 +423,7 @@ interface ExecutionWorker {
 - Test: `packages/execution/test/receipt.test.ts`
 
 **Interfaces:**
+
 ```ts
 interface ExecutionBudget {
   maxSteps: number;
@@ -445,6 +461,7 @@ interface WorkflowEngine {
 ### Task 9: Workflow persistence and protected Tool/Workflow/Execution HTTP APIs
 
 **Files:**
+
 - Create: `packages/workflow/src/repository.ts`
 - Create: `packages/workflow/src/service.ts`
 - Create: `packages/database/src/repositories/workflows.ts`
@@ -457,6 +474,7 @@ interface WorkflowEngine {
 - Test: `apps/server/test/workflow-api.integration.test.ts`
 
 **Routes:**
+
 - `GET /api/tools`
 - `GET /api/projects/:projectId/workflows`
 - `POST /api/projects/:projectId/workflows`
@@ -466,6 +484,7 @@ interface WorkflowEngine {
 - `POST /api/projects/:projectId/executions/:executionId/cancel`
 
 **Behavior:**
+
 - Saving a changed workflow creates a new immutable workflow-definition version instead of overwriting execution history.
 - Run endpoint performs schema + DAG + permission preflight before enqueue and returns `202` with execution ID.
 - No endpoint accepts owner ID/role from the client.
@@ -482,6 +501,7 @@ interface WorkflowEngine {
 ### Task 10: Mobile-first linear workflow and Run UI
 
 **Files:**
+
 - Create: `apps/web/src/tools/tool-catalog.ts`
 - Create: `apps/web/src/workflows/WorkflowList.tsx`
 - Create: `apps/web/src/workflows/WorkflowEditor.tsx`
@@ -495,6 +515,7 @@ interface WorkflowEngine {
 - Test: `apps/web/e2e/workflow-linear.spec.ts`
 
 **UX:**
+
 - Project tab adds **Workflows**.
 - Workflow editor is a list of steps; no graph dependency.
 - Add Step filters tools using Context Bus-compatible input/output types.
@@ -513,6 +534,7 @@ interface WorkflowEngine {
 ### Task 11: Golden workflows, deployment smoke, docs, and Phase 3 gate
 
 **Files:**
+
 - Create: `packages/execution/test/golden-workflows.integration.test.ts`
 - Modify: `scripts/smoke-http.mjs`
 - Modify: `deploy/docker/compose.yml`
@@ -535,6 +557,7 @@ The permanent `HTTP -> JSON -> AI -> Note` golden flow remains Phase 4 because A
 - [ ] **Step 4: Extend CI** with a Phase 3 workflow/browser gate while preserving Phase 2 browser-sync and secret-canary jobs.
 - [ ] **Step 5: Update architecture/runbook/README** with package boundaries, queue semantics, runtime modes, workflow limitations, permissions, and troubleshooting.
 - [ ] **Step 6: Run the final gate from a clean checkout/fresh PostgreSQL:**
+
 ```text
 npm ci                                          PASS
 npm audit --omit=dev --audit-level=high         PASS
