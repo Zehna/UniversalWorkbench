@@ -46,7 +46,7 @@ test("creates and runs HTTP to JSON extraction against a deterministic in-stack 
     await expect(page.getByText("Status: completed")).toBeVisible({
       timeout: 40_000,
     });
-    await expect(page.getByText("42")).toBeVisible();
+    await expect(page.getByText("42", { exact: true })).toBeVisible();
     await page
       .getByRole("button", { name: "Save output as Artifact" })
       .last()
