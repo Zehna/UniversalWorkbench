@@ -11,6 +11,7 @@ import {
   createPostgresDocumentRepository,
   createPostgresExecutionQueue,
   createPostgresWorkflowExecutionStore,
+  createPostgresWorkflowRepository,
   createPostgresProjectRepository,
   createPostgresSyncDocumentStore,
   createPostgresSyncProjectStore,
@@ -18,6 +19,7 @@ import {
 } from "@uw/database";
 import { SystemClock, UuidGenerator } from "@uw/shared";
 import { createWorkflowEngine, createExecutionWorker } from "@uw/execution";
+import { createWorkflowService } from "@uw/workflow";
 import {
   createToolRegistry,
   createTextTrimTool,
@@ -83,6 +85,17 @@ export function composeApplication(
     clock,
   });
 
+  const registry = composeToolRegistry();
+  const executionStore = createPostgresWorkflowExecutionStore(pool);
+  const engine = createWorkflowEngine({ store: executionStore, registry });
+  const workflowService = createWorkflowService({
+    repository: createPostgresWorkflowRepository(pool),
+    registry,
+    enqueue: (input) => engine.enqueue(input),
+    // Grants originate from server policy, not caller-provided JSON.
+    allowedPermissions: [],
+  });
+
   const app = createApp({
     databaseReady: () => checkDatabaseReady(pool),
     authService,
@@ -95,21 +108,28 @@ export function composeApplication(
     documentService,
     artifactService,
     syncService,
+    workflowService,
+    toolRegistry: registry,
+    executionRepository: executionStore,
   });
 
   return { app, pool, authService, syncService };
 }
 
 /** Create the same pinned registry for API validation and worker execution. */
-export function composeExecutionEngine(
-  pool: ReturnType<typeof createDatabasePool>,
-) {
+export function composeToolRegistry() {
   const registry = createToolRegistry();
   registry.register(createTextTrimTool());
   registry.register(createJsonExtractTool());
   registry.register(createMarkdownToTextTool());
   registry.register(createHttpTool());
+  return registry;
+}
 
+export function composeExecutionEngine(
+  pool: ReturnType<typeof createDatabasePool>,
+) {
+  const registry = composeToolRegistry();
   return createWorkflowEngine({
     store: createPostgresWorkflowExecutionStore(pool),
     registry,

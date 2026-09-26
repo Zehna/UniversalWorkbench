@@ -11,3 +11,4 @@ export * from "./repositories/projects.js";
 export * from "./repositories/sync.js";
 export * from "./schema.js";
 export { createPostgresWorkflowExecutionStore } from "./repositories/workflow-execution.js";
+export { createPostgresWorkflowRepository } from "./repositories/workflows.js";

@@ -16,3 +16,14 @@ export type { WorkflowValidationCode } from "./errors.js";
 export { topologicalOrder } from "./graph.js";
 export { buildPreflightPlan, validateWorkflow } from "./preflight.js";
 export type { PreflightPlan, ValidatedWorkflow } from "./preflight.js";
+export {
+  WorkflowNotFoundError,
+  WorkflowVersionConflictError,
+} from "./repository.js";
+export type { WorkflowRepository, WorkflowVersion } from "./repository.js";
+export { createWorkflowService } from "./service.js";
+export type {
+  WorkflowService,
+  WorkflowRunBudget,
+  WorkflowEnqueueInput,
+} from "./service.js";
