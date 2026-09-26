@@ -10,3 +10,9 @@ export type {
   WorkflowInputBinding,
   WorkflowNode,
 } from "@uw/contracts";
+export { validateBindings } from "./bindings.js";
+export { WorkflowValidationError } from "./errors.js";
+export type { WorkflowValidationCode } from "./errors.js";
+export { topologicalOrder } from "./graph.js";
+export { buildPreflightPlan, validateWorkflow } from "./preflight.js";
+export type { PreflightPlan, ValidatedWorkflow } from "./preflight.js";
