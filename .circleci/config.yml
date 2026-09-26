@@ -90,9 +90,30 @@ jobs:
       - store_artifacts:
           path: playwright-report
 
+  browser-workflow:
+    docker:
+      - image: cimg/node:24.21.0-browsers
+      - image: postgres:17-alpine
+        environment:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+    environment:
+      TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run e2e:workflow
+      - store_artifacts:
+          path: test-results
+      - store_artifacts:
+          path: playwright-report
+
 workflows:
   universal-workbench-ci:
     jobs:
       - quality
       - docker-smoke
       - browser-sync
+      - browser-workflow

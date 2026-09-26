@@ -37,6 +37,17 @@ jobs:
           TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
       - run: npm run build
       - run: node scripts/verify-pwa.mjs
+      - name: Collect formatting diagnostics on failure
+        if: failure()
+        run: npx --no-install prettier --list-different . > prettier-failures.txt 2>&1 || true
+      - name: Upload quality diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-diagnostics
+          path: prettier-failures.txt
+          if-no-files-found: ignore
+          retention-days: 3
 
   docker-smoke:
     runs-on: ubuntu-latest
@@ -90,3 +101,50 @@ jobs:
       - run: npm run e2e:sync
         env:
           TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+      - name: Upload Phase 2 browser failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-browser-diagnostics
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 3
+
+  browser-workflow:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workbench -d workbench_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run e2e:workflow
+        env:
+          TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+      - name: Upload Phase 3 workflow failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3-workflow-diagnostics
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 3
