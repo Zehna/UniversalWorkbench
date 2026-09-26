@@ -20,7 +20,7 @@ const context: ToolRunContext = {
 };
 
 function input(
-  type: "json" | "text" | "markdown",
+  type: "json" | "text" | "markdown" | "api_response",
   payload: unknown,
 ): ContextEnvelope {
   return {
@@ -184,5 +184,25 @@ describe("Deterministic local tools", () => {
     await expect(
       runTool(tool, input("text", " x "), {}, context),
     ).rejects.toMatchObject({ code: "INVALID_OUTPUT" });
+  });
+  it("extracts typed JSON directly from bounded HTTP response envelopes", async () => {
+    const response = input("api_response", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+      body: '{"answer":42}',
+    });
+    const tool = createJsonExtractTool();
+    expect(tool.descriptor.accepts).toContain("api_response");
+    const result = await runTool(tool, response, { path: "answer" }, context);
+    expect(result.outputs[0]?.payload).toBe(42);
+    expect(result.outputs[0]?.type).toBe("json");
+    await expect(
+      runTool(
+        tool,
+        input("api_response", { status: 200, body: "{invalid" }),
+        { path: "answer" },
+        context,
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 });

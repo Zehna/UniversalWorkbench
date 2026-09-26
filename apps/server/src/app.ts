@@ -32,6 +32,7 @@ export interface AppDependencies {
   syncService?: SyncService;
   workflowService?: WorkflowService;
   toolRegistry?: ToolRegistry;
+  grantedWorkflowPermissions?: readonly string[];
   executionRepository?: ExecutionRepository;
 }
 
@@ -159,6 +160,9 @@ export function createApp(deps: AppDependencies) {
       createArtifactsRouter({
         ...common,
         artifactService: deps.artifactService,
+        ...(deps.executionRepository
+          ? { executionRepository: deps.executionRepository }
+          : {}),
       }),
     );
     app.use(
@@ -169,18 +173,19 @@ export function createApp(deps: AppDependencies) {
 
   if (hasAuthDependencies(deps) && deps.toolRegistry) {
     app.use(
-      "/api/tools",
+      ["/tools", "/api/tools"],
       createToolsRouter({
         authService: deps.authService,
         sessionCookie: deps.sessionCookie,
         registry: deps.toolRegistry,
+        grantedPermissions: deps.grantedWorkflowPermissions ?? [],
       }),
     );
   }
 
   if (hasAuthDependencies(deps) && deps.workflowService) {
     app.use(
-      "/api/projects/:projectId/workflows",
+      ["/projects/:projectId/workflows", "/api/projects/:projectId/workflows"],
       createWorkflowsRouter({
         authService: deps.authService,
         sessionCookie: deps.sessionCookie,
@@ -191,7 +196,10 @@ export function createApp(deps: AppDependencies) {
 
   if (hasAuthDependencies(deps) && deps.executionRepository) {
     app.use(
-      "/api/projects/:projectId/executions",
+      [
+        "/projects/:projectId/executions",
+        "/api/projects/:projectId/executions",
+      ],
       createExecutionsRouter({
         authService: deps.authService,
         sessionCookie: deps.sessionCookie,

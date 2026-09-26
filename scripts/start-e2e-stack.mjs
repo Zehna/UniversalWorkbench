@@ -9,9 +9,12 @@ const databaseUrl =
 const env = {
   ...process.env,
   DATABASE_URL: databaseUrl,
+  TEST_DATABASE_URL: databaseUrl,
   PORT: "3000",
   // Phase 2 sync E2E requires API/WebSocket; workflow E2E can set E2E_APP_MODE=all.
-  APP_MODE: process.env.E2E_APP_MODE ?? "api",
+  APP_MODE: process.env.E2E_APP_MODE ?? "all",
+  NODE_ENV: "test",
+  WORKBENCH_E2E_FIXTURE: "1",
   SESSION_COOKIE_SECURE: "false",
   TRUSTED_ORIGINS: "http://127.0.0.1:4173,http://localhost:4173",
 };

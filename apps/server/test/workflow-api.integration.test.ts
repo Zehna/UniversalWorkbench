@@ -168,6 +168,25 @@ describe("protected Phase 3 workflow API", () => {
     expect(result.body.error.code).toBe("UNAUTHORIZED");
   });
 
+  it("exposes proxy-stripped paths and trusted server permission grants", async () => {
+    const { app } = setup();
+    const toolsResponse = await request(app)
+      .get("/tools")
+      .set("Cookie", cookie);
+    expect(toolsResponse.status).toBe(200);
+    expect(toolsResponse.body.grantedPermissions).toEqual([]);
+    expect(toolsResponse.body.tools).toHaveLength(3);
+
+    const listed = await request(app)
+      .get(`/projects/${PROJECT}/workflows`)
+      .set("Cookie", cookie);
+    expect(listed.status).toBe(200);
+    expect(listed.body.workflows).toEqual([]);
+
+    const anonymous = await request(app).get("/tools");
+    expect(anonymous.status).toBe(401);
+  });
+
   it("lists only registered pinned tool descriptors", async () => {
     const { app } = setup();
     const res = await request(app).get("/api/tools").set("Cookie", cookie);

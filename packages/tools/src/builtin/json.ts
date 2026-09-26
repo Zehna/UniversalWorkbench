@@ -18,7 +18,7 @@ const descriptor = ToolDescriptorSchema.parse({
   version: "1.0.0",
   name: "JSON Extract",
   description: "Extract a JSON value from a dot-separated property path",
-  accepts: ["json"],
+  accepts: ["json", "api_response"],
   produces: ["json"],
   permissions: [],
   capabilities: ["transform"],
@@ -41,6 +41,26 @@ export function createJsonExtractTool(): ToolExecutor {
       }
 
       let current: unknown = valid.payload;
+      if (valid.type === "api_response") {
+        const body =
+          typeof valid.payload === "object" && valid.payload !== null
+            ? (valid.payload as Record<string, unknown>).body
+            : undefined;
+        if (typeof body !== "string") {
+          throw new ToolRuntimeError(
+            "INVALID_INPUT",
+            "HTTP response body is not text",
+          );
+        }
+        try {
+          current = JSON.parse(body) as unknown;
+        } catch {
+          throw new ToolRuntimeError(
+            "INVALID_INPUT",
+            "HTTP response body is not valid JSON",
+          );
+        }
+      }
       for (const segment of parsed.data.path.split(".")) {
         if (
           segment === "__proto__" ||

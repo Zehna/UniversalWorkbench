@@ -7,11 +7,15 @@ export function createToolsRouter(deps: {
   authService: AuthService;
   sessionCookie: SessionCookieConfig;
   registry: ToolRegistry;
+  grantedPermissions?: readonly string[];
 }) {
   const router = Router();
   router.use(requireOwner(deps.authService, deps.sessionCookie));
   router.get("/", (_req, res) => {
-    res.json({ tools: deps.registry.list() });
+    res.json({
+      tools: deps.registry.list(),
+      grantedPermissions: deps.grantedPermissions ?? [],
+    });
   });
   return router;
 }

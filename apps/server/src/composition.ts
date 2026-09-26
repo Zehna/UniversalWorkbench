@@ -26,6 +26,9 @@ import {
   createJsonExtractTool,
   createMarkdownToTextTool,
   createHttpTool,
+  EgressPolicyError,
+  type EgressPolicy,
+  type HttpTransport,
 } from "@uw/tools";
 import { randomUUID } from "node:crypto";
 import { createSyncOperationApplier, createSyncService } from "@uw/sync";
@@ -86,6 +89,7 @@ export function composeApplication(
   });
 
   const registry = composeToolRegistry();
+  const workflowPermissions = fixtureModeEnabled() ? ["network"] : [];
   const executionStore = createPostgresWorkflowExecutionStore(pool);
   const engine = createWorkflowEngine({ store: executionStore, registry });
   const workflowService = createWorkflowService({
@@ -93,7 +97,7 @@ export function composeApplication(
     registry,
     enqueue: (input) => engine.enqueue(input),
     // Grants originate from server policy, not caller-provided JSON.
-    allowedPermissions: [],
+    allowedPermissions: workflowPermissions,
   });
 
   const app = createApp({
@@ -110,6 +114,7 @@ export function composeApplication(
     syncService,
     workflowService,
     toolRegistry: registry,
+    grantedWorkflowPermissions: workflowPermissions,
     executionRepository: executionStore,
   });
 
@@ -117,12 +122,66 @@ export function composeApplication(
 }
 
 /** Create the same pinned registry for API validation and worker execution. */
+function fixtureModeEnabled(): boolean {
+  return (
+    process.env.WORKBENCH_E2E_FIXTURE === "1" &&
+    process.env.NODE_ENV === "test" &&
+    typeof process.env.TEST_DATABASE_URL === "string"
+  );
+}
+
+/**
+ * E2E-only transport. No external connections are made; only the exact
+ * deterministic HTTPS fixture URL is accepted. Disabled outside test mode.
+ */
+function createFixtureHttpTool() {
+  const fixtureUrl = "https://fixture.workbench.dev/response";
+  const assertAllowed = (url: URL) => {
+    if (url.href !== fixtureUrl) {
+      throw new EgressPolicyError(
+        "EGRESS_BLOCKED",
+        "E2E fixture destination not permitted",
+      );
+    }
+  };
+  const policy: EgressPolicy = {
+    async assertAllowed(url) {
+      assertAllowed(url);
+    },
+    async resolveAllowed(url) {
+      assertAllowed(url);
+      return ["8.8.8.8"];
+    },
+  };
+  const transport: HttpTransport = {
+    async request(url, _address, options) {
+      assertAllowed(url);
+      if (options.method !== "GET") {
+        throw new EgressPolicyError(
+          "EGRESS_BLOCKED",
+          "E2E fixture accepts GET only",
+        );
+      }
+      return {
+        status: 200,
+        headers: { "content-type": "application/json" },
+        body: new TextEncoder().encode(
+          '{"answer":42,"source":"workbench-e2e"}',
+        ),
+      };
+    },
+  };
+  return createHttpTool({ policy, transport });
+}
+
 export function composeToolRegistry() {
   const registry = createToolRegistry();
   registry.register(createTextTrimTool());
   registry.register(createJsonExtractTool());
   registry.register(createMarkdownToTextTool());
-  registry.register(createHttpTool());
+  registry.register(
+    fixtureModeEnabled() ? createFixtureHttpTool() : createHttpTool(),
+  );
   return registry;
 }
 
