@@ -254,7 +254,6 @@ export function createWorkflowEngine(
           }
           if (
             last &&
-            last.status !== "running" &&
             !canRetry(
               descriptor,
               node,
