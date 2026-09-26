@@ -179,13 +179,24 @@ export function createNodeHttpTransport(): HttpTransport {
         }
         const pinnedLookup = ((
           _host: string,
-          _opts: unknown,
+          lookupOptions: unknown,
           callback: (
             error: null,
-            address: string,
-            addressFamily: number,
+            address: string | { address: string; family: number }[],
+            addressFamily?: number,
           ) => void,
-        ) => callback(null, pinnedAddress, family)) as typeof dnsLookup;
+        ) => {
+          if (
+            typeof lookupOptions === "object" &&
+            lookupOptions !== null &&
+            "all" in lookupOptions &&
+            lookupOptions.all === true
+          ) {
+            callback(null, [{ address: pinnedAddress, family }]);
+          } else {
+            callback(null, pinnedAddress, family);
+          }
+        }) as typeof dnsLookup;
         const requester =
           url.protocol === "https:" ? httpsRequest : httpRequest;
         const req = requester(
