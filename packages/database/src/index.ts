@@ -5,6 +5,7 @@ export * from "./repositories/artifacts.js";
 export * from "./repositories/audit.js";
 export * from "./repositories/auth.js";
 export * from "./repositories/documents.js";
+export * from "./repositories/execution.js";
 export * from "./repositories/projects.js";
 export * from "./repositories/sync.js";
 export * from "./schema.js";
