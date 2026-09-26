@@ -464,7 +464,12 @@ export function createWorkflowEngine(
           usage,
           steps,
         });
-        await deps.store.complete({ executionId, finishedAt, usage: { ...usage }, receipt });
+        await deps.store.complete({
+          executionId,
+          finishedAt,
+          usage: { ...usage },
+          receipt,
+        });
         return (await reload(executionId)).view;
       } catch (error) {
         // Storage failures must propagate to the queue for a fenced retry.
