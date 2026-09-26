@@ -13,3 +13,5 @@ export type {
 } from "./model.js";
 export { ExecutionRepositoryError } from "./repository.js";
 export type { ExecutionRepository } from "./repository.js";
+export { createExecutionWorker } from "./worker.js";
+export type { ExecutionWorker, WorkerOptions } from "./worker.js";

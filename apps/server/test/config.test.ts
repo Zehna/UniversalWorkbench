@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadConfig } from "../src/config.js";
+import { loadConfig, runtimeRoles } from "../src/config.js";
 
 describe("server config", () => {
   it("accepts a valid Phase 0 configuration", () => {
@@ -25,11 +25,28 @@ describe("server config", () => {
     ]);
   });
 
-  it("rejects worker mode until the worker runtime exists", () => {
+  it("accepts worker-only mode without an HTTP listener", () => {
+    const config = loadConfig({
+      DATABASE_URL: "postgresql://u:p@localhost:5432/db",
+      APP_MODE: "worker",
+      WORKER_POLL_MS: "250",
+      WORKER_LEASE_MS: "5000",
+      WORKER_RETRY_MS: "10000",
+    });
+    expect(config.appMode).toBe("worker");
+    expect(config.workerPollMs).toBe(250);
+    expect(config.workerLeaseMs).toBe(5000);
+    expect(config.workerRetryMs).toBe(10000);
+    expect(runtimeRoles(config.appMode)).toEqual({ http: false, worker: true });
+    expect(runtimeRoles("all")).toEqual({ http: true, worker: true });
+    expect(runtimeRoles("api")).toEqual({ http: true, worker: false });
+  });
+
+  it("rejects invalid worker intervals", () => {
     expect(() =>
       loadConfig({
         DATABASE_URL: "postgresql://u:p@localhost:5432/db",
-        APP_MODE: "worker",
+        WORKER_LEASE_MS: "500",
       }),
     ).toThrow();
   });

@@ -3,6 +3,7 @@ import {
   bigint,
   bigserial,
   check,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -404,3 +405,37 @@ export const executionReceipts = pgTable("execution_receipts", {
     .notNull()
     .defaultNow(),
 });
+
+export const executionQueue = pgTable(
+  "execution_queue",
+  {
+    executionId: uuid("execution_id")
+      .primaryKey()
+      .references(() => executions.id),
+    availableAt: timestamp("available_at", { withTimezone: true }).notNull(),
+    enqueuedAt: timestamp("enqueued_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    leaseOwner: text("lease_owner"),
+    leaseToken: uuid("lease_token"),
+    leasedUntil: timestamp("leased_until", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+  },
+  (table) => [
+    index("execution_queue_ready_idx").on(
+      table.availableAt,
+      table.enqueuedAt,
+      table.executionId,
+    ),
+    index("execution_queue_lease_expiry_idx").on(table.leasedUntil),
+    check("execution_queue_attempts_check", sql`${table.attempts} >= 0`),
+    check(
+      "execution_queue_lease_consistency_check",
+      sql`(
+        (${table.leaseOwner} is null and ${table.leaseToken} is null and ${table.leasedUntil} is null)
+        or
+        (${table.leaseOwner} is not null and ${table.leaseToken} is not null and ${table.leasedUntil} is not null)
+      )`,
+    ),
+  ],
+);
