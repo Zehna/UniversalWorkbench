@@ -1,4 +1,4 @@
-import { lookup as dnsLookup } from "node:dns";
+import type { lookup as dnsLookup } from "node:dns";
 import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
