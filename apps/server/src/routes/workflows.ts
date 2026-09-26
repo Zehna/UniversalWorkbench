@@ -101,13 +101,11 @@ export function createWorkflowsRouter(deps: {
         traceId,
         ...(request.budget ? { budget: request.budget } : {}),
       });
-      res
-        .status(202)
-        .json({
-          executionId: execution.id,
-          status: execution.status,
-          traceId: execution.traceId,
-        });
+      res.status(202).json({
+        executionId: execution.id,
+        status: execution.status,
+        traceId: execution.traceId,
+      });
     } catch (error) {
       next(mapWorkflowHttpError(error));
     }
