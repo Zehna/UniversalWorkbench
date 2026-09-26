@@ -330,7 +330,7 @@ export function createPostgresExecutionRepository(
       return terminalTransition(pool, { ...input, status: "failed" });
     },
 
-    async cancel(executionId, finishedAt) {
+    async cancel(executionId, finishedAt, receipt) {
       const client = await pool.connect();
       try {
         await client.query("begin");
@@ -350,7 +350,7 @@ export function createPostgresExecutionRepository(
         await insertReceipt(
           client,
           executionId,
-          {
+          receipt ?? {
             executionId,
             status: "cancelled",
             finishedAt: finishedAt.toISOString(),

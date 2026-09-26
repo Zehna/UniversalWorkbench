@@ -17,3 +17,21 @@ export { ExecutionRepositoryError } from "./repository.js";
 export type { ExecutionRepository } from "./repository.js";
 export { createExecutionWorker } from "./worker.js";
 export type { ExecutionWorker, WorkerOptions } from "./worker.js";
+export { validateBudget, requireBudget, outputSize } from "./budget.js";
+export type { ExecutionBudget, ExecutionUsage } from "./budget.js";
+export { createWorkflowEngine } from "./engine.js";
+export type {
+  ExecuteWorkflowInput,
+  WorkflowEngine,
+  WorkflowEngineDependencies,
+} from "./engine.js";
+export { ExecutionEngineError, safeExecutionError } from "./errors.js";
+export type { ExecutionEngineErrorCode } from "./errors.js";
+export { createExecutionReceipt } from "./receipt.js";
+export { canRetry, retryClass } from "./retry.js";
+export type {
+  ExecutionSubmission,
+  FinishStepInput,
+  StoredWorkflowRun,
+  WorkflowExecutionStore,
+} from "./store.js";

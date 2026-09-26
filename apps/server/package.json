@@ -21,6 +21,7 @@
     "@uw/shared": "*",
     "@uw/storage": "*",
     "@uw/sync": "*",
+    "@uw/tools": "*",
     "express": "^5.2.1",
     "ws": "8.21.3",
     "zod": "^4.0.0"

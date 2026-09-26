@@ -10,13 +10,21 @@ import {
   createPostgresAuthRepository,
   createPostgresDocumentRepository,
   createPostgresExecutionQueue,
+  createPostgresWorkflowExecutionStore,
   createPostgresProjectRepository,
   createPostgresSyncDocumentStore,
   createPostgresSyncProjectStore,
   createPostgresSyncRepository,
 } from "@uw/database";
 import { SystemClock, UuidGenerator } from "@uw/shared";
-import { createExecutionWorker } from "@uw/execution";
+import { createWorkflowEngine, createExecutionWorker } from "@uw/execution";
+import {
+  createToolRegistry,
+  createTextTrimTool,
+  createJsonExtractTool,
+  createMarkdownToTextTool,
+  createHttpTool,
+} from "@uw/tools";
 import { randomUUID } from "node:crypto";
 import { createSyncOperationApplier, createSyncService } from "@uw/sync";
 import { createLocalFilesystemStorage } from "@uw/storage";
@@ -92,26 +100,39 @@ export function composeApplication(
   return { app, pool, authService, syncService };
 }
 
-/**
- * The Task 8 engine is not installed yet. Pending jobs are released for retry,
- * never ACKed or marked completed by this placeholder processor.
- */
+/** Create the same pinned registry for API validation and worker execution. */
+export function composeExecutionEngine(
+  pool: ReturnType<typeof createDatabasePool>,
+) {
+  const registry = createToolRegistry();
+  registry.register(createTextTrimTool());
+  registry.register(createJsonExtractTool());
+  registry.register(createMarkdownToTextTool());
+  registry.register(createHttpTool());
+
+  return createWorkflowEngine({
+    store: createPostgresWorkflowExecutionStore(pool),
+    registry,
+  });
+}
+
 export function composeWorker(
   config: ServerConfig,
   pool: ReturnType<typeof createDatabasePool>,
 ) {
+  const engine = composeExecutionEngine(pool);
   return createExecutionWorker({
     queue: createPostgresExecutionQueue(pool),
     workerId: randomUUID(),
     pollIntervalMs: config.workerPollMs,
     leaseMs: config.workerLeaseMs,
     retryDelayMs: config.workerRetryMs,
-    processor: async () => {
-      throw new Error("Workflow execution engine is not yet configured");
+    processor: async (executionId, signal) => {
+      await engine.process(executionId, signal);
     },
     onError: () => {
       console.warn(
-        "Execution worker could not process an item; released for retry",
+        "Execution worker encountered a retriable infrastructure error",
       );
     },
   });

@@ -13,7 +13,11 @@ export interface ExecutionRepository {
   recordStep(input: ExecutionStepRecord): Promise<void>;
   complete(input: CompleteExecutionRecord): Promise<void>;
   fail(input: FailExecutionRecord): Promise<void>;
-  cancel(executionId: string, finishedAt: Date): Promise<void>;
+  cancel(
+    executionId: string,
+    finishedAt: Date,
+    receipt?: Record<string, unknown>,
+  ): Promise<void>;
   get(
     ownerId: string,
     projectId: string,

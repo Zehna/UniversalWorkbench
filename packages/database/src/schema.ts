@@ -439,3 +439,26 @@ export const executionQueue = pgTable(
     ),
   ],
 );
+
+export const executionRequests = pgTable(
+  "execution_requests",
+  {
+    executionId: uuid("execution_id")
+      .primaryKey()
+      .references(() => executions.id),
+    grantedPermissions: jsonb("granted_permissions")
+      .$type<string[]>()
+      .notNull(),
+    budget: jsonb("budget").$type<Record<string, number>>().notNull(),
+  },
+  (table) => [
+    check(
+      "execution_requests_permissions_check",
+      sql`jsonb_typeof(${table.grantedPermissions}) = 'array'`,
+    ),
+    check(
+      "execution_requests_budget_check",
+      sql`jsonb_typeof(${table.budget}) = 'object'`,
+    ),
+  ],
+);
