@@ -89,7 +89,8 @@ export function composeApplication(
   });
 
   const registry = composeToolRegistry();
-  const workflowPermissions = fixtureModeEnabled() ? ["network"] : [];
+  const workflowPermissions =
+    fixtureModeEnabled() || dockerSmokeFixtureEnabled() ? ["network"] : [];
   const executionStore = createPostgresWorkflowExecutionStore(pool);
   const engine = createWorkflowEngine({ store: executionStore, registry });
   const workflowService = createWorkflowService({
@@ -131,8 +132,18 @@ function fixtureModeEnabled(): boolean {
 }
 
 /**
- * E2E-only transport. No external connections are made; only the exact
- * deterministic HTTPS fixture URL is accepted. Disabled outside test mode.
+ * Docker smoke-only fixture. The injected transport serves one deterministic
+ * HTTPS fixture URL with no external network traffic and no egress bypass.
+ * Default-off; never enable in production deployments.
+ */
+function dockerSmokeFixtureEnabled(): boolean {
+  return process.env.WORKBENCH_DOCKER_SMOKE_FIXTURE === "1";
+}
+
+/**
+ * E2E and Docker-smoke-only transport. No external connections are made; only
+ * the exact deterministic HTTPS fixture URL is accepted. Disabled outside
+ * test mode and the explicit Docker smoke fixture flag.
  */
 function createFixtureHttpTool() {
   const fixtureUrl = "https://fixture.workbench.dev/response";
@@ -180,7 +191,9 @@ export function composeToolRegistry() {
   registry.register(createJsonExtractTool());
   registry.register(createMarkdownToTextTool());
   registry.register(
-    fixtureModeEnabled() ? createFixtureHttpTool() : createHttpTool(),
+    fixtureModeEnabled() || dockerSmokeFixtureEnabled()
+      ? createFixtureHttpTool()
+      : createHttpTool(),
   );
   return registry;
 }
