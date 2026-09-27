@@ -194,15 +194,14 @@ See [the architecture reference](../architecture/phase-3.md).
 
 Set `APP_MODE` for the server process:
 
-| Mode | API and sync WebSocket | Workflow worker |
-| --- | --- | --- |
-| `all` (default) | Yes | Yes |
-| `api` | Yes | No |
-| `worker` | No | Yes |
+| Mode            | API and sync WebSocket | Workflow worker |
+| --------------- | ---------------------- | --------------- |
+| `all` (default) | Yes                    | Yes             |
+| `api`           | Yes                    | No              |
+| `worker`        | No                     | Yes             |
 
 The worker requires an already-migrated PostgreSQL database. Important
-settings: `WORKER_POLL_MS` (default 500), `WORKER_LEASE_MS` (default
-60000) and `WORKER_RETRY_MS` (default 30000). A separate API and worker can
+settings: `WORKER_POLL_MS` (default 500), `WORKER_LEASE_MS` (default 60000) and `WORKER_RETRY_MS` (default 30000). A separate API and worker can
 point to the same database. No Redis service is required.
 
 For a local split-mode development session, run the existing migration command

@@ -10,16 +10,16 @@ Phase 3 adds typed, pinned tools and durable workflow execution to the Phase 2
 local-first project workspace. The server remains a modular monolith, with
 PostgreSQL 17 as its durable server database and queue.
 
-| Package | Responsibility |
-| --- | --- |
-| `@uw/contracts` | Versioned Zod schemas for context, tools, workflows and execution status. |
-| `@uw/context` | Permission-aware compatibility matching for `Send to...` candidates. |
-| `@uw/tools` | Exact-version registry, input/output validation, local transforms and policy-gated HTTP. |
-| `@uw/workflow` | DAG, binding and permission preflight; immutable workflow-definition versions. |
-| `@uw/execution` | Execution engine, budgets, retries, cancellation, receipts and worker. |
-| `@uw/database` | PostgreSQL workflow definitions, execution records, steps, provenance and leased queue. |
-| `apps/server` | Authenticated APIs, service composition and `all`/`api`/`worker` modes. |
-| `apps/web` | Mobile-first linear workflow editor, preflight, run status and artifact handoff. |
+| Package         | Responsibility                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| `@uw/contracts` | Versioned Zod schemas for context, tools, workflows and execution status.                |
+| `@uw/context`   | Permission-aware compatibility matching for `Send to...` candidates.                     |
+| `@uw/tools`     | Exact-version registry, input/output validation, local transforms and policy-gated HTTP. |
+| `@uw/workflow`  | DAG, binding and permission preflight; immutable workflow-definition versions.           |
+| `@uw/execution` | Execution engine, budgets, retries, cancellation, receipts and worker.                   |
+| `@uw/database`  | PostgreSQL workflow definitions, execution records, steps, provenance and leased queue.  |
+| `apps/server`   | Authenticated APIs, service composition and `all`/`api`/`worker` modes.                  |
+| `apps/web`      | Mobile-first linear workflow editor, preflight, run status and artifact handoff.         |
 
 Phase 2 local storage, sync, and conflict-resolution logic remains separate from
 workflow execution. The browser uses SQLite WASM + OPFS where available and a
