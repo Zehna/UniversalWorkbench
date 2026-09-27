@@ -171,17 +171,17 @@ TEST_DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
 
 It verifies OPFS/IndexedDB persistence, multi-device catch-up, offline reconnect, conflict preservation, tombstone no-resurrection, and revoked-device rejection.
 
-Run the canonical Docker Phase 2 vertical smoke:
+Run the canonical Docker vertical smoke (Phase 2 sync plus Phase 3 workflow):
 
 ```bash
-docker compose -f deploy/docker/compose.yml up -d --build
-SMOKE_SECRET_CANARY=phase2-local-canary node scripts/smoke-http.mjs
-docker compose -f deploy/docker/compose.yml logs --no-color > phase2-docker.log
-SMOKE_SECRET_CANARY=phase2-local-canary node scripts/verify-no-secrets.mjs phase2-docker.log
+WORKBENCH_DOCKER_SMOKE_FIXTURE=1 docker compose -f deploy/docker/compose.yml up -d --build
+WORKBENCH_DOCKER_SMOKE_FIXTURE=1 SMOKE_SECRET_CANARY=phase3-local-canary node scripts/smoke-http.mjs
+docker compose -f deploy/docker/compose.yml logs --no-color > phase3-docker.log
+SMOKE_SECRET_CANARY=phase3-local-canary node scripts/verify-no-secrets.mjs phase3-docker.log
 docker compose -f deploy/docker/compose.yml down -v
 ```
 
-The smoke covers owner setup, two devices, project/note sync, HTTP recovery, idempotent replay, stale conflict preservation, revocation, WebSocket catch-up, isolation headers, credential-log scanning, and logout.
+The smoke covers owner setup, two devices, project/note sync, HTTP recovery, idempotent replay, stale conflict preservation, revocation, WebSocket catch-up, isolation headers, credential-log scanning, and logout. The Phase 3 section additionally covers the tool catalog, an `HTTP -> JSON extract` execution with receipt and provenance checks, saving the output as an Artifact, and the execution cancellation gate. `WORKBENCH_DOCKER_SMOKE_FIXTURE=1` enables only the deterministic injected-transport HTTP fixture (`https://fixture.workbench.dev/response`); it makes no external network connections. Never enable it in production deployments.
 
 ## Phase 3 — Tool & Workflow Core
 
@@ -213,10 +213,13 @@ APP_MODE=api DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbe
 APP_MODE=worker DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test npm run dev -w @uw/server
 ```
 
-In the reference Compose deployment, the `app` service currently uses
-`APP_MODE=all`. Phase 3 Task 11 must extend the deployment smoke to exercise
-workflow execution and cancellation rather than treating the existing Phase 2
-sync smoke as sufficient.
+In the reference Compose deployment, the `app` service uses `APP_MODE=all`
+(API, sync WebSocket, and worker loop) while the `worker` service uses
+`APP_MODE=worker` (queue polling only, no HTTP listener, no published ports).
+Both share the PostgreSQL-backed leased queue, so either loop may claim
+available work. The deployment smoke exercises workflow execution, receipts,
+artifact handoff, and cancellation against this stack rather than treating
+the Phase 2 sync smoke as sufficient.
 
 ### Workflow API and execution
 
@@ -261,8 +264,10 @@ npx playwright install chromium --with-deps
 TEST_DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test npm run e2e:workflow
 ```
 
-The browser fixture is enabled only by the test-mode E2E launcher. It must
-never be used as evidence that arbitrary production HTTP egress is authorized.
+The browser fixture is enabled only by the test-mode E2E launcher, and the
+equivalent Docker smoke fixture only by the explicit
+`WORKBENCH_DOCKER_SMOKE_FIXTURE=1` flag. Neither must be used as evidence
+that arbitrary production HTTP egress is authorized.
 
 ### Troubleshooting
 

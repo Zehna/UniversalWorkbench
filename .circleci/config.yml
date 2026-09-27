@@ -42,7 +42,8 @@ jobs:
     machine:
       image: ubuntu-2404:current
     environment:
-      SMOKE_SECRET_CANARY: phase2-smoke-secret-canary-do-not-log
+      SMOKE_SECRET_CANARY: phase3-smoke-secret-canary-do-not-log
+      WORKBENCH_DOCKER_SMOKE_FIXTURE: "1"
     steps:
       - checkout
       - node/install:
@@ -53,22 +54,27 @@ jobs:
           name: Build and start reference deployment
           command: docker compose -f deploy/docker/compose.yml up -d --build
       - run:
+          name: Verify worker and app services are running
+          command: |
+            docker compose -f deploy/docker/compose.yml ps
+            docker compose -f deploy/docker/compose.yml ps worker | grep -q "Up"
+      - run:
           name: Smoke deployment
           command: node scripts/smoke-http.mjs
       - run:
           name: Capture deployment logs
           when: always
-          command: docker compose -f deploy/docker/compose.yml logs --no-color | tee phase2-docker.log
+          command: docker compose -f deploy/docker/compose.yml logs --no-color | tee phase3-docker.log
       - run:
           name: Check deployment logs for secrets
           when: always
-          command: node scripts/verify-no-secrets.mjs phase2-docker.log
+          command: node scripts/verify-no-secrets.mjs phase3-docker.log
       - run:
           name: Tear down
           when: always
           command: docker compose -f deploy/docker/compose.yml down -v
       - store_artifacts:
-          path: phase2-docker.log
+          path: phase3-docker.log
 
   browser-sync:
     docker:

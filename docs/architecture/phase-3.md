@@ -91,7 +91,10 @@ session, not from request JSON. Preflight checks server-granted permissions;
 content supplied by a tool or source cannot extend those permissions. The
 production composition currently grants no workflow network permission by
 default. The deterministic HTTP fixture and its network grant are enabled only
-with the explicit test environment guards in `apps/server/src/composition.ts`.
+with the explicit test environment guards in `apps/server/src/composition.ts`
+(`WORKBENCH_E2E_FIXTURE` for browser E2E, `WORKBENCH_DOCKER_SMOKE_FIXTURE`
+for the Docker smoke). Both are default-off and must never be enabled in
+production.
 
 The built-in HTTP tool permits only HTTP/HTTPS destinations passing its egress
 policy. It validates DNS-resolved addresses, blocks local/private/link-local
@@ -109,10 +112,14 @@ enforces a 512 KiB maximum.
 
 The Phase 0–2 sync, browser, Docker smoke and credential-canary gates remain
 permanent. Phase 3 adds workflow contract, tool, engine, queue, API, browser and
-golden-workflow coverage. The Phase 3 closing gate additionally requires a
-fresh-PostgreSQL test run, deployment workflow smoke, artifact and cancellation
-checks, plus inspection for secret leakage. A green CI run on an intermediate
-implementation is not proof that every Task 11 requirement is complete.
+golden-workflow coverage. The deployment smoke (`scripts/smoke-http.mjs`
+with `WORKBENCH_DOCKER_SMOKE_FIXTURE=1`) covers the tool catalog, an
+`HTTP -> JSON extract` execution with receipt and provenance checks, artifact
+handoff via `from-execution`, and the cancellation gate, against a stack
+running both `APP_MODE=all` and a worker-only service. The Phase 3 closing
+gate additionally requires a fresh-PostgreSQL test run plus inspection for
+secret leakage. A green CI run on an intermediate implementation is not proof
+that every Task 11 requirement is complete.
 
 AI providers and `HTTP -> JSON -> AI -> Note` are deferred to Phase 4. Wider
 ingestion, MCP/plugin expansion and private-release hardening belong to later

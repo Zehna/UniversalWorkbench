@@ -58,19 +58,26 @@ jobs:
           node-version: 24.21.0
       - run: npm ci
       - name: Build and start reference deployment
+        env:
+          WORKBENCH_DOCKER_SMOKE_FIXTURE: "1"
         run: docker compose -f deploy/docker/compose.yml up -d --build
+      - name: Verify worker and app services are running
+        run: |
+          docker compose -f deploy/docker/compose.yml ps
+          docker compose -f deploy/docker/compose.yml ps worker | grep -q "Up"
       - name: Smoke deployment
         env:
-          SMOKE_SECRET_CANARY: phase2-smoke-secret-canary-do-not-log
+          SMOKE_SECRET_CANARY: phase3-smoke-secret-canary-do-not-log
+          WORKBENCH_DOCKER_SMOKE_FIXTURE: "1"
         run: node scripts/smoke-http.mjs
       - name: Capture deployment logs
         if: always()
-        run: docker compose -f deploy/docker/compose.yml logs --no-color | tee phase2-docker.log
+        run: docker compose -f deploy/docker/compose.yml logs --no-color | tee phase3-docker.log
       - name: Verify deployment logs contain no secrets
         if: always()
         env:
-          SMOKE_SECRET_CANARY: phase2-smoke-secret-canary-do-not-log
-        run: node scripts/verify-no-secrets.mjs phase2-docker.log
+          SMOKE_SECRET_CANARY: phase3-smoke-secret-canary-do-not-log
+        run: node scripts/verify-no-secrets.mjs phase3-docker.log
       - name: Tear down
         if: always()
         run: docker compose -f deploy/docker/compose.yml down -v
