@@ -6,8 +6,8 @@ export const SecretRefSchema = z
   .string()
   .trim()
   .regex(
-    /^secret:\/\/(vault|local)\/[a-z0-9][a-z0-9._-]*$/,
-    "Secret ref must match secret://(vault|local)/[a-z0-9._-]+",
+    /^secret:\/\/(vault|local)\/[a-z0-9][a-z0-9._-]{0,127}$/,
+    "Secret ref must match secret://(vault|local)/[a-z0-9._-]+ (max 128 chars)",
   );
 
 export type SecretScope = z.infer<typeof SecretScopeSchema>;
@@ -18,7 +18,8 @@ export interface ParsedSecretRef {
   name: string;
 }
 
-const SECRET_REF_RE = /^secret:\/\/(vault|local)\/([a-z0-9][a-z0-9._-]*)$/;
+const SECRET_REF_RE =
+  /^secret:\/\/(vault|local)\/([a-z0-9][a-z0-9._-]{0,127})$/;
 
 export function parseSecretRef(ref: unknown): ParsedSecretRef {
   if (typeof ref !== "string") {
