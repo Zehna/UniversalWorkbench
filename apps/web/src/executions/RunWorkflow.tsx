@@ -5,6 +5,7 @@ import type {
   ToolDescriptor,
 } from "@uw/contracts";
 import { api, type WorkflowVersion } from "../api/client";
+import { findServerUnresolvableSecretRefs } from "../secrets/local-secrets";
 import {
   descriptorFor,
   linearTypesCompatible,
@@ -46,9 +47,13 @@ export function RunWorkflow({
   const missing = permissions.filter(
     (value) => !grantedPermissions.includes(value),
   );
+  const serverUnresolvable = findServerUnresolvableSecretRefs(
+    workflow.definition,
+  );
   const compatible =
     nodes.length > 0 && linearTypesCompatible(nodes, tools, inputType);
-  const blocked = missing.length > 0 || !compatible;
+  const blocked =
+    missing.length > 0 || !compatible || serverUnresolvable.length > 0;
 
   async function run(event: FormEvent) {
     event.preventDefault();
@@ -135,6 +140,13 @@ export function RunWorkflow({
             Missing permission: {missing.join(", ")}. The server has not granted
             this workflow permission. You cannot run it until the server policy
             allows it.
+          </p>
+        ) : null}
+        {serverUnresolvable.length > 0 ? (
+          <p role="alert">
+            server-unresolvable: {serverUnresolvable.join(", ")} stays on this
+            device; server runs will fail. Use a vault secret for server
+            execution.
           </p>
         ) : null}
         {blocked ? (
