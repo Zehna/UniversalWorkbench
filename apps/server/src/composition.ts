@@ -117,6 +117,7 @@ export function composeApplication(
     toolRegistry: registry,
     grantedWorkflowPermissions: workflowPermissions,
     executionRepository: executionStore,
+    vaultPool: pool,
   });
 
   return { app, pool, authService, syncService };

@@ -3,6 +3,7 @@ import {
   bigint,
   bigserial,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -459,6 +460,45 @@ export const executionRequests = pgTable(
     check(
       "execution_requests_budget_check",
       sql`jsonb_typeof(${table.budget}) = 'object'`,
+    ),
+  ],
+);
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+export const vaultSecrets = pgTable(
+  "vault_secrets",
+  {
+    ownerId: uuid("owner_id").notNull(),
+    name: text("name").notNull(),
+    keyVersion: integer("key_version").notNull(),
+    iv: bytea("iv").notNull(),
+    ciphertext: bytea("ciphertext").notNull(),
+    authTag: bytea("auth_tag").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("vault_secrets_owner_name_unique").on(table.ownerId, table.name),
+    index("vault_secrets_owner_idx").on(table.ownerId),
+    index("vault_secrets_version_idx").on(table.keyVersion),
+    check("vault_secrets_key_version_check", sql`${table.keyVersion} > 0`),
+    check("vault_secrets_iv_check", sql`octet_length(${table.iv}) = 12`),
+    check(
+      "vault_secrets_ciphertext_check",
+      sql`octet_length(${table.ciphertext}) > 0`,
+    ),
+    check(
+      "vault_secrets_auth_tag_check",
+      sql`octet_length(${table.authTag}) = 16`,
     ),
   ],
 );

@@ -9,6 +9,7 @@ import type { SyncService } from "@uw/sync";
 import type { WorkflowService } from "@uw/workflow";
 import type { ToolRegistry } from "@uw/tools";
 import type { ExecutionRepository } from "@uw/execution";
+import type { createVaultStore } from "@uw/database";
 import type { SessionCookieConfig } from "./middleware/auth.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { createAuthRouter } from "./routes/auth.js";
@@ -21,6 +22,7 @@ import { createSyncRouter } from "./routes/sync.js";
 import { createToolsRouter } from "./routes/tools.js";
 import { createWorkflowsRouter } from "./routes/workflows.js";
 import { createExecutionsRouter } from "./routes/executions.js";
+import { createVaultRouter } from "./routes/vault.js";
 
 export interface AppDependencies {
   databaseReady(): Promise<boolean>;
@@ -34,6 +36,7 @@ export interface AppDependencies {
   toolRegistry?: ToolRegistry;
   grantedWorkflowPermissions?: readonly string[];
   executionRepository?: ExecutionRepository;
+  vaultPool?: Parameters<typeof createVaultStore>[0];
 }
 
 function requestIdFromLocals(
@@ -48,9 +51,15 @@ function errorStatus(error: unknown): number {
   }
 
   const status = (error as { status?: unknown }).status;
-  return typeof status === "number" && status >= 400 && status < 500
-    ? status
-    : 500;
+  if (typeof status !== "number" || !Number.isInteger(status)) return 500;
+  // 4xx passes through; explicit 5xx (e.g. 503 VAULT_UNAVAILABLE) passes
+  // through only when the route supplied a stable error code, so unexpected
+  // failures still collapse to generic 500 without leaking internals.
+  if (status >= 400 && status < 500) return status;
+  if (status >= 500 && status < 600 && hasExplicitErrorCode(error)) {
+    return status;
+  }
+  return 500;
 }
 
 function errorCode(error: unknown, fallback: string): string {
@@ -208,6 +217,17 @@ export function createApp(deps: AppDependencies) {
     );
   }
 
+  if (hasAuthDependencies(deps) && deps.vaultPool) {
+    app.use(
+      "/api/vault",
+      createVaultRouter({
+        authService: deps.authService,
+        sessionCookie: deps.sessionCookie,
+        pool: deps.vaultPool,
+      }),
+    );
+  }
+
   const notFoundHandler: RequestHandler = (_req, res) => {
     const body = errorEnvelope(
       "NOT_FOUND",
@@ -243,6 +263,20 @@ export function createApp(deps: AppDependencies) {
       ) as ErrorEnvelope & { error: Record<string, unknown> };
       const details = errorDetails(error);
       if (details) Object.assign(body.error, details);
+      res.status(status).json(body);
+      return;
+    }
+
+    if (status >= 500 && status < 600) {
+      // Explicit service errors (e.g. 503 VAULT_UNAVAILABLE) keep their
+      // stable code and safe message; anything else stays generic 500.
+      const body = errorEnvelope(
+        errorCode(error, "INTERNAL_ERROR"),
+        hasExplicitErrorCode(error)
+          ? errorMessage(error, "Unexpected failure")
+          : "Unexpected failure",
+        requestId,
+      );
       res.status(status).json(body);
       return;
     }
