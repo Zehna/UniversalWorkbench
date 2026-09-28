@@ -28,8 +28,20 @@ try {
         totalRows: result.totalRows,
         perVersionCounts: result.perVersionCounts,
         rekeyed: result.rekeyed,
+        failed: result.failed,
       }),
     );
+    if (result.failed > 0) {
+      console.error(
+        JSON.stringify({
+          event: "vault.rekey.failed",
+          totalRows: result.totalRows,
+          rekeyed: result.rekeyed,
+          failed: result.failed,
+        }),
+      );
+      process.exitCode = 1;
+    }
   }
 } finally {
   await closeDatabasePool(pool);

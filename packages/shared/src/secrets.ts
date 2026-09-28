@@ -47,9 +47,50 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
+function redactError(error: Error, known: readonly string[]): Error {
+  const scrubbedMessage =
+    known.length > 0 ? scrubString(error.message, known) : error.message;
+  const copy = new Error(scrubbedMessage);
+  copy.name = known.length > 0 ? scrubString(error.name, known) : error.name;
+  if (typeof error.stack === "string") {
+    copy.stack =
+      known.length > 0 ? scrubString(error.stack, known) : error.stack;
+  }
+  const cause = (error as { cause?: unknown }).cause;
+  if (cause !== undefined) {
+    (copy as { cause?: unknown }).cause = redactValue(cause, known);
+  }
+  for (const [key, child] of Object.entries(error)) {
+    if (
+      key === "message" ||
+      key === "stack" ||
+      key === "name" ||
+      key === "cause"
+    ) {
+      continue;
+    }
+    if (isSecretLikeKey(key)) {
+      if (USAGE_NUMERIC_KEYS.has(key) && isValidUsageNumber(child)) {
+        (copy as unknown as Record<string, unknown>)[key] = child;
+      } else {
+        (copy as unknown as Record<string, unknown>)[key] = REDACTED;
+      }
+    } else {
+      (copy as unknown as Record<string, unknown>)[key] = redactValue(
+        child,
+        known,
+      );
+    }
+  }
+  return copy;
+}
+
 function redactValue(value: unknown, known: readonly string[]): unknown {
   if (typeof value === "string") {
     return known.length > 0 ? scrubString(value, known) : value;
+  }
+  if (value instanceof Error) {
+    return redactError(value, known);
   }
   if (Array.isArray(value)) {
     return value.map((item) => redactValue(item, known));
@@ -83,6 +124,10 @@ function redactValue(value: unknown, known: readonly string[]): unknown {
  * secret plaintexts via `knownSecrets` so every occurrence is scrubbed
  * from all strings, regardless of field name. Never log raw secrets
  * without supplying them here.
+ *
+ * `Error` instances are never returned as-is: a sanitized copy is
+ * returned with `message`, `stack`, `cause`, and own enumerable fields
+ * scrubbed. The original error is left untouched.
  */
 export function redactSecrets(
   value: unknown,

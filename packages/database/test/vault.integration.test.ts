@@ -443,4 +443,70 @@ describe("vault rekey", () => {
     );
     restoreEnvAfterEach();
   });
+
+  it("reports failure when a row has a corrupted authentication tag and leaves it unrotated", async () => {
+    const v1 = makeKeyB64();
+    const v2 = makeKeyB64();
+    setKeyring([{ version: 1, keyB64: v1 }]);
+    const ownerId = randomUUID();
+    const goodPlaintext = `rekey-good-${randomUUID()}`;
+    const badPlaintext = `rekey-bad-${randomUUID()}`;
+    const store = createVaultStore(pool);
+    await store.put(ownerId, "good", goodPlaintext);
+    await store.put(ownerId, "bad", badPlaintext);
+
+    setKeyring([
+      { version: 1, keyB64: v1 },
+      { version: 2, keyB64: v2 },
+    ]);
+    await pool.query(
+      "update vault_secrets set auth_tag = $1 where owner_id = $2 and name = 'bad'",
+      [randomBytes(16), ownerId],
+    );
+
+    const result = await rekeyVault(pool);
+    expect(result.rekeyed).toBe(1);
+    expect(result.failed).toBe(1);
+    const versions = await pool.query<{ name: string; key_version: number }>(
+      "select name, key_version from vault_secrets where owner_id = $1 order by name",
+      [ownerId],
+    );
+    const byName = new Map(versions.rows.map((r) => [r.name, r.key_version]));
+    expect(byName.get("good")).toBe(2);
+    expect(byName.get("bad")).toBe(1);
+    await expect(createVaultStore(pool).get(ownerId, "good")).resolves.toBe(
+      goodPlaintext,
+    );
+    const dumped = JSON.stringify(result);
+    expect(dumped).not.toContain(goodPlaintext);
+    expect(dumped).not.toContain(badPlaintext);
+    expect(dumped).not.toContain(ownerId);
+    restoreEnvAfterEach();
+  });
+
+  it("reports failure when the old version key is unavailable and leaves rows unrotated", async () => {
+    const v1 = makeKeyB64();
+    const v2 = makeKeyB64();
+    setKeyring([{ version: 1, keyB64: v1 }]);
+    const ownerId = randomUUID();
+    const plaintext = `rekey-legacy-${randomUUID()}`;
+    await createVaultStore(pool).put(ownerId, "legacy", plaintext);
+
+    // v1 key dropped before rekey finished: row cannot be decrypted.
+    setKeyring([{ version: 2, keyB64: v2 }]);
+    const result = await rekeyVault(pool);
+    expect(result.rekeyed).toBe(0);
+    expect(result.failed).toBe(1);
+    const versions = await pool.query<{ name: string; key_version: number }>(
+      "select name, key_version from vault_secrets where owner_id = $1",
+      [ownerId],
+    );
+    expect(versions.rows[0]?.key_version).toBe(1);
+    const dumped = JSON.stringify(result);
+    expect(dumped).not.toContain(plaintext);
+    expect(dumped).not.toContain(ownerId);
+    expect(dumped).not.toContain(v1);
+    expect(dumped).not.toContain(v2);
+    restoreEnvAfterEach();
+  });
 });

@@ -282,12 +282,17 @@ export async function dryRunVaultRekey(pool: Pool): Promise<VaultStats> {
 
 export interface RekeyResult extends VaultStats {
   rekeyed: number;
+  failed: number;
 }
 
 /**
  * Re-encrypt every row not on the newest version. One transaction per row
  * (SELECT ... FOR UPDATE, decrypt-with-old, encrypt-with-new). Idempotent:
  * re-running after completion rekeys zero rows. Logs only ownerless totals.
+ * Rows that cannot be rotated (corrupted tag, missing old key, write
+ * failure) are left on their old version and counted in `failed` — never
+ * skipped silently. No owner ID, plaintext, or key material is logged or
+ * returned.
  */
 export async function rekeyVault(pool: Pool): Promise<RekeyResult> {
   const keyring = loadVaultKeyring();
@@ -301,6 +306,7 @@ export async function rekeyVault(pool: Pool): Promise<RekeyResult> {
   );
 
   let rekeyed = 0;
+  let failed = 0;
   for (const row of rows.rows) {
     const client = await pool.connect();
     try {
@@ -318,6 +324,7 @@ export async function rekeyVault(pool: Pool): Promise<RekeyResult> {
       if (!oldKey) {
         // Old key already dropped: leave the row for operator recovery.
         await client.query("rollback");
+        failed += 1;
         continue;
       }
       let plaintext: string;
@@ -332,6 +339,7 @@ export async function rekeyVault(pool: Pool): Promise<RekeyResult> {
         );
       } catch {
         await client.query("rollback");
+        failed += 1;
         continue;
       }
       const { iv, ciphertext, authTag } = encryptEnvelope(
@@ -360,6 +368,7 @@ export async function rekeyVault(pool: Pool): Promise<RekeyResult> {
       } catch {
         // Ignore rollback failures; the row stays on its old version.
       }
+      failed += 1;
     } finally {
       client.release();
     }
@@ -374,12 +383,14 @@ export async function rekeyVault(pool: Pool): Promise<RekeyResult> {
       to: keyring.newestVersion,
       totalRows: after.totalRows,
       rekeyed,
+      failed,
     }),
   );
   return {
     totalRows: after.totalRows,
     perVersionCounts: after.perVersionCounts,
     rekeyed,
+    failed,
   };
 }
 

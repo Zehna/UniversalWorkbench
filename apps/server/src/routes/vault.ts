@@ -51,10 +51,12 @@ function mapVaultError(error: unknown, secretValue?: string): unknown {
   if (error instanceof VaultValidationError) {
     return new HttpError(400, "BAD_REQUEST", "Invalid vault request");
   }
-  // Scrub any secret value that could travel in an unexpected error boundary.
-  const scrubbed = redactSecrets(error, known);
-  if (scrubbed instanceof Error) return scrubbed;
-  return error;
+  // Never forward a raw unexpected Error: it may carry plaintext or an API
+  // key in `message`/`stack`/`cause`. Scrub first (redactSecrets now clones
+  // Error instances instead of passing them through), then collapse to a
+  // generic 500 so nothing internal reaches the client.
+  redactSecrets(error, known);
+  return new HttpError(500, "INTERNAL_ERROR", "Unexpected failure");
 }
 
 export function createVaultRouter(deps: VaultRouterDependencies) {

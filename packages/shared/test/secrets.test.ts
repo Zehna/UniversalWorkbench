@@ -148,6 +148,19 @@ describe("redactSecrets", () => {
     expect(out["promptTokens"]).toBe(4);
   });
 
+  it("scrubs Error.message containing a secret canary without mutating the original", () => {
+    const canary = "sk-live-CANARY-9f8b7a6e5d4c3b2a10";
+    const err = new Error(`vault put failed with key ${canary} included`);
+    const originalMessage = err.message;
+    const out = redactSecrets(err, [canary]) as Error;
+    expect(out).toBeInstanceOf(Error);
+    expect(out).not.toBe(err);
+    expect(String(out.message)).not.toContain(canary);
+    expect(String(out.message)).toContain("[REDACTED]");
+    expect(err.message).toBe(originalMessage);
+    expect(String(out.stack ?? "")).not.toContain(canary);
+  });
+
   it("isSecretLikeKey matches the contract pattern", () => {
     expect(isSecretLikeKey("apiKey")).toBe(true);
     expect(isSecretLikeKey("Authorization")).toBe(true);
