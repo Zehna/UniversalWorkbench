@@ -1,0 +1,22 @@
+{
+  "name": "@uw/workflow",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "pretest": "npm run build -w @uw/contracts && npm run build -w @uw/tools",
+    "test": "vitest run",
+    "typecheck": "npm run build -w @uw/contracts && npm run build -w @uw/tools && tsc --noEmit",
+    "build": "npm run build -w @uw/contracts && npm run build -w @uw/tools && tsup src/index.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@uw/contracts": "*",
+    "@uw/tools": "*"
+  }
+}

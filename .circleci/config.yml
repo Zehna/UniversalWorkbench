@@ -1,0 +1,125 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@5.0.3
+
+jobs:
+  quality:
+    docker:
+      - image: cimg/node:24.21.0
+      - image: postgres:17-alpine
+        environment:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+    environment:
+      TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run verify:workspaces
+      - run: npm run format:check
+      - run:
+          name: Capture exact Prettier diff if quality fails
+          when: on_fail
+          command: |
+            target=docs/superpowers/plans/2026-09-25-phase-3-tools-workflow-core.md
+            npx prettier "$target" > /tmp/phase3-plan-formatted.md
+            diff -u "$target" /tmp/phase3-plan-formatted.md > prettier-format.patch || true
+            cat prettier-format.patch
+      - store_artifacts:
+          path: prettier-format.patch
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: node scripts/verify-pwa.mjs
+
+  docker-smoke:
+    machine:
+      image: ubuntu-2404:current
+    environment:
+      SMOKE_SECRET_CANARY: phase3-smoke-secret-canary-do-not-log
+      WORKBENCH_DOCKER_SMOKE_FIXTURE: "1"
+    steps:
+      - checkout
+      - node/install:
+          node-version: "24.21.0"
+      - run: node --version && npm --version
+      - run: npm ci
+      - run:
+          name: Build and start reference deployment
+          command: docker compose -f deploy/docker/compose.yml up -d --build
+      - run:
+          name: Verify worker and app services are running
+          command: |
+            docker compose -f deploy/docker/compose.yml ps
+            docker compose -f deploy/docker/compose.yml ps worker | grep -q "Up"
+      - run:
+          name: Smoke deployment
+          command: node scripts/smoke-http.mjs
+      - run:
+          name: Capture deployment logs
+          when: always
+          command: docker compose -f deploy/docker/compose.yml logs --no-color | tee phase3-docker.log
+      - run:
+          name: Check deployment logs for secrets
+          when: always
+          command: node scripts/verify-no-secrets.mjs phase3-docker.log
+      - run:
+          name: Tear down
+          when: always
+          command: docker compose -f deploy/docker/compose.yml down -v
+      - store_artifacts:
+          path: phase3-docker.log
+
+  browser-sync:
+    docker:
+      - image: cimg/node:24.21.0-browsers
+      - image: postgres:17-alpine
+        environment:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+    environment:
+      TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run e2e:sync
+      - store_artifacts:
+          path: test-results
+      - store_artifacts:
+          path: playwright-report
+
+  browser-workflow:
+    docker:
+      - image: cimg/node:24.21.0-browsers
+      - image: postgres:17-alpine
+        environment:
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+          POSTGRES_DB: workbench_test
+    environment:
+      TEST_DATABASE_URL: postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run e2e:workflow
+      - store_artifacts:
+          path: test-results
+      - store_artifacts:
+          path: playwright-report
+
+workflows:
+  universal-workbench-ci:
+    jobs:
+      - quality
+      - docker-smoke
+      - browser-sync
+      - browser-workflow

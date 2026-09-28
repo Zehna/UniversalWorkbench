@@ -22,6 +22,27 @@
       "when": 1789804724218,
       "tag": "0002_phase2_entity_sync_revision",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790403660000,
+      "tag": "0003_phase3_execution",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790403910000,
+      "tag": "0004_phase3_queue",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790404100000,
+      "tag": "0005_phase3_engine",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,23 @@
+{
+  "name": "@uw/tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "pretest": "npm run build -w @uw/contracts && npm run build -w @uw/context",
+    "test": "vitest run",
+    "typecheck": "npm run build -w @uw/contracts && npm run build -w @uw/context && tsc --noEmit",
+    "build": "npm run build -w @uw/contracts && npm run build -w @uw/context && tsup src/index.ts --format esm --dts --clean"
+  },
+  "dependencies": {
+    "@uw/context": "*",
+    "@uw/contracts": "*",
+    "zod": "^4.0.0"
+  }
+}

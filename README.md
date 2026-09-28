@@ -2,7 +2,7 @@
 
 Universal Workbench is a local-first, self-hosted-first workspace for connecting tools without losing project context or provenance.
 
-The current implementation boundary is **Phase 2 — Local-First & Sync**. The browser now writes project and note state locally first, persists pending operations across reloads, synchronizes through authenticated device-bound HTTP/WebSocket transports, and preserves local edits through conflict resolution.
+**Phase 3 — Tool & Workflow Core is under final verification on the development branch.** Phase 0–2 are merged to `main`; the branch adds typed tools and durable workflow execution while retaining Phase 2 local-first persistence, HTTP/WebSocket synchronization and explicit conflict resolution. Phase 3 is not release-complete until the remaining Task 11 checks pass on one final commit.
 
 ## Phase 2 capabilities
 
@@ -20,6 +20,24 @@ The current implementation boundary is **Phase 2 — Local-First & Sync**. The b
 - sync status and non-secret diagnostics;
 - canonical Docker Compose deployment with PostgreSQL, migrations, Express, nginx/PWA, OPFS isolation headers, and WebSocket proxying;
 - permanent CI gates covering Chromium multi-device/offline/fallback/conflict/chaos behavior and Docker vertical smoke.
+
+## Phase 3 development-branch capabilities
+
+- typed context envelopes, permission-aware Context Bus and version-pinned Tool Registry;
+- built-in HTTP, JSON extraction, text trim and Markdown-to-text tools;
+- linear-first workflow editor backed by DAG validation and permission preflight;
+- versioned workflow definitions, PostgreSQL execution records and a leased worker queue;
+- bounded execution with structured errors, retry controls, cancellation, receipts and provenance;
+- protected workflow APIs, status UI and server-scoped output saving as an Artifact;
+- permanent Phase 3 Chromium workflow gate alongside Phase 2 browser-sync and Docker gates.
+
+Production workflow network access is not granted by default. Deterministic HTTP
+fixtures used in browser tests are test-only; no AI tools are included yet.
+
+Task 11 is still in progress: golden workflow integration, expanded Phase 3
+deployment smoke, security review and same-commit final verification. See
+[the Phase 3 architecture](docs/architecture/phase-3.md) and
+[the implementation plan](docs/superpowers/plans/2026-09-25-phase-3-tools-workflow-core.md).
 
 ## Stack
 
@@ -39,6 +57,10 @@ The current implementation boundary is **Phase 2 — Local-First & Sync**. The b
 apps/web            local-first PWA client and browser persistence
 apps/server         Express API and sync WebSocket transport
 packages/auth       owner authentication and sessions
+packages/context    typed context compatibility bus
+packages/tools      version-pinned tool registry and built-ins
+packages/workflow   DAG validation, preflight and workflow service
+packages/execution  execution engine, receipts, retries and worker
 packages/contracts  shared runtime contracts
 packages/core       Action Layer and project domain
 packages/documents  revisioned note domain
@@ -53,8 +75,6 @@ docs                architecture, runbooks, specs, and plans
 
 ## Next boundary
 
-**Phase 3 owns Tool & Workflow execution**: typed tool contracts, execution records, linear-first DAG-capable workflows, permissions, and the first reusable `Send to...` paths.
+**Finish Phase 3 Task 11 before starting Phase 4.** AI providers and the `HTTP -> JSON -> AI -> Note` golden path are Phase 4 work. MCP/plugin expansion, broader ingestion and private-release hardening remain deferred.
 
-AI providers, MCP/plugin expansion, broader upload ingestion, and later private-release hardening remain deferred to their roadmap phases.
-
-See `docs/runbooks/local-development.md` for startup and verification commands, `docs/architecture/phase-2.md` for the current architecture, and `docs/superpowers/specs/2026-09-15-universal-workbench-design.md` for the approved product blueprint.
+See [the runbook](docs/runbooks/local-development.md), [Phase 2 architecture](docs/architecture/phase-2.md), [Phase 3 architecture](docs/architecture/phase-3.md) and [the product blueprint](docs/superpowers/specs/2026-09-15-universal-workbench-design.md).

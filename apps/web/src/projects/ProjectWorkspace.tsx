@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { NoteDocumentView, Project } from "@uw/contracts";
 import type { LocalConflictRecord } from "../local/store";
 import { NoteEditor } from "../documents/NoteEditor";
+import { WorkflowList } from "../workflows/WorkflowList";
 import { useSyncRuntime } from "../sync/runtime";
 
 interface ProjectWorkspaceProps {
@@ -15,6 +16,7 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
   const [conflicts, setConflicts] = useState<LocalConflictRecord[]>([]);
   const [selected, setSelected] = useState<NoteDocumentView | undefined>();
   const [creating, setCreating] = useState(false);
+  const [tab, setTab] = useState<"notes" | "workflows">("notes");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,42 +76,69 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
       </button>
       <h2>{project.name}</h2>
       {error ? <p role="alert">{error}</p> : null}
-      <div>
-        <h3>Notes</h3>
+      <nav
+        aria-label="Project tabs"
+        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+      >
         <button
           type="button"
-          onClick={() => {
-            setCreating(true);
-            setSelected(undefined);
-          }}
+          role="tab"
+          aria-selected={tab === "notes"}
+          onClick={() => setTab("notes")}
         >
-          New Note
+          Notes
         </button>
-        {notes.map((note) => (
-          <button
-            key={note.document.id}
-            type="button"
-            onClick={() => {
-              setSelected(note);
-              setCreating(false);
-            }}
-          >
-            {note.document.title}
-          </button>
-        ))}
-      </div>
-      {selected ? (
-        <NoteEditor
-          key={selected.document.id}
-          projectId={project.id}
-          initial={selected}
-          conflict={selectedConflict}
-          onSaved={saved}
-        />
-      ) : creating ? (
-        <NoteEditor key="new" projectId={project.id} onSaved={saved} />
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "workflows"}
+          onClick={() => setTab("workflows")}
+        >
+          Workflows
+        </button>
+      </nav>
+      {tab === "workflows" ? (
+        <WorkflowList projectId={project.id} />
       ) : (
-        <p>Select a note or create a new one.</p>
+        <>
+          <div>
+            <h3>Notes</h3>
+            <button
+              type="button"
+              onClick={() => {
+                setCreating(true);
+                setSelected(undefined);
+              }}
+            >
+              New Note
+            </button>
+            {notes.map((note) => (
+              <button
+                key={note.document.id}
+                type="button"
+                onClick={() => {
+                  setSelected(note);
+                  setCreating(false);
+                }}
+              >
+                {note.document.title}
+              </button>
+            ))}
+          </div>
+          {selected ? (
+            <NoteEditor
+              key={selected.document.id}
+              projectId={project.id}
+              initial={selected}
+              conflict={selectedConflict}
+              onSaved={saved}
+            />
+          ) : creating ? (
+            <NoteEditor key="new" projectId={project.id} onSaved={saved} />
+          ) : (
+            <p>Select a note or create a new one.</p>
+          )}
+        </>
       )}
     </section>
   );

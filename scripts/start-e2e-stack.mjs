@@ -9,7 +9,12 @@ const databaseUrl =
 const env = {
   ...process.env,
   DATABASE_URL: databaseUrl,
+  TEST_DATABASE_URL: databaseUrl,
   PORT: "3000",
+  // Phase 2 sync E2E requires API/WebSocket; workflow E2E can set E2E_APP_MODE=all.
+  APP_MODE: process.env.E2E_APP_MODE ?? "all",
+  NODE_ENV: "test",
+  WORKBENCH_E2E_FIXTURE: "1",
   SESSION_COOKIE_SECURE: "false",
   TRUSTED_ORIGINS: "http://127.0.0.1:4173,http://localhost:4173",
 };
@@ -44,6 +49,51 @@ async function waitFor(url, timeoutMs = 120_000) {
 
 run(["run", "migrate", "-w", "@uw/database"]);
 
+// Build each package once in dependency order. The ordinary server dev script
+// recursively rebuilds dependencies many times and exhausts CI startup time.
+const runtimeWorkspaces = [
+  "@uw/contracts",
+  "@uw/shared",
+  "@uw/context",
+  "@uw/tools",
+  "@uw/workflow",
+  "@uw/execution",
+  "@uw/auth",
+  "@uw/core",
+  "@uw/documents",
+  "@uw/storage",
+  "@uw/artifacts",
+  "@uw/sync",
+  "@uw/database",
+];
+for (const workspace of runtimeWorkspaces) {
+  console.error(`[e2e] Building ${workspace}`);
+  run([
+    "exec",
+    "-w",
+    workspace,
+    "--",
+    "tsup",
+    "src/index.ts",
+    "--format",
+    "esm",
+    "--dts",
+    "--clean",
+  ]);
+}
+console.error("[e2e] Building API server");
+run([
+  "exec",
+  "-w",
+  "@uw/server",
+  "--",
+  "tsup",
+  "src/index.ts",
+  "--format",
+  "esm",
+  "--clean",
+]);
+
 const children = [];
 function start(args) {
   const child = spawn(npmCommand(), args, {
@@ -57,15 +107,15 @@ function start(args) {
   return child;
 }
 
-start(["run", "dev", "-w", "@uw/server"]);
+start(["exec", "-w", "@uw/server", "--", "node", "dist/index.js"]);
 await waitFor("http://127.0.0.1:3000/health/ready");
 
 start([
-  "run",
-  "dev",
+  "exec",
   "-w",
   "@uw/web",
   "--",
+  "vite",
   "--host",
   "127.0.0.1",
   "--port",

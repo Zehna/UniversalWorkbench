@@ -3,6 +3,7 @@ import {
   bigint,
   bigserial,
   check,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -243,6 +244,221 @@ export const syncTombstones = pgTable(
       table.ownerId,
       table.entityType,
       table.entityId,
+    ),
+  ],
+);
+
+export const workflowDefinitions = pgTable(
+  "workflow_definitions",
+  {
+    id: uuid("id").primaryKey(),
+    workflowId: uuid("workflow_id").notNull(),
+    version: integer("version").notNull(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => ownerAccounts.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    name: text("name").notNull(),
+    schemaVersion: integer("schema_version").notNull(),
+    definition: jsonb("definition").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("workflow_definitions_workflow_version_unique").on(
+      table.workflowId,
+      table.version,
+    ),
+    check("workflow_definitions_version_check", sql`${table.version} > 0`),
+    check(
+      "workflow_definitions_schema_version_check",
+      sql`${table.schemaVersion} > 0`,
+    ),
+  ],
+);
+
+export const executions = pgTable(
+  "executions",
+  {
+    id: uuid("id").primaryKey(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => ownerAccounts.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    workflowDefinitionId: uuid("workflow_definition_id")
+      .notNull()
+      .references(() => workflowDefinitions.id),
+    status: text("status").notNull(),
+    traceId: uuid("trace_id").notNull(),
+    inputContext: jsonb("input_context")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    error: jsonb("error").$type<Record<string, unknown>>(),
+    usage: jsonb("usage")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "executions_status_check",
+      sql`${table.status} in ('queued','running','completed','failed','cancelled','interrupted')`,
+    ),
+    check(
+      "executions_timing_check",
+      sql`(
+        (${table.status} = 'queued' and ${table.startedAt} is null and ${table.finishedAt} is null)
+        or (${table.status} = 'running' and ${table.startedAt} is not null and ${table.finishedAt} is null)
+        or (${table.status} in ('completed','failed','cancelled','interrupted') and ${table.finishedAt} is not null)
+      )`,
+    ),
+    check(
+      "executions_error_check",
+      sql`${table.error} is null or ${table.status} in ('failed','interrupted')`,
+    ),
+  ],
+);
+
+export const executionSteps = pgTable(
+  "execution_steps",
+  {
+    id: uuid("id").primaryKey(),
+    executionId: uuid("execution_id")
+      .notNull()
+      .references(() => executions.id),
+    nodeId: uuid("node_id").notNull(),
+    toolId: text("tool_id").notNull(),
+    toolVersion: text("tool_version").notNull(),
+    attempt: integer("attempt").notNull(),
+    status: text("status").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    inputContext: jsonb("input_context")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    outputContexts: jsonb("output_contexts")
+      .$type<unknown[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    error: jsonb("error").$type<Record<string, unknown>>(),
+    idempotencyKey: text("idempotency_key"),
+  },
+  (table) => [
+    unique("execution_steps_execution_node_attempt_unique").on(
+      table.executionId,
+      table.nodeId,
+      table.attempt,
+    ),
+    check("execution_steps_attempt_check", sql`${table.attempt} > 0`),
+    check(
+      "execution_steps_status_check",
+      sql`${table.status} in ('queued','running','completed','failed','cancelled','interrupted')`,
+    ),
+    check(
+      "execution_steps_timing_check",
+      sql`(
+        (${table.status} = 'queued' and ${table.startedAt} is null and ${table.finishedAt} is null)
+        or (${table.status} = 'running' and ${table.startedAt} is not null and ${table.finishedAt} is null)
+        or (${table.status} in ('completed','failed','cancelled','interrupted') and ${table.finishedAt} is not null)
+      )`,
+    ),
+  ],
+);
+
+export const provenanceEdges = pgTable(
+  "provenance_edges",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    executionId: uuid("execution_id")
+      .notNull()
+      .references(() => executions.id),
+    fromContextId: uuid("from_context_id").notNull(),
+    toContextId: uuid("to_context_id").notNull(),
+    nodeId: uuid("node_id").notNull(),
+  },
+  (table) => [
+    unique("provenance_edges_execution_context_node_unique").on(
+      table.executionId,
+      table.fromContextId,
+      table.toContextId,
+      table.nodeId,
+    ),
+  ],
+);
+
+export const executionReceipts = pgTable("execution_receipts", {
+  executionId: uuid("execution_id")
+    .primaryKey()
+    .references(() => executions.id),
+  receipt: jsonb("receipt").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const executionQueue = pgTable(
+  "execution_queue",
+  {
+    executionId: uuid("execution_id")
+      .primaryKey()
+      .references(() => executions.id),
+    availableAt: timestamp("available_at", { withTimezone: true }).notNull(),
+    enqueuedAt: timestamp("enqueued_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    leaseOwner: text("lease_owner"),
+    leaseToken: uuid("lease_token"),
+    leasedUntil: timestamp("leased_until", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+  },
+  (table) => [
+    index("execution_queue_ready_idx").on(
+      table.availableAt,
+      table.enqueuedAt,
+      table.executionId,
+    ),
+    index("execution_queue_lease_expiry_idx").on(table.leasedUntil),
+    check("execution_queue_attempts_check", sql`${table.attempts} >= 0`),
+    check(
+      "execution_queue_lease_consistency_check",
+      sql`(
+        (${table.leaseOwner} is null and ${table.leaseToken} is null and ${table.leasedUntil} is null)
+        or
+        (${table.leaseOwner} is not null and ${table.leaseToken} is not null and ${table.leasedUntil} is not null)
+      )`,
+    ),
+  ],
+);
+
+export const executionRequests = pgTable(
+  "execution_requests",
+  {
+    executionId: uuid("execution_id")
+      .primaryKey()
+      .references(() => executions.id),
+    grantedPermissions: jsonb("granted_permissions")
+      .$type<string[]>()
+      .notNull(),
+    budget: jsonb("budget").$type<Record<string, number>>().notNull(),
+  },
+  (table) => [
+    check(
+      "execution_requests_permissions_check",
+      sql`jsonb_typeof(${table.grantedPermissions}) = 'array'`,
+    ),
+    check(
+      "execution_requests_budget_check",
+      sql`jsonb_typeof(${table.budget}) = 'object'`,
     ),
   ],
 );

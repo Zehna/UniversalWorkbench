@@ -373,6 +373,276 @@ if (rejected.error?.code !== "SYNC_DEVICE_REJECTED") {
 const missedByB = await syncChanges(cookie, deviceBCursor);
 await websocketCatchUp(cookie, deviceB, deviceBCursor, missedByB);
 
+// --- Phase 3 workflow smoke (HTTP -> JSON, receipt, Artifact, cancel) ---
+// Requires the deterministic Docker smoke fixture:
+// WORKBENCH_DOCKER_SMOKE_FIXTURE=1 when starting the deployment. Without it
+// the run endpoint has no network grant and this section fails by design.
+const FIXTURE_HTTP_URL = "https://fixture.workbench.dev/response";
+
+function workflowEnvelope(type, payload, mimeType) {
+  return {
+    id: randomUUID(),
+    type,
+    schemaVersion: 1,
+    mimeType,
+    metadata: {},
+    payload,
+    provenance: { sourceContextIds: [] },
+    capabilities: [],
+  };
+}
+
+async function pollExecution(cookie, projectId, executionId, label) {
+  const deadline = Date.now() + 60_000;
+  let view;
+  for (;;) {
+    view = await expectJson(
+      await fetch(api(`/projects/${projectId}/executions/${executionId}`), {
+        headers: { cookie },
+      }),
+      200,
+      `${label} status`,
+    );
+    const status = view.execution?.status;
+    if (
+      status === "completed" ||
+      status === "failed" ||
+      status === "cancelled"
+    ) {
+      return view;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`${label} did not reach a terminal status in 60s`);
+    }
+    await sleep(1000);
+  }
+}
+
+const toolsCatalog = await expectJson(
+  await fetch(api("/tools"), { headers: { cookie } }),
+  200,
+  "tool catalog",
+);
+for (const toolId of [
+  "builtin.http.request",
+  "builtin.json.extract",
+  "builtin.text.trim",
+  "builtin.markdown.to-text",
+]) {
+  if (!toolsCatalog.tools?.some((tool) => tool.id === toolId)) {
+    throw new Error(
+      `tool catalog is missing ${toolId}; is the Phase 3 deployment running?`,
+    );
+  }
+}
+
+const httpNodeId = randomUUID();
+const extractNodeId = randomUUID();
+const smokeWorkflowId = randomUUID();
+const smokeWorkflow = {
+  id: smokeWorkflowId,
+  projectId,
+  name: "Phase 3 Smoke HTTP JSON",
+  schemaVersion: 1,
+  nodes: [
+    {
+      id: httpNodeId,
+      toolId: "builtin.http.request",
+      toolVersion: "1.0.0",
+      config: { method: "GET", url: FIXTURE_HTTP_URL },
+      input: { source: "workflow_input" },
+    },
+    {
+      id: extractNodeId,
+      toolId: "builtin.json.extract",
+      toolVersion: "1.0.0",
+      config: { path: "answer" },
+      input: { source: "node_output", nodeId: httpNodeId, outputIndex: 0 },
+    },
+  ],
+  edges: [{ from: httpNodeId, to: extractNodeId }],
+};
+
+const savedWorkflow = await expectJson(
+  await fetch(api(`/projects/${projectId}/workflows`), {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({ definition: smokeWorkflow }),
+  }),
+  201,
+  "workflow save",
+);
+if (savedWorkflow.workflow?.workflowId !== smokeWorkflowId) {
+  throw new Error("workflow save returned the wrong workflow");
+}
+
+const enqueued = await expectJson(
+  await fetch(
+    api(`/projects/${projectId}/workflows/${smokeWorkflowId}/executions`),
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({
+        input: workflowEnvelope("json", {}, "application/json"),
+      }),
+    },
+  ),
+  202,
+  "workflow run (HTTP -> JSON)",
+);
+if (typeof enqueued.executionId !== "string") {
+  throw new Error("workflow run did not return an executionId");
+}
+
+const completed = await pollExecution(
+  cookie,
+  projectId,
+  enqueued.executionId,
+  "HTTP -> JSON execution",
+);
+if (completed.execution.status !== "completed") {
+  throw new Error(
+    `HTTP -> JSON execution ended as ${completed.execution.status}: ${JSON.stringify(completed.execution.error ?? completed.receipt ?? {})}`,
+  );
+}
+const smokeSteps = completed.steps ?? [];
+if (
+  smokeSteps.map((step) => step.toolId).join(",") !==
+  "builtin.http.request,builtin.json.extract"
+) {
+  throw new Error("HTTP -> JSON execution did not run both pinned tools");
+}
+const extractedOutput = smokeSteps[1]?.outputContexts?.[0];
+if (extractedOutput?.payload !== 42) {
+  throw new Error(
+    `JSON extract did not yield the fixture answer: ${JSON.stringify(extractedOutput?.payload)}`,
+  );
+}
+if (
+  !completed.receipt ||
+  completed.receipt.status !== "completed" ||
+  !Array.isArray(completed.receipt.outputContextIds) ||
+  !completed.receipt.outputContextIds.includes(extractedOutput.id) ||
+  !Array.isArray(completed.receipt.provenance) ||
+  completed.receipt.provenance.length < 2
+) {
+  throw new Error("completed execution receipt is missing outputs/provenance");
+}
+const completedText = JSON.stringify(completed);
+if (
+  completedText.includes(secretCanary) ||
+  /uw_session|password/i.test(completedText)
+) {
+  throw new Error("execution view contains credential material");
+}
+
+const savedArtifact = await expectJson(
+  await fetch(api(`/projects/${projectId}/artifacts/from-execution`), {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({
+      executionId: enqueued.executionId,
+      outputContextId: extractedOutput.id,
+    }),
+  }),
+  201,
+  "save execution output as artifact",
+);
+const artifactId = savedArtifact.artifact?.id;
+if (typeof artifactId !== "string") {
+  throw new Error("artifact save did not return an artifact id");
+}
+const fetchedArtifact = await expectJson(
+  await fetch(api(`/projects/${projectId}/artifacts/${artifactId}`), {
+    headers: { cookie },
+  }),
+  200,
+  "artifact read",
+);
+if (fetchedArtifact.artifact?.id !== artifactId) {
+  throw new Error("artifact read returned the wrong artifact");
+}
+
+// Cancellation: a second execution is enqueued then cancelled. Either the
+// cancel wins (status cancelled) or the worker already finished it (409 with
+// EXECUTION_NOT_CANCELLABLE); both prove the cancellation gate.
+const trimNodeId = randomUUID();
+const trimWorkflowId = randomUUID();
+await expectJson(
+  await fetch(api(`/projects/${projectId}/workflows`), {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({
+      definition: {
+        id: trimWorkflowId,
+        projectId,
+        name: "Phase 3 Smoke Cancel",
+        schemaVersion: 1,
+        nodes: [
+          {
+            id: trimNodeId,
+            toolId: "builtin.text.trim",
+            toolVersion: "1.0.0",
+            config: {},
+            input: { source: "workflow_input" },
+          },
+        ],
+        edges: [],
+      },
+    }),
+  }),
+  201,
+  "cancel workflow save",
+);
+const enqueuedTrim = await expectJson(
+  await fetch(
+    api(`/projects/${projectId}/workflows/${trimWorkflowId}/executions`),
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({
+        input: workflowEnvelope("text", "  hello smoke  ", "text/plain"),
+      }),
+    },
+  ),
+  202,
+  "cancel workflow run",
+);
+const cancelResponse = await fetch(
+  api(`/projects/${projectId}/executions/${enqueuedTrim.executionId}/cancel`),
+  { method: "POST", headers: { cookie } },
+);
+if (cancelResponse.status === 200) {
+  const cancelled = await readJson(cancelResponse, "execution cancel");
+  if (cancelled.execution?.status !== "cancelled") {
+    throw new Error("execution cancel did not transition to cancelled");
+  }
+} else if (cancelResponse.status === 409) {
+  const conflict = await readJson(cancelResponse, "execution cancel");
+  if (conflict.error?.code !== "EXECUTION_NOT_CANCELLABLE") {
+    throw new Error(
+      `execution cancel returned unexpected 409: ${JSON.stringify(conflict)}`,
+    );
+  }
+} else {
+  throw new Error(`execution cancel returned HTTP ${cancelResponse.status}`);
+}
+const cancelFinal = await pollExecution(
+  cookie,
+  projectId,
+  enqueuedTrim.executionId,
+  "cancelled execution",
+);
+if (
+  !["cancelled", "completed", "failed"].includes(cancelFinal.execution.status)
+) {
+  throw new Error(
+    `cancelled execution ended as ${cancelFinal.execution.status}`,
+  );
+}
+
+console.log("docker Phase 3 workflow smoke passed");
+
 const logoutResponse = await fetch(api("/auth/logout"), {
   method: "POST",
   headers: { cookie },

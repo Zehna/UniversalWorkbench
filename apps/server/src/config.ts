@@ -3,7 +3,15 @@ import { z } from "zod";
 const ConfigSchema = z.object({
   DATABASE_URL: z.string().url(),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  APP_MODE: z.enum(["all", "api"]).default("all"),
+  APP_MODE: z.enum(["all", "api", "worker"]).default("all"),
+  WORKER_POLL_MS: z.coerce.number().int().min(10).max(60000).default(500),
+  WORKER_LEASE_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(3600000)
+    .default(60000),
+  WORKER_RETRY_MS: z.coerce.number().int().min(0).max(3600000).default(30000),
   SESSION_COOKIE_NAME: z.string().min(1).default("uw_session"),
   SESSION_COOKIE_SECURE: z
     .enum(["true", "false"])
@@ -28,7 +36,10 @@ const ConfigSchema = z.object({
 export interface ServerConfig {
   databaseUrl: string;
   port: number;
-  appMode: "all" | "api";
+  appMode: "all" | "api" | "worker";
+  workerPollMs: number;
+  workerLeaseMs: number;
+  workerRetryMs: number;
   sessionCookieName: string;
   sessionCookieSecure: boolean;
   sessionTtlSeconds: number;
@@ -44,10 +55,20 @@ export function loadConfig(
     databaseUrl: parsed.DATABASE_URL,
     port: parsed.PORT,
     appMode: parsed.APP_MODE,
+    workerPollMs: parsed.WORKER_POLL_MS,
+    workerLeaseMs: parsed.WORKER_LEASE_MS,
+    workerRetryMs: parsed.WORKER_RETRY_MS,
     sessionCookieName: parsed.SESSION_COOKIE_NAME,
     sessionCookieSecure: parsed.SESSION_COOKIE_SECURE,
     sessionTtlSeconds: parsed.SESSION_TTL_SECONDS,
     artifactsDir: parsed.ARTIFACTS_DIR,
     trustedOrigins: parsed.TRUSTED_ORIGINS,
   };
+}
+
+export function runtimeRoles(mode: ServerConfig["appMode"]): {
+  http: boolean;
+  worker: boolean;
+} {
+  return { http: mode !== "worker", worker: mode !== "api" };
 }

@@ -12,13 +12,16 @@ const shellStyle = {
   background: "#111111",
   color: "#f5f5f5",
   fontFamily: "system-ui, sans-serif",
-  padding: "20px",
+  padding: "clamp(8px, 3vw, 20px)",
+  boxSizing: "border-box",
 } as const;
 
 const cardStyle = {
   width: "min(100%, 760px)",
   margin: "0 auto",
-  padding: "24px",
+  padding: "clamp(12px, 3vw, 24px)",
+  boxSizing: "border-box",
+  overflowWrap: "anywhere",
   border: "1px solid #333333",
   borderRadius: "18px",
   background: "#181818",
@@ -42,7 +45,7 @@ export function App({
   return (
     <main style={shellStyle}>
       <section style={cardStyle} aria-labelledby="workbench-title">
-        <p>Phase 2 Local-first Sync</p>
+        <p>Local-first Sync · Workflow Runner</p>
         <h1 id="workbench-title">Universal Workbench</h1>
         <AuthGate>
           {(owner) => (

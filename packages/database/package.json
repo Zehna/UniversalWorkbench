@@ -10,10 +10,10 @@
     }
   },
   "scripts": {
-    "pretest": "npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/documents && npm run build -w @uw/artifacts && npm run build -w @uw/sync",
+    "pretest": "npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/documents && npm run build -w @uw/artifacts && npm run build -w @uw/sync && npm run build -w @uw/execution",
     "test": "vitest run",
-    "typecheck": "npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/documents && npm run build -w @uw/artifacts && npm run build -w @uw/sync && tsc --noEmit",
-    "build": "npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/documents && npm run build -w @uw/artifacts && npm run build -w @uw/sync && tsup src/index.ts --format esm --dts --clean",
+    "typecheck": "npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/documents && npm run build -w @uw/artifacts && npm run build -w @uw/sync && npm run build -w @uw/execution && tsc --noEmit",
+    "build": "npm run build -w @uw/auth && npm run build -w @uw/core && npm run build -w @uw/documents && npm run build -w @uw/artifacts && npm run build -w @uw/sync && npm run build -w @uw/execution && tsup src/index.ts --format esm --dts --clean",
     "migrate": "drizzle-kit migrate --config=drizzle.config.ts"
   },
   "dependencies": {
@@ -22,14 +22,17 @@
     "@uw/contracts": "*",
     "@uw/core": "*",
     "@uw/documents": "*",
+    "@uw/execution": "*",
     "@uw/storage": "*",
+    "@uw/sync": "*",
+    "@uw/workflow": "*",
     "drizzle-orm": "0.45.2",
-    "pg": "^8.16.0",
-    "@uw/sync": "*"
+    "pg": "^8.16.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/pg": "^8.15.0",
+    "@uw/tools": "*",
     "drizzle-kit": "^0.31.0"
   }
 }

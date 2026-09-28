@@ -17,12 +17,15 @@
     "@uw/core": "*",
     "@uw/database": "*",
     "@uw/documents": "*",
+    "@uw/execution": "*",
     "@uw/shared": "*",
     "@uw/storage": "*",
-    "express": "^5.2.1",
-    "zod": "^4.0.0",
     "@uw/sync": "*",
-    "ws": "8.21.3"
+    "@uw/tools": "*",
+    "@uw/workflow": "*",
+    "express": "^5.2.1",
+    "ws": "8.21.3",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
