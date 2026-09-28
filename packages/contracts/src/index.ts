@@ -1,3 +1,4 @@
+export * from "./ai.js";
 export * from "./artifact.js";
 export * from "./auth.js";
 export * from "./common.js";
@@ -7,6 +8,7 @@ export * from "./error.js";
 export * from "./execution.js";
 export * from "./health.js";
 export * from "./project.js";
+export * from "./secrets.js";
 export * from "./sync.js";
 export * from "./tool.js";
 export * from "./workflow.js";
