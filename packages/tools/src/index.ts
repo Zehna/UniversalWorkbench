@@ -21,8 +21,8 @@ export {
   createEgressPolicy,
   EgressPolicyError,
   isPublicAddress,
-} from "./network/egress-policy.js";
-export type { DnsResolver, EgressPolicy } from "./network/egress-policy.js";
+} from "@uw/egress";
+export type { DnsResolver, EgressPolicy } from "@uw/egress";
 export {
   classifyHttpIdempotency,
   createHttpTool,

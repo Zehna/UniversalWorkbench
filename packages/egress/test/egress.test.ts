@@ -3,7 +3,7 @@ import {
   createEgressPolicy,
   EgressPolicyError,
   isPublicAddress,
-} from "../src/network/egress-policy.js";
+} from "../src/index.js";
 
 describe("policy-gated HTTP egress", () => {
   it.each([
