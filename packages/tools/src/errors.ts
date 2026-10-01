@@ -17,7 +17,10 @@ export type ToolRuntimeErrorCode =
   | "INVALID_OUTPUT"
   | "NETWORK_FAILURE"
   | "TIMEOUT"
-  | "RESPONSE_TOO_LARGE";
+  | "RESPONSE_TOO_LARGE"
+  | "AI_SCHEMA_MISMATCH"
+  | "AI_PROVIDER_NOT_CONFIGURED"
+  | "LOCAL_SECRET_NOT_AVAILABLE_ON_SERVER";
 
 export class ToolRuntimeError extends Error {
   constructor(

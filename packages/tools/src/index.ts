@@ -9,6 +9,13 @@ export type {
   ToolIdempotency,
 } from "@uw/contracts";
 export { createJsonExtractTool } from "./builtin/json.js";
+export { createAiTool } from "./builtin/ai.js";
+export type {
+  AiProviderPort,
+  AiProviderPortRequest,
+  AiProviderPortResult,
+  AiToolDeps,
+} from "./builtin/ai.js";
 export { createMarkdownToTextTool } from "./builtin/markdown.js";
 export { createTextTrimTool } from "./builtin/text.js";
 export { ToolRegistryError, ToolRuntimeError } from "./errors.js";
