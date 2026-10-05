@@ -17,19 +17,30 @@ import {
   createPostgresSyncProjectStore,
   createPostgresSyncRepository,
 } from "@uw/database";
-import { SystemClock, UuidGenerator } from "@uw/shared";
+import { parseSecretRef, SystemClock, UuidGenerator } from "@uw/shared";
 import { createWorkflowEngine, createExecutionWorker } from "@uw/execution";
 import { createWorkflowService } from "@uw/workflow";
 import {
+  createAiTool,
   createToolRegistry,
   createTextTrimTool,
   createJsonExtractTool,
   createMarkdownToTextTool,
   createHttpTool,
   EgressPolicyError,
+  type AiProviderPort,
   type EgressPolicy,
   type HttpTransport,
 } from "@uw/tools";
+import {
+  createHttpProvider,
+  createMockProvider,
+  isMockAllowed,
+  type AiProvider,
+} from "@uw/providers";
+import { createVaultStore } from "@uw/database";
+import type { VaultStore } from "@uw/database";
+import { resolveSecretResource } from "./secrets/resolve.js";
 import { randomUUID } from "node:crypto";
 import { createSyncOperationApplier, createSyncService } from "@uw/sync";
 import { createLocalFilesystemStorage } from "@uw/storage";
@@ -88,9 +99,11 @@ export function composeApplication(
     clock,
   });
 
-  const registry = composeToolRegistry();
+  const registry = composeToolRegistry(pool);
   const workflowPermissions =
-    fixtureModeEnabled() || dockerSmokeFixtureEnabled() ? ["network"] : [];
+    fixtureModeEnabled() || dockerSmokeFixtureEnabled()
+      ? ["network", "ai"]
+      : [];
   const executionStore = createPostgresWorkflowExecutionStore(pool);
   const engine = createWorkflowEngine({ store: executionStore, registry });
   const workflowService = createWorkflowService({
@@ -186,7 +199,55 @@ function createFixtureHttpTool() {
   return createHttpTool({ policy, transport });
 }
 
-export function composeToolRegistry() {
+/**
+ * Real-provider wiring. The HTTP provider is registered only when the
+ * operator configured both a base URL and a credential reference; otherwise
+ * AI runs fail closed with `AI_PROVIDER_NOT_CONFIGURED`. The credential
+ * reference is a deployment gate only — per-request secrets always resolve
+ * from the node's own `secretRef` at run time.
+ */
+function httpProviderOptionsFromEnv():
+  | { id: string; baseUrl: string }
+  | null {
+  const baseUrl = process.env.AI_PROVIDER_BASE_URL;
+  const secretRef = process.env.AI_PROVIDER_SECRET_REF;
+  const id = process.env.AI_PROVIDER_ID ?? "http";
+  if (!baseUrl || !secretRef || !id) return null;
+  try {
+    parseSecretRef(secretRef);
+  } catch {
+    return null;
+  }
+  return { id, baseUrl };
+}
+
+export function composeAiTool(pool: Parameters<typeof createVaultStore>[0]) {
+  const vaultStore: VaultStore = createVaultStore(pool);
+  const providers = new Map<string, AiProviderPort>();
+  // The mock provider registers only behind the explicit test/fixture gate;
+  // production composition never serves it, so `providerId: "mock"` fails
+  // closed as an unknown provider there.
+  if (isMockAllowed()) {
+    const mock: AiProvider = createMockProvider();
+    const port: AiProviderPort = mock;
+    providers.set(port.id, port);
+  }
+  const httpOptions = httpProviderOptionsFromEnv();
+  if (httpOptions) {
+    const http: AiProvider = createHttpProvider(httpOptions);
+    const port: AiProviderPort = http;
+    providers.set(port.id, port);
+  }
+  return createAiTool({
+    providers,
+    resolveSecret: (ref: string, ownerId?: string) =>
+      resolveSecretResource(ref, ownerId ?? "", vaultStore),
+  });
+}
+
+export function composeToolRegistry(
+  pool: Parameters<typeof createVaultStore>[0],
+) {
   const registry = createToolRegistry();
   registry.register(createTextTrimTool());
   registry.register(createJsonExtractTool());
@@ -196,13 +257,14 @@ export function composeToolRegistry() {
       ? createFixtureHttpTool()
       : createHttpTool(),
   );
+  registry.register(composeAiTool(pool));
   return registry;
 }
 
 export function composeExecutionEngine(
   pool: ReturnType<typeof createDatabasePool>,
 ) {
-  const registry = composeToolRegistry();
+  const registry = composeToolRegistry(pool);
   return createWorkflowEngine({
     store: createPostgresWorkflowExecutionStore(pool),
     registry,

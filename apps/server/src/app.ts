@@ -17,6 +17,7 @@ import { createArtifactsRouter } from "./routes/artifacts.js";
 import { createDocumentsRouter } from "./routes/documents.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createProjectsRouter } from "./routes/projects.js";
+import { createSendToRouter } from "./routes/send-to.js";
 import { createSetupRouter } from "./routes/setup.js";
 import { createSyncRouter } from "./routes/sync.js";
 import { createToolsRouter } from "./routes/tools.js";
@@ -178,6 +179,16 @@ export function createApp(deps: AppDependencies) {
       "/projects",
       createProjectsRouter({ ...common, projectService: deps.projectService }),
     );
+    if (deps.executionRepository) {
+      app.use(
+        "/api/projects/:projectId",
+        createSendToRouter({
+          ...common,
+          documentService: deps.documentService,
+          executionRepository: deps.executionRepository,
+        }),
+      );
+    }
   }
 
   if (hasAuthDependencies(deps) && deps.toolRegistry) {

@@ -106,6 +106,9 @@ export function createArtifactsRouter(deps: ArtifactRouterDependencies) {
             sourceExecutionId: executionId,
             sourceContextId: outputContextId,
             toolId: step.toolId,
+            // ai_response outputs persist as JSON like any other payload;
+            // the 512 KiB cap below applies unchanged.
+            sourceOutputType: output.type,
           },
         },
         traceId,

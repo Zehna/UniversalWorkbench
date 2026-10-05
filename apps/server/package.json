@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "pretest": "npm run build -w @uw/sync && npm run build -w @uw/auth && npm run build -w @uw/database",
+    "pretest": "npm run build -w @uw/sync && npm run build -w @uw/auth && npm run build -w @uw/database && npm run build -w @uw/providers",
     "test": "vitest run",
-    "typecheck": "npm run build -w @uw/sync && npm run build -w @uw/auth && npm run build -w @uw/database && tsc --noEmit",
-    "build": "npm run build -w @uw/sync && npm run build -w @uw/auth && npm run build -w @uw/database && tsup src/index.ts --format esm --clean",
-    "dev": "npm run build -w @uw/sync && npm run build -w @uw/auth && npm run build -w @uw/database && tsx watch src/index.ts"
+    "typecheck": "npm run build -w @uw/sync && npm run build -w @uw/auth && npm run build -w @uw/database && npm run build -w @uw/providers && tsc --noEmit",
+    "build": "npm run build -w @uw/sync && npm run build -w @uw/auth && npm run build -w @uw/database && npm run build -w @uw/providers && tsup src/index.ts --format esm --clean",
+    "dev": "npm run build -w @uw/sync && npm run build -w @uw/auth && npm run build -w @uw/database && npm run build -w @uw/providers && tsx watch src/index.ts"
   },
   "dependencies": {
     "@uw/artifacts": "*",
@@ -18,6 +18,7 @@
     "@uw/database": "*",
     "@uw/documents": "*",
     "@uw/execution": "*",
+    "@uw/providers": "*",
     "@uw/shared": "*",
     "@uw/storage": "*",
     "@uw/sync": "*",

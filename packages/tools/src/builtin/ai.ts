@@ -42,7 +42,12 @@ export interface AiProviderPort {
 
 export interface AiToolDeps {
   providers: Map<string, AiProviderPort>;
-  resolveSecret: (ref: string) => Promise<string>;
+  /**
+   * Resolve a `secret://` reference at run time. The engine supplies the
+   * owner scope via the tool context; server resolvers must fail closed
+   * when it is absent.
+   */
+  resolveSecret: (ref: string, ownerId?: string) => Promise<string>;
 }
 
 const descriptor = ToolDescriptorSchema.parse({
@@ -218,7 +223,10 @@ export function createAiTool(deps: AiToolDeps): ToolExecutor {
 
       let secretValue: string;
       try {
-        secretValue = await deps.resolveSecret(toolConfig.secretRef);
+        secretValue = await deps.resolveSecret(
+          toolConfig.secretRef,
+          context.ownerId,
+        );
       } catch (error) {
         if (error instanceof ToolRuntimeError) {
           // Preserve typed codes (e.g. LOCAL_SECRET_NOT_AVAILABLE_ON_SERVER)

@@ -401,6 +401,7 @@ export function createWorkflowEngine(
                   executionId,
                   stepId: step.id,
                   projectId: run.projectId,
+                  ownerId: run.ownerId,
                   traceId: run.traceId,
                   signal: callSignal,
                   // Re-checked per step from the server grant: AI output

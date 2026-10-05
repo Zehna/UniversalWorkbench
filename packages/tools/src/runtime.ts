@@ -14,6 +14,8 @@ export interface ToolRunContext {
   signal: AbortSignal;
   permissions: ReadonlySet<string>;
   idempotencyKey?: string;
+  /** Owner scope for server-side secret resolution; absent in local/test runs. */
+  ownerId?: string;
 }
 
 export interface ToolRunResult {
