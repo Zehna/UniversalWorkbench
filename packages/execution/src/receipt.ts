@@ -1,4 +1,5 @@
 import type { WorkflowDefinition } from "@uw/contracts";
+import { normalizeUsage } from "./budget.js";
 import type { ExecutionUsage } from "./budget.js";
 import type {
   ExecutionJson,
@@ -37,7 +38,7 @@ export function createExecutionReceipt(input: {
     status: input.status,
     startedAt: input.startedAt?.toISOString() ?? null,
     finishedAt: input.finishedAt.toISOString(),
-    usage: { ...input.usage },
+    usage: { ...normalizeUsage(input.usage) },
     steps: input.steps.map((step) => ({
       nodeId: step.nodeId,
       toolId: step.toolId,

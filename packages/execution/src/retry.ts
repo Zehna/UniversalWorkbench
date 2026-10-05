@@ -13,6 +13,8 @@ export function retryClass(
     if (method === "GET" || method === "HEAD") return "safe";
   } else if (descriptor.idempotency === "safe") {
     return "safe";
+  } else if (descriptor.idempotency === "keyed") {
+    return "keyed";
   }
   return node.idempotencyKey ? "keyed" : "unsafe";
 }
@@ -32,10 +34,15 @@ export function canRetry(
       "CANCELLED",
       "INVALID_INPUT",
       "INVALID_CONFIG",
+      "INVALID_OUTPUT",
       "PERMISSION_DENIED",
       "BUDGET_STEPS",
       "BUDGET_DURATION",
       "BUDGET_OUTPUT",
+      "BUDGET_EXCEEDED",
+      "AI_SCHEMA_MISMATCH",
+      "AI_PROVIDER_NOT_CONFIGURED",
+      "LOCAL_SECRET_NOT_AVAILABLE_ON_SERVER",
     ].includes(errorCode)
   ) {
     return false;

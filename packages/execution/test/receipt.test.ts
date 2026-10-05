@@ -84,4 +84,81 @@ describe("immutable final receipt payload", () => {
     });
     expect(JSON.stringify(result)).not.toContain("confidential-token");
   });
+
+  it("carries token totals with defaults for legacy usage and no secret bytes", () => {
+    const input = context("json", { task: "summarize" }, uuid(82));
+    const output = context(
+      "ai_response",
+      {
+        text: "answer",
+        model: "mock-model",
+        usage: { promptTokens: 6, completionTokens: 7, totalTokens: 13 },
+        usageSource: "provider",
+      },
+      uuid(83),
+    );
+    output.provenance = {
+      executionId: uuid(60),
+      stepId: uuid(61),
+      sourceContextIds: [input.id],
+    };
+    const action = node(1, "builtin.ai.complete", undefined, {
+      config: {
+        providerId: "mock",
+        model: "mock-model",
+        prompt: "summarize",
+        secretRef: "secret://vault/openai",
+      },
+    });
+    const withTokens = createExecutionReceipt({
+      executionId: uuid(60),
+      workflow: workflow([action]),
+      workflowVersion: 1,
+      status: "completed",
+      startedAt: new Date("2026-09-28T00:00:00.000Z"),
+      finishedAt: new Date("2026-09-28T00:00:01.000Z"),
+      usage: {
+        attempts: 1,
+        inputBytes: 10,
+        outputBytes: 20,
+        promptTokens: 6,
+        completionTokens: 7,
+        totalTokens: 13,
+      },
+      steps: [
+        {
+          id: uuid(61),
+          executionId: uuid(60),
+          nodeId: action.id,
+          toolId: action.toolId,
+          toolVersion: action.toolVersion,
+          attempt: 1,
+          status: "completed",
+          startedAt: new Date("2026-09-28T00:00:00.000Z"),
+          finishedAt: new Date("2026-09-28T00:00:01.000Z"),
+          inputContext: input,
+          outputContexts: [output],
+          error: null,
+          idempotencyKey: null,
+        },
+      ],
+    });
+    expect(withTokens).toMatchObject({
+      usage: { promptTokens: 6, completionTokens: 7, totalTokens: 13 },
+    });
+    expect(JSON.stringify(withTokens)).not.toContain("sk-");
+    const legacy = createExecutionReceipt({
+      executionId: uuid(60),
+      workflow: workflow([action]),
+      workflowVersion: 1,
+      status: "completed",
+      startedAt: new Date("2026-09-28T00:00:00.000Z"),
+      finishedAt: new Date("2026-09-28T00:00:01.000Z"),
+      usage: { attempts: 1, inputBytes: 10, outputBytes: 20 },
+      steps: [],
+    });
+    expect(legacy).toMatchObject({
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    });
+  });
 });
