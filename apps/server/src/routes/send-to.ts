@@ -1,11 +1,16 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { ContextEnvelope, OwnerPublic } from "@uw/contracts";
+import type {
+  ContextEnvelope,
+  OwnerPublic,
+  SyncOperation,
+} from "@uw/contracts";
 import { IdSchema } from "@uw/contracts";
 import type { AuthService } from "@uw/auth";
 import type { DocumentService } from "@uw/documents";
 import type { ExecutionRepository } from "@uw/execution";
+import type { SyncRepository } from "@uw/sync";
 import { requireOwner, type SessionCookieConfig } from "../middleware/auth.js";
 import {
   HttpError,
@@ -18,6 +23,12 @@ interface SendToRouterDependencies {
   sessionCookie: SessionCookieConfig;
   documentService: DocumentService;
   executionRepository: ExecutionRepository;
+  /**
+   * When present, server-saved notes also fan out as document.create sync
+   * changes so every device pulls them like normal documents. Absent in
+   * unit-test compositions, where the note write alone is asserted.
+   */
+  syncRepository?: SyncRepository;
 }
 
 const FromExecutionSchema = z.strictObject({
@@ -101,18 +112,55 @@ export function createSendToRouter(deps: SendToRouterDependencies) {
         typeof requestId === "string" && IdSchema.safeParse(requestId).success
           ? requestId
           : randomUUID();
+      const title =
+        output.type === "ai_response" ? "AI result" : "Workflow output";
       const document = await deps.documentService.createNote(
         owner.id,
         projectId,
-        {
-          title:
-            output.type === "ai_response"
-              ? "AI result"
-              : "Workflow output",
-          body,
-        },
+        { title, body },
         traceId,
       );
+      if (deps.syncRepository) {
+        // Fan the server-saved note out as a document.create change so every
+        // device pulls it like a normal document. Attribution needs a real
+        // device row (sync_operations.device_id is a foreign key); with no
+        // registered devices there is nobody to fan out to, so skip.
+        const devices = await deps.syncRepository.listDevices(owner.id);
+        const active = devices
+          .filter((device) => !device.revokedAt)
+          .sort((left, right) =>
+            left.lastSeenAt < right.lastSeenAt ? 1 : -1,
+          );
+        const attributing = active[0];
+        if (attributing) {
+          const note = JSON.parse(JSON.stringify(document)) as Record<
+            string,
+            unknown
+          >;
+          const operation: SyncOperation = {
+            id: randomUUID(),
+            deviceId: attributing.id,
+            projectId,
+            entityType: "document",
+            entityId: document.document.id,
+            action: "document.create",
+            baseRevision: null,
+            payload: { title, body },
+            createdAt: new Date().toISOString(),
+          };
+          await deps.syncRepository.persistAppliedOperation({
+            ownerId: owner.id,
+            operation,
+            resultRevision: document.revision.id,
+            change: {
+              kind: "upsert",
+              revision: document.revision.id,
+              payload: { note },
+            },
+            now: new Date(),
+          });
+        }
+      }
       res.status(201).json({ document });
     } catch (error) {
       next(mapDomainError(error));

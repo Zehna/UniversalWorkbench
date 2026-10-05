@@ -47,6 +47,10 @@ export function RunWorkflow({
   const missing = permissions.filter(
     (value) => !grantedPermissions.includes(value),
   );
+  const aiModels = nodes
+    .filter((node) => node.toolId === "builtin.ai.complete")
+    .map((node) => String((node.config as Record<string, unknown>).model ?? ""))
+    .filter((model) => model.length > 0);
   const serverUnresolvable = findServerUnresolvableSecretRefs(
     workflow.definition,
   );
@@ -131,6 +135,9 @@ export function RunWorkflow({
           Network:{" "}
           {permissions.includes("network") ? "Required" : "Not required"}
         </p>
+        <p>AI: {permissions.includes("ai") ? "Required" : "Not required"}</p>
+        {aiModels.length > 0 ? <p>AI models: {aiModels.join(", ")}</p> : null}
+        <p>Token budget: 200,000 total tokens (server default)</p>
         <p>
           Input/output compatibility:{" "}
           {compatible ? "Compatible" : "Incompatible"}

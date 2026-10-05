@@ -5,7 +5,7 @@ import type { ArtifactService } from "@uw/artifacts";
 import type { ErrorEnvelope } from "@uw/contracts";
 import type { ProjectService } from "@uw/core";
 import type { DocumentService } from "@uw/documents";
-import type { SyncService } from "@uw/sync";
+import type { SyncRepository, SyncService } from "@uw/sync";
 import type { WorkflowService } from "@uw/workflow";
 import type { ToolRegistry } from "@uw/tools";
 import type { ExecutionRepository } from "@uw/execution";
@@ -37,6 +37,7 @@ export interface AppDependencies {
   toolRegistry?: ToolRegistry;
   grantedWorkflowPermissions?: readonly string[];
   executionRepository?: ExecutionRepository;
+  syncRepository?: SyncRepository;
   vaultPool?: Parameters<typeof createVaultStore>[0];
 }
 
@@ -181,11 +182,14 @@ export function createApp(deps: AppDependencies) {
     );
     if (deps.executionRepository) {
       app.use(
-        "/api/projects/:projectId",
+        ["/projects/:projectId", "/api/projects/:projectId"],
         createSendToRouter({
           ...common,
           documentService: deps.documentService,
           executionRepository: deps.executionRepository,
+          ...(deps.syncRepository
+            ? { syncRepository: deps.syncRepository }
+            : {}),
         }),
       );
     }
@@ -229,8 +233,10 @@ export function createApp(deps: AppDependencies) {
   }
 
   if (hasAuthDependencies(deps) && deps.vaultPool) {
+    // Both mounts: the dev proxy strips /api before forwarding, matching the
+    // tools/workflows/executions convention.
     app.use(
-      "/api/vault",
+      ["/vault", "/api/vault"],
       createVaultRouter({
         authService: deps.authService,
         sessionCookie: deps.sessionCookie,

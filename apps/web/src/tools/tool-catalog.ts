@@ -103,6 +103,15 @@ export function initialConfig(tool: ToolDescriptor): Record<string, unknown> {
       return { method: "GET", url: "" };
     case "builtin.json.extract":
       return { path: "" };
+    case "builtin.ai.complete":
+      return {
+        providerId: "mock",
+        model: "",
+        prompt: "",
+        secretRef: "secret://vault/",
+        responseFormat: { kind: "text" },
+        maxOutputTokens: 1024,
+      };
     default:
       return {};
   }

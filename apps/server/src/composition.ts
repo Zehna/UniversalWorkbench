@@ -130,6 +130,7 @@ export function composeApplication(
     toolRegistry: registry,
     grantedWorkflowPermissions: workflowPermissions,
     executionRepository: executionStore,
+    syncRepository,
     vaultPool: pool,
   });
 

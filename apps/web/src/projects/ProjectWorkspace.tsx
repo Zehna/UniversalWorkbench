@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
-import type { NoteDocumentView, Project } from "@uw/contracts";
+import type {
+  ContextEnvelope,
+  NoteDocumentView,
+  Project,
+  ToolDescriptor,
+} from "@uw/contracts";
 import type { LocalConflictRecord } from "../local/store";
+import { api } from "../api/client";
 import { NoteEditor } from "../documents/NoteEditor";
+import { SendToMenu } from "../send-to/SendToMenu";
 import { WorkflowList } from "../workflows/WorkflowList";
 import { useSyncRuntime } from "../sync/runtime";
 
@@ -18,6 +25,43 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<"notes" | "workflows">("notes");
   const [error, setError] = useState<string | null>(null);
+  const [tools, setTools] = useState<ToolDescriptor[]>([]);
+  const [grantedPermissions, setGrantedPermissions] = useState<string[]>([]);
+  const [sendToFor, setSendToFor] = useState<string | null>(null);
+  const [toolHint, setToolHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void api
+      .listTools()
+      .then((catalog) => {
+        if (!active) return;
+        setTools(catalog.tools);
+        setGrantedPermissions(catalog.grantedPermissions);
+      })
+      .catch(() => {
+        if (active) {
+          setTools([]);
+          setGrantedPermissions([]);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function noteContext(note: NoteDocumentView): ContextEnvelope {
+    return {
+      id: note.document.id,
+      type: "markdown",
+      schemaVersion: 1,
+      mimeType: "text/markdown",
+      metadata: {},
+      payload: note.revision.content.body,
+      provenance: { sourceContextIds: [] },
+      capabilities: [],
+    };
+  }
 
   useEffect(() => {
     let active = true;
@@ -113,17 +157,43 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
               New Note
             </button>
             {notes.map((note) => (
-              <button
-                key={note.document.id}
-                type="button"
-                onClick={() => {
-                  setSelected(note);
-                  setCreating(false);
-                }}
-              >
-                {note.document.title}
-              </button>
+              <div key={note.document.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelected(note);
+                    setCreating(false);
+                  }}
+                >
+                  {note.document.title}
+                </button>{" "}
+                <button
+                  type="button"
+                  aria-expanded={sendToFor === note.document.id}
+                  onClick={() =>
+                    setSendToFor((current) =>
+                      current === note.document.id ? null : note.document.id,
+                    )
+                  }
+                >
+                  Send to…
+                </button>
+                {sendToFor === note.document.id ? (
+                  <SendToMenu
+                    output={noteContext(note)}
+                    projectId={project.id}
+                    tools={tools}
+                    grantedPermissions={grantedPermissions}
+                    onSelectTool={(toolId) =>
+                      setToolHint(
+                        `Open Workflows to build a ${toolId} step for this note.`,
+                      )
+                    }
+                  />
+                ) : null}
+              </div>
             ))}
+            {toolHint ? <p role="status">{toolHint}</p> : null}
           </div>
           {selected ? (
             <NoteEditor

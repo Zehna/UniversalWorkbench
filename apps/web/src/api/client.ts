@@ -424,4 +424,18 @@ export const api = {
     );
     return ArtifactSchema.parse(body.artifact);
   },
+
+  async saveNoteFromExecution(
+    projectId: string,
+    executionId: string,
+    outputContextId: string,
+  ): Promise<NoteDocumentView> {
+    const body = record(
+      await request(`/projects/${projectId}/documents/from-execution`, {
+        method: "POST",
+        body: JSON.stringify({ executionId, outputContextId }),
+      }),
+    );
+    return NoteDocumentViewSchema.parse(record(body).document);
+  },
 };
