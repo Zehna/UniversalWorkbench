@@ -48,6 +48,10 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
       WORKBENCH_DOCKER_SMOKE_FIXTURE: ${WORKBENCH_DOCKER_SMOKE_FIXTURE:-}
+      # Test-only vault keyring for throwaway smoke deployments. Never commit
+      # real keys here; production sets VAULT_MASTER_KEYS from the deployment
+      # secret manager (see docs/runbook/vault.md).
+      VAULT_MASTER_KEYS: ${VAULT_MASTER_KEYS:-1:cGhhc2U0LWRvY2tlci1zbW9rZS10ZXN0LWtleXJpbmc=}
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,6 +81,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://workbench:workbench@postgres:5432/workbench}
       ARTIFACTS_DIR: /app/data/artifacts
       WORKBENCH_DOCKER_SMOKE_FIXTURE: ${WORKBENCH_DOCKER_SMOKE_FIXTURE:-}
+      VAULT_MASTER_KEYS: ${VAULT_MASTER_KEYS:-1:cGhhc2U0LWRvY2tlci1zbW9rZS10ZXN0LWtleXJpbmc=}
     depends_on:
       postgres:
         condition: service_healthy

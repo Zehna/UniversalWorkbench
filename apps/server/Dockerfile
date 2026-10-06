@@ -11,7 +11,9 @@ COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/database/package.json packages/database/package.json
 COPY packages/documents/package.json packages/documents/package.json
+COPY packages/egress/package.json packages/egress/package.json
 COPY packages/execution/package.json packages/execution/package.json
+COPY packages/providers/package.json packages/providers/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/storage/package.json packages/storage/package.json
 COPY packages/sync/package.json packages/sync/package.json
@@ -28,7 +30,9 @@ COPY packages/contracts packages/contracts
 COPY packages/core packages/core
 COPY packages/database packages/database
 COPY packages/documents packages/documents
+COPY packages/egress packages/egress
 COPY packages/execution packages/execution
+COPY packages/providers packages/providers
 COPY packages/shared packages/shared
 COPY packages/storage packages/storage
 COPY packages/sync packages/sync
@@ -37,7 +41,9 @@ COPY packages/workflow packages/workflow
 RUN npm run build -w @uw/contracts \
   && npm run build -w @uw/shared \
   && npm run build -w @uw/context \
+  && npm run build -w @uw/egress \
   && npm run build -w @uw/tools \
+  && npm run build -w @uw/providers \
   && npm run build -w @uw/workflow \
   && npm run build -w @uw/execution \
   && npm run build -w @uw/storage \
@@ -73,8 +79,12 @@ COPY --from=build /app/packages/database/dist ./packages/database/dist
 COPY --from=build /app/packages/database/drizzle ./packages/database/drizzle
 COPY --from=build /app/packages/documents/package.json ./packages/documents/package.json
 COPY --from=build /app/packages/documents/dist ./packages/documents/dist
+COPY --from=build /app/packages/egress/package.json ./packages/egress/package.json
+COPY --from=build /app/packages/egress/dist ./packages/egress/dist
 COPY --from=build /app/packages/execution/package.json ./packages/execution/package.json
 COPY --from=build /app/packages/execution/dist ./packages/execution/dist
+COPY --from=build /app/packages/providers/package.json ./packages/providers/package.json
+COPY --from=build /app/packages/providers/dist ./packages/providers/dist
 COPY --from=build /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/storage/package.json ./packages/storage/package.json

@@ -7,11 +7,14 @@ import {
 } from "./types.js";
 
 export function isMockAllowed(): boolean {
+  // Docker smoke runs the production image; the smoke-scoped flag alone
+  // opens the mock there (mirrors dockerSmokeFixtureEnabled for the fixture
+  // HTTP tool). Operators never set this flag outside smoke runs.
+  if (process.env.WORKBENCH_DOCKER_SMOKE_FIXTURE === "1") return true;
   if (process.env.NODE_ENV !== "test") return false;
   return (
     process.env.WORKBENCH_AI_MOCK === "1" ||
-    process.env.WORKBENCH_E2E_FIXTURE === "1" ||
-    process.env.WORKBENCH_DOCKER_SMOKE_FIXTURE === "1"
+    process.env.WORKBENCH_E2E_FIXTURE === "1"
   );
 }
 

@@ -128,6 +128,15 @@ describe("mock provider", () => {
       expect(isMockAllowed()).toBe(true);
       expect(() => createMockProvider()).not.toThrow();
     });
+    // docker smoke runs the production image: the smoke-scoped flag alone
+    // opens the mock there
+    withEnv(
+      { NODE_ENV: "production", WORKBENCH_DOCKER_SMOKE_FIXTURE: "1" },
+      () => {
+        expect(isMockAllowed()).toBe(true);
+        expect(() => createMockProvider()).not.toThrow();
+      },
+    );
   });
 });
 
