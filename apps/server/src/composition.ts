@@ -34,8 +34,7 @@ import {
 } from "@uw/tools";
 import {
   createHttpProvider,
-  createMockProvider,
-  isMockAllowed,
+  mockProviderIfAllowed,
   type AiProvider,
 } from "@uw/providers";
 import { createVaultStore } from "@uw/database";
@@ -207,9 +206,7 @@ function createFixtureHttpTool() {
  * reference is a deployment gate only — per-request secrets always resolve
  * from the node's own `secretRef` at run time.
  */
-function httpProviderOptionsFromEnv():
-  | { id: string; baseUrl: string }
-  | null {
+function httpProviderOptionsFromEnv(): { id: string; baseUrl: string } | null {
   const baseUrl = process.env.AI_PROVIDER_BASE_URL;
   const secretRef = process.env.AI_PROVIDER_SECRET_REF;
   const id = process.env.AI_PROVIDER_ID ?? "http";
@@ -226,10 +223,11 @@ export function composeAiTool(pool: Parameters<typeof createVaultStore>[0]) {
   const vaultStore: VaultStore = createVaultStore(pool);
   const providers = new Map<string, AiProviderPort>();
   // The mock provider registers only behind the explicit test/fixture gate;
-  // production composition never serves it, so `providerId: "mock"` fails
-  // closed as an unknown provider there.
-  if (isMockAllowed()) {
-    const mock: AiProvider = createMockProvider();
+  // production composition never serves it, so the mock id fails closed as
+  // an unknown provider there.
+  const gatedMock = mockProviderIfAllowed();
+  if (gatedMock) {
+    const mock: AiProvider = gatedMock;
     const port: AiProviderPort = mock;
     providers.set(port.id, port);
   }

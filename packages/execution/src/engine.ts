@@ -7,7 +7,7 @@ import { runTool } from "@uw/tools";
 import type { ToolRegistry } from "@uw/tools";
 import { buildPreflightPlan, validateWorkflow } from "@uw/workflow";
 import type { ValidatedWorkflow } from "@uw/workflow";
-import { normalizeUsage, outputSize, requireBudget, validateBudget } from "./budget.js";
+import { outputSize, requireBudget, validateBudget } from "./budget.js";
 import type { ExecutionBudget, ExecutionUsage } from "./budget.js";
 import { ExecutionEngineError, safeExecutionError } from "./errors.js";
 import type {

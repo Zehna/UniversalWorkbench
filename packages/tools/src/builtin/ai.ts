@@ -14,7 +14,8 @@ export interface AiProviderPortRequest {
   model: string;
   prompt: string;
   systemPrompt?: string;
-  responseFormat: { kind: "text" } | { kind: "json"; jsonSchema: Record<string, unknown> };
+  responseFormat:
+    { kind: "text" } | { kind: "json"; jsonSchema: Record<string, unknown> };
   maxOutputTokens: number;
   timeoutMs: number;
   secretValue: string;
@@ -61,7 +62,10 @@ const descriptor = ToolDescriptorSchema.parse({
   capabilities: ["structured-output"],
   executionMode: "server",
   idempotency: "keyed",
-  configSchema: { type: "object", required: ["providerId", "model", "prompt", "secretRef"] },
+  configSchema: {
+    type: "object",
+    required: ["providerId", "model", "prompt", "secretRef"],
+  },
 });
 
 function inputToText(payload: unknown): string {
@@ -70,12 +74,16 @@ function inputToText(payload: unknown): string {
     const encoded = JSON.stringify(payload);
     return encoded ?? String(payload);
   } catch {
-    throw new ToolRuntimeError("INVALID_INPUT", "AI input payload cannot be serialized");
+    throw new ToolRuntimeError(
+      "INVALID_INPUT",
+      "AI input payload cannot be serialized",
+    );
   }
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
@@ -136,8 +144,10 @@ function validateAgainstSchema(schema: unknown, value: unknown): boolean {
   }
 
   if (typeof value === "string") {
-    if (typeof record.minLength === "number" && value.length < record.minLength) return false;
-    if (typeof record.maxLength === "number" && value.length > record.maxLength) return false;
+    if (typeof record.minLength === "number" && value.length < record.minLength)
+      return false;
+    if (typeof record.maxLength === "number" && value.length > record.maxLength)
+      return false;
     if (typeof record.pattern === "string") {
       try {
         if (!new RegExp(record.pattern).test(value)) return false;
@@ -147,8 +157,10 @@ function validateAgainstSchema(schema: unknown, value: unknown): boolean {
     }
   }
   if (typeof value === "number" && Number.isFinite(value)) {
-    if (typeof record.minimum === "number" && value < record.minimum) return false;
-    if (typeof record.maximum === "number" && value > record.maximum) return false;
+    if (typeof record.minimum === "number" && value < record.minimum)
+      return false;
+    if (typeof record.maximum === "number" && value > record.maximum)
+      return false;
   }
 
   if (isPlainObject(value)) {
@@ -160,11 +172,17 @@ function validateAgainstSchema(schema: unknown, value: unknown): boolean {
     if (isPlainObject(record.properties)) {
       for (const [key, sub] of Object.entries(record.properties)) {
         if (Object.hasOwn(value, key)) {
-          if (!validateAgainstSchema(sub, (value as Record<string, unknown>)[key])) return false;
+          if (
+            !validateAgainstSchema(sub, (value as Record<string, unknown>)[key])
+          )
+            return false;
         }
       }
     }
-    if (record.additionalProperties === false && isPlainObject(record.properties)) {
+    if (
+      record.additionalProperties === false &&
+      isPlainObject(record.properties)
+    ) {
       for (const key of Object.keys(value)) {
         if (!Object.hasOwn(record.properties, key)) return false;
       }
@@ -172,14 +190,22 @@ function validateAgainstSchema(schema: unknown, value: unknown): boolean {
   }
 
   if (Array.isArray(value)) {
-    if (typeof record.minItems === "number" && value.length < record.minItems) return false;
-    if (typeof record.maxItems === "number" && value.length > record.maxItems) return false;
+    if (typeof record.minItems === "number" && value.length < record.minItems)
+      return false;
+    if (typeof record.maxItems === "number" && value.length > record.maxItems)
+      return false;
     if (record.items !== undefined) {
       if (Array.isArray(record.items)) {
         for (let i = 0; i < record.items.length; i += 1) {
-          if (i < value.length && !validateAgainstSchema(record.items[i], value[i])) return false;
+          if (
+            i < value.length &&
+            !validateAgainstSchema(record.items[i], value[i])
+          )
+            return false;
         }
-      } else if (!value.every((item) => validateAgainstSchema(record.items, item))) {
+      } else if (
+        !value.every((item) => validateAgainstSchema(record.items, item))
+      ) {
         return false;
       }
     }
@@ -206,7 +232,10 @@ export function createAiTool(deps: AiToolDeps): ToolExecutor {
 
       const parsed = AiToolConfigSchema.safeParse(config);
       if (!parsed.success) {
-        throw new ToolRuntimeError("INVALID_CONFIG", "AI configuration is invalid");
+        throw new ToolRuntimeError(
+          "INVALID_CONFIG",
+          "AI configuration is invalid",
+        );
       }
       const toolConfig = parsed.data;
 
@@ -218,7 +247,10 @@ export function createAiTool(deps: AiToolDeps): ToolExecutor {
             "AI provider is not configured",
           );
         }
-        throw new ToolRuntimeError("INVALID_CONFIG", "AI configuration is invalid");
+        throw new ToolRuntimeError(
+          "INVALID_CONFIG",
+          "AI configuration is invalid",
+        );
       }
 
       let secretValue: string;
@@ -231,9 +263,15 @@ export function createAiTool(deps: AiToolDeps): ToolExecutor {
         if (error instanceof ToolRuntimeError) {
           // Preserve typed codes (e.g. LOCAL_SECRET_NOT_AVAILABLE_ON_SERVER)
           // but never echo resolver detail that could carry secret bytes.
-          throw new ToolRuntimeError(error.code, "AI secret could not be resolved");
+          throw new ToolRuntimeError(
+            error.code,
+            "AI secret could not be resolved",
+          );
         }
-        throw new ToolRuntimeError("INVALID_CONFIG", "AI secret could not be resolved");
+        throw new ToolRuntimeError(
+          "INVALID_CONFIG",
+          "AI secret could not be resolved",
+        );
       }
       const knownSecrets = secretValue.length > 0 ? [secretValue] : [];
 
@@ -243,7 +281,9 @@ export function createAiTool(deps: AiToolDeps): ToolExecutor {
         }
         const inputText = inputToText(validInput.payload);
         const prompt = `${toolConfig.prompt}\n\n${inputText}`;
-        const responseFormat = toolConfig.responseFormat ?? { kind: "text" as const };
+        const responseFormat = toolConfig.responseFormat ?? {
+          kind: "text" as const,
+        };
         const maxOutputTokens = toolConfig.maxOutputTokens ?? 1024;
         const timeoutMs = toolConfig.timeoutMs ?? 30_000;
 
@@ -253,7 +293,8 @@ export function createAiTool(deps: AiToolDeps): ToolExecutor {
         const request: AiProviderPortRequest = {
           model: toolConfig.model,
           prompt,
-          responseFormat: responseFormat as AiProviderPortRequest["responseFormat"],
+          responseFormat:
+            responseFormat as AiProviderPortRequest["responseFormat"],
           maxOutputTokens,
           timeoutMs,
           secretValue,
@@ -272,20 +313,36 @@ export function createAiTool(deps: AiToolDeps): ToolExecutor {
         } catch (error) {
           if (error instanceof ToolRuntimeError) throw error;
           const name = (error as { name?: unknown }).name;
-          if (name === "TimeoutError" || (error as Error)?.name === "TimeoutError") {
-            throw new ToolRuntimeError("TIMEOUT", "AI provider request timed out");
+          if (
+            name === "TimeoutError" ||
+            (error as Error)?.name === "TimeoutError"
+          ) {
+            throw new ToolRuntimeError(
+              "TIMEOUT",
+              "AI provider request timed out",
+            );
           }
           if (context.signal.aborted || timeout.aborted) {
             const abortedByCaller = context.signal.aborted;
             throw new ToolRuntimeError(
               "ABORTED",
-              abortedByCaller ? "AI execution was cancelled" : "AI provider request timed out",
+              abortedByCaller
+                ? "AI execution was cancelled"
+                : "AI provider request timed out",
             );
           }
           const code = (error as { code?: string }).code;
-          if (code === "TIMEOUT") throw new ToolRuntimeError("TIMEOUT", "AI provider request timed out");
-          if (code === "ABORTED") throw new ToolRuntimeError("ABORTED", "AI execution was cancelled");
-          throw new ToolRuntimeError("NETWORK_FAILURE", "AI provider request failed");
+          if (code === "TIMEOUT")
+            throw new ToolRuntimeError(
+              "TIMEOUT",
+              "AI provider request timed out",
+            );
+          if (code === "ABORTED")
+            throw new ToolRuntimeError("ABORTED", "AI execution was cancelled");
+          throw new ToolRuntimeError(
+            "NETWORK_FAILURE",
+            "AI provider request failed",
+          );
         }
 
         if (context.signal.aborted) {
@@ -324,9 +381,13 @@ export function createAiTool(deps: AiToolDeps): ToolExecutor {
             ? {}
             : { providerRequestId: result.providerRequestId }),
         };
-        const payloadParsed = AiResponsePayloadSchema.safeParse(payloadCandidate);
+        const payloadParsed =
+          AiResponsePayloadSchema.safeParse(payloadCandidate);
         if (!payloadParsed.success) {
-          throw new ToolRuntimeError("INVALID_OUTPUT", "AI provider returned an invalid result");
+          throw new ToolRuntimeError(
+            "INVALID_OUTPUT",
+            "AI provider returned an invalid result",
+          );
         }
 
         return createLocalResult(descriptor, validInput, context, {

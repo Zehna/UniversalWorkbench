@@ -128,9 +128,7 @@ export function createSendToRouter(deps: SendToRouterDependencies) {
         const devices = await deps.syncRepository.listDevices(owner.id);
         const active = devices
           .filter((device) => !device.revokedAt)
-          .sort((left, right) =>
-            left.lastSeenAt < right.lastSeenAt ? 1 : -1,
-          );
+          .sort((left, right) => (left.lastSeenAt < right.lastSeenAt ? 1 : -1));
         const attributing = active[0];
         if (attributing) {
           const note = JSON.parse(JSON.stringify(document)) as Record<

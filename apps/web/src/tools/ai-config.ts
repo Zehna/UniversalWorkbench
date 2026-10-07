@@ -27,9 +27,7 @@ export interface AiToolConfigInput {
  * Returns blocking error strings (empty when valid). A `secret://local/*`
  * ref is valid but device-only — see `isLocalSecretRef` for the warning.
  */
-export function validateAiToolConfig(
-  config: AiToolConfigInput,
-): string[] {
+export function validateAiToolConfig(config: AiToolConfigInput): string[] {
   const errors: string[] = [];
   if (
     typeof config.providerId !== "string" ||
@@ -124,7 +122,11 @@ export function parseJsonSchemaInput(value: unknown): {
   }
   try {
     const parsed: unknown = JSON.parse(value);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return { error: "JSON schema must be a JSON object." };
     }
     return { schema: parsed as Record<string, unknown> };

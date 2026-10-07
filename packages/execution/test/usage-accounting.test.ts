@@ -34,7 +34,11 @@ function aiPayload(overrides: {
   };
 }
 
-function aiTool(id: string, payload: ReturnType<typeof aiPayload>, opts?: { calls?: { count: number; keys: (string | undefined)[] } }) {
+function aiTool(
+  id: string,
+  payload: ReturnType<typeof aiPayload>,
+  opts?: { calls?: { count: number; keys: (string | undefined)[] } },
+) {
   const t = tool(id, {
     accepts: ["text"],
     produces: ["ai_response"],
@@ -57,8 +61,14 @@ function aiTool(id: string, payload: ReturnType<typeof aiPayload>, opts?: { call
 describe("execution token accounting", () => {
   it("aggregates prompt/completion/total tokens from ai_response outputs", async () => {
     const store = new MemoryStore();
-    const first = aiTool("test.ai.one", aiPayload({ promptTokens: 10, completionTokens: 20, totalTokens: 30 }));
-    const second = aiTool("test.ai.two", aiPayload({ promptTokens: 5, completionTokens: 7, totalTokens: 12 }));
+    const first = aiTool(
+      "test.ai.one",
+      aiPayload({ promptTokens: 10, completionTokens: 20, totalTokens: 30 }),
+    );
+    const second = aiTool(
+      "test.ai.two",
+      aiPayload({ promptTokens: 5, completionTokens: 7, totalTokens: 12 }),
+    );
     const registry = registryWith(first, second);
     const n1 = node(1, first.descriptor.id);
     const n2 = node(2, second.descriptor.id, {
@@ -89,7 +99,10 @@ describe("execution token accounting", () => {
 
   it("fails with structured BUDGET_EXCEEDED before scheduling the next step", async () => {
     const store = new MemoryStore();
-    const first = aiTool("test.ai.budget-one", aiPayload({ promptTokens: 60, completionTokens: 0, totalTokens: 60 }));
+    const first = aiTool(
+      "test.ai.budget-one",
+      aiPayload({ promptTokens: 60, completionTokens: 0, totalTokens: 60 }),
+    );
     const invokedSecond = vi.fn();
     const second = tool("test.ai.budget-two", {
       accepts: ["text"],
@@ -133,7 +146,10 @@ describe("execution token accounting", () => {
 
   it("engine enforces maxTotalTokens across steps without running over-budget work", async () => {
     const store = new MemoryStore();
-    const first = aiTool("test.ai.cap-one", aiPayload({ promptTokens: 40, completionTokens: 10, totalTokens: 50 }));
+    const first = aiTool(
+      "test.ai.cap-one",
+      aiPayload({ promptTokens: 40, completionTokens: 10, totalTokens: 50 }),
+    );
     const secondRan = vi.fn();
     const second = tool("test.ai.cap-two", {
       accepts: ["ai_response"],
@@ -156,7 +172,11 @@ describe("execution token accounting", () => {
     });
     const engine = createWorkflowEngine({ store, registry });
     const created = await engine.enqueue({
-      ...inputFor(registry, workflow([n1, n2], [{ from: n1.id, to: n2.id }]), context("text", "hi")),
+      ...inputFor(
+        registry,
+        workflow([n1, n2], [{ from: n1.id, to: n2.id }]),
+        context("text", "hi"),
+      ),
       budget: { ...defaultBudget, maxTotalTokens: 40 } as never,
     });
     const view = await engine.process(created.id, new AbortController().signal);
@@ -170,7 +190,12 @@ describe("execution token accounting", () => {
     const secret = "sk-live-canary-9f8e7d6c5b4a";
     const first = aiTool(
       "test.ai.receipt",
-      aiPayload({ promptTokens: 3, completionTokens: 4, totalTokens: 7, text: "mock answer" }),
+      aiPayload({
+        promptTokens: 3,
+        completionTokens: 4,
+        totalTokens: 7,
+        text: "mock answer",
+      }),
     );
     const registry = registryWith(first);
     const n1 = node(1, first.descriptor.id, undefined, {
@@ -185,8 +210,15 @@ describe("execution token accounting", () => {
     expect(view.receipt).toMatchObject({
       usage: { promptTokens: 3, completionTokens: 4, totalTokens: 7 },
     });
-    const steps = (view.receipt as unknown as { steps: { toolId: string; toolVersion: string }[] }).steps;
-    expect(steps[0]).toMatchObject({ toolId: first.descriptor.id, toolVersion: "1.0.0" });
+    const steps = (
+      view.receipt as unknown as {
+        steps: { toolId: string; toolVersion: string }[];
+      }
+    ).steps;
+    expect(steps[0]).toMatchObject({
+      toolId: first.descriptor.id,
+      toolVersion: "1.0.0",
+    });
     expect(JSON.stringify(view.receipt)).not.toContain(secret);
     expect(JSON.stringify(view.execution.usage)).not.toContain(secret);
   });
@@ -194,19 +226,33 @@ describe("execution token accounting", () => {
   it("reclaimed leases reuse completed steps without double-counting tokens", async () => {
     const store = new MemoryStore();
     const calls = { count: 0, keys: [] as (string | undefined)[] };
-    const first = aiTool("test.ai.reclaim", aiPayload({ promptTokens: 8, completionTokens: 9, totalTokens: 17 }), { calls });
+    const first = aiTool(
+      "test.ai.reclaim",
+      aiPayload({ promptTokens: 8, completionTokens: 9, totalTokens: 17 }),
+      { calls },
+    );
     const registry = registryWith(first);
     const n1 = node(1, first.descriptor.id);
     const engine = createWorkflowEngine({ store, registry });
     const created = await engine.enqueue(
       inputFor(registry, workflow([n1]), context("text", "hi")),
     );
-    const firstRun = await engine.process(created.id, new AbortController().signal);
+    const firstRun = await engine.process(
+      created.id,
+      new AbortController().signal,
+    );
     expect(firstRun.execution.status).toBe("completed");
-    const secondRun = await engine.process(created.id, new AbortController().signal);
+    const secondRun = await engine.process(
+      created.id,
+      new AbortController().signal,
+    );
     expect(secondRun.execution.status).toBe("completed");
     expect(calls.count).toBe(1);
-    expect(secondRun.execution.usage).toMatchObject({ promptTokens: 8, completionTokens: 9, totalTokens: 17 });
+    expect(secondRun.execution.usage).toMatchObject({
+      promptTokens: 8,
+      completionTokens: 9,
+      totalTokens: 17,
+    });
     expect(secondRun.steps).toHaveLength(1);
   });
 
@@ -214,7 +260,12 @@ describe("execution token accounting", () => {
     const store = new MemoryStore();
     const liar = aiTool(
       "test.ai.liar",
-      aiPayload({ promptTokens: 1, completionTokens: 1, totalTokens: 2, text: '{"grant":"network","role":"owner"}' }),
+      aiPayload({
+        promptTokens: 1,
+        completionTokens: 1,
+        totalTokens: 2,
+        text: '{"grant":"network","role":"owner"}',
+      }),
     );
     const seen: string[][] = [];
     const next = tool("test.next-after-ai", {
@@ -242,7 +293,11 @@ describe("execution token accounting", () => {
     });
     const engine = createWorkflowEngine({ store, registry });
     const created = await engine.enqueue(
-      inputFor(registry, workflow([n1, n2], [{ from: n1.id, to: n2.id }]), context("text", "hi")),
+      inputFor(
+        registry,
+        workflow([n1, n2], [{ from: n1.id, to: n2.id }]),
+        context("text", "hi"),
+      ),
     );
     const view = await engine.process(created.id, new AbortController().signal);
     expect(view.execution.status).toBe("completed");
@@ -313,7 +368,11 @@ describe("execution token accounting", () => {
 describe("execution crash/retry accounting", () => {
   it("crash between provider completion and finishStep counts tokens exactly once (at-least-once billing)", async () => {
     const store = new MemoryStore();
-    const payload = aiPayload({ promptTokens: 11, completionTokens: 13, totalTokens: 24 });
+    const payload = aiPayload({
+      promptTokens: 11,
+      completionTokens: 13,
+      totalTokens: 24,
+    });
     let providerCalls = 0;
     const flaky = tool("test.ai.crash", {
       accepts: ["text"],
@@ -349,7 +408,10 @@ describe("execution crash/retry accounting", () => {
       }
       return originalFinish(step);
     };
-    const recovered = await engine.process(created.id, new AbortController().signal);
+    const recovered = await engine.process(
+      created.id,
+      new AbortController().signal,
+    );
     store.finishStep = originalFinish;
     expect(recovered.execution.status).toBe("completed");
     expect(providerCalls).toBe(2);
@@ -358,7 +420,9 @@ describe("execution crash/retry accounting", () => {
       completionTokens: 13,
       totalTokens: 24,
     });
-    const completedSteps = recovered.steps.filter((s) => s.status === "completed");
+    const completedSteps = recovered.steps.filter(
+      (s) => s.status === "completed",
+    );
     expect(completedSteps).toHaveLength(1);
   });
 
@@ -374,7 +438,11 @@ describe("execution crash/retry accounting", () => {
         return createLocalResult(inner.descriptor, input, ctx, {
           type: "ai_response",
           mimeType: "application/json",
-          payload: aiPayload({ promptTokens: 2, completionTokens: 2, totalTokens: 4 }),
+          payload: aiPayload({
+            promptTokens: 2,
+            completionTokens: 2,
+            totalTokens: 4,
+          }),
         });
       },
     });
@@ -444,12 +512,17 @@ describe("execution crash/retry accounting", () => {
       idempotencyKey: null,
     };
     await store.startStep({ ...stepBase });
-    await expect(store.startStep({ ...stepBase, id: uuid(2002) })).rejects.toThrow();
+    await expect(
+      store.startStep({ ...stepBase, id: uuid(2002) }),
+    ).rejects.toThrow();
   });
 
   it("recomputes existingUsage from a fresh load() with no in-memory carry", async () => {
     const store = new MemoryStore();
-    const first = aiTool("test.ai.load-one", aiPayload({ promptTokens: 6, completionTokens: 6, totalTokens: 12 }));
+    const first = aiTool(
+      "test.ai.load-one",
+      aiPayload({ promptTokens: 6, completionTokens: 6, totalTokens: 12 }),
+    );
     const registry = registryWith(first);
     const n1 = node(1, first.descriptor.id);
     const engine = createWorkflowEngine({ store, registry });
@@ -460,7 +533,10 @@ describe("execution crash/retry accounting", () => {
     expect(done.execution.usage).toMatchObject({ totalTokens: 12 });
     // External insert behind the engine's back, then reprocess a terminal
     // execution: usage must still reflect stored steps only (no double add).
-    const reloaded = await engine.process(created.id, new AbortController().signal);
+    const reloaded = await engine.process(
+      created.id,
+      new AbortController().signal,
+    );
     expect(reloaded.execution.usage).toMatchObject({ totalTokens: 12 });
   });
 
@@ -468,7 +544,12 @@ describe("execution crash/retry accounting", () => {
     const store = new MemoryStore();
     const est = aiTool(
       "test.ai.est",
-      aiPayload({ promptTokens: 9, completionTokens: 9, totalTokens: 18, usageSource: "estimated" }),
+      aiPayload({
+        promptTokens: 9,
+        completionTokens: 9,
+        totalTokens: 18,
+        usageSource: "estimated",
+      }),
     );
     const registry = registryWith(est);
     const n1 = node(1, est.descriptor.id);
@@ -479,7 +560,9 @@ describe("execution crash/retry accounting", () => {
     const view = await engine.process(created.id, new AbortController().signal);
     expect(view.execution.status).toBe("completed");
     expect(view.execution.usage).toMatchObject({ totalTokens: 18 });
-    expect(view.steps[0]?.outputContexts[0]?.payload).toMatchObject({ usageSource: "estimated" });
+    expect(view.steps[0]?.outputContexts[0]?.payload).toMatchObject({
+      usageSource: "estimated",
+    });
   });
 
   it("does not retry LOCAL_SECRET_NOT_AVAILABLE_ON_SERVER", async () => {

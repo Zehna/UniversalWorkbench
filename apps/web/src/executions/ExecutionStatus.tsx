@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ContextEnvelope } from "@uw/contracts";
 import { api, type ExecutionDetails } from "../api/client";
-import {
-  formatTokenUsage,
-  usageSourceOf,
-} from "../send-to/send-to";
+import { formatTokenUsage, usageSourceOf } from "../send-to/send-to";
 
 interface ExecutionStatusProps {
   projectId: string;
@@ -166,11 +163,10 @@ export function ExecutionStatus({
               completionTokens: view.execution.usage.completionTokens,
               totalTokens: view.execution.usage.totalTokens,
             },
-            view.steps.some(
-              (step) =>
-                step.outputContexts.some(
-                  (output) => usageSourceOf(output) === "estimated",
-                ),
+            view.steps.some((step) =>
+              step.outputContexts.some(
+                (output) => usageSourceOf(output) === "estimated",
+              ),
             )
               ? "estimated"
               : "provider",

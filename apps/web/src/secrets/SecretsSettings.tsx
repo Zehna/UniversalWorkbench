@@ -34,7 +34,6 @@ export function SecretsSettings({ ownerId, store }: SecretsSettingsProps) {
 
   useEffect(() => {
     void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStore]);
 
   async function save(event: FormEvent) {

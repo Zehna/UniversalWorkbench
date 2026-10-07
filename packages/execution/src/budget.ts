@@ -27,7 +27,9 @@ export interface NormalizedExecutionUsage {
   totalTokens: number;
 }
 
-export function normalizeUsage(usage: ExecutionUsage): NormalizedExecutionUsage {
+export function normalizeUsage(
+  usage: ExecutionUsage,
+): NormalizedExecutionUsage {
   return {
     attempts: usage.attempts,
     inputBytes: usage.inputBytes,

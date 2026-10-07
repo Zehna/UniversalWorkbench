@@ -1,8 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type {
-  ContextEnvelope,
-  WorkflowDefinition,
-} from "@uw/contracts";
+import type { ContextEnvelope, WorkflowDefinition } from "@uw/contracts";
 import type { AuthService } from "@uw/auth";
 import type { ArtifactService, CreateArtifactInput } from "@uw/artifacts";
 import type { DocumentService } from "@uw/documents";
@@ -199,7 +196,11 @@ class FakeStore implements WorkflowExecutionStore {
     finishedAt: Date;
     usage: Record<string, unknown>;
     receipt: Record<string, unknown>;
-    error: { code: string; message: string; details: Record<string, unknown> | null };
+    error: {
+      code: string;
+      message: string;
+      details: Record<string, unknown> | null;
+    };
   }): Promise<void> {
     const view = this.runs.get(input.executionId)!.view;
     view.execution.status = "failed";
@@ -367,10 +368,7 @@ describe("AI workflow API wiring", () => {
       budget: { maxSteps: 12, maxDurationMs: 10_000, maxOutputBytes: 100_000 },
       traceId: randomUUID(),
     });
-    const view = await engine.process(
-      created.id,
-      new AbortController().signal,
-    );
+    const view = await engine.process(created.id, new AbortController().signal);
     expect(view.execution.status).toBe("failed");
     expect(view.steps).toHaveLength(1);
     expect(view.steps[0]?.error?.code).toBe(
@@ -450,9 +448,8 @@ describe("AI workflow API wiring", () => {
 
   it("conceals cross-owner executions on send-to routes", async () => {
     const view = completedAiView(OWNER_B);
-    const get = vi.fn(
-      async (owner: string, _project: string, _id: string) =>
-        owner === OWNER_B ? view : null,
+    const get = vi.fn(async (owner: string, _project: string, _id: string) =>
+      owner === OWNER_B ? view : null,
     );
     const create = vi.fn();
     const createNote = vi.fn();
@@ -493,10 +490,7 @@ describe("AI workflow API wiring", () => {
       budget: { maxSteps: 4, maxDurationMs: 10_000, maxOutputBytes: 100_000 },
       traceId: randomUUID(),
     });
-    const view = await engine.process(
-      created.id,
-      new AbortController().signal,
-    );
+    const view = await engine.process(created.id, new AbortController().signal);
     expect(view.execution.status).toBe("failed");
     expect(view.steps[0]?.error?.code).toBe("AI_PROVIDER_NOT_CONFIGURED");
     expect(JSON.stringify(view)).not.toContain(VAULT_SECRET);

@@ -7,7 +7,11 @@ export {
   type ProviderResponseFormat,
   type ProviderResult,
 } from "./types.js";
-export { createMockProvider, isMockAllowed } from "./mock.js";
+export {
+  createMockProvider,
+  isMockAllowed,
+  mockProviderIfAllowed,
+} from "./mock.js";
 export {
   createHttpProvider,
   type HttpProviderOptions,

@@ -92,10 +92,7 @@ test.describe.serial("Phase 4 AI send-to flow across two devices", () => {
       await expect(pageA.getByText(expectedText)).toBeVisible();
       // The AI output is the last workflow output; earlier outputs (HTTP,
       // JSON) have their own save buttons.
-      await pageA
-        .getByRole("button", { name: "Save as Note" })
-        .last()
-        .click();
+      await pageA.getByRole("button", { name: "Save as Note" }).last().click();
       await expect(pageA.getByText(/note saved/i)).toBeVisible({
         timeout: 30_000,
       });
@@ -121,10 +118,7 @@ test.describe.serial("Phase 4 AI send-to flow across two devices", () => {
         await expect(
           pageB.getByRole("button", { name: "AI result" }).first(),
         ).toBeVisible({ timeout: 30_000 });
-        await pageB
-          .getByRole("button", { name: "AI result" })
-          .first()
-          .click();
+        await pageB.getByRole("button", { name: "AI result" }).first().click();
         await expect(pageB.getByText(expectedText)).toBeVisible();
 
         // Deterministic mock output is byte-identical on re-run: run the same

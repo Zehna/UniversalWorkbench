@@ -1,7 +1,7 @@
 import type { ContextEnvelope } from "@uw/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { createAiTool, runTool, ToolRuntimeError } from "../src/index.js";
-import type { ToolRunContext } from "../src/index.js";
+import type { AiProviderPort, ToolRunContext } from "../src/index.js";
 
 const ENVELOPE_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -34,7 +34,7 @@ function input(
 }
 
 function portDouble(result: Record<string, unknown> = {}) {
-  const complete = vi.fn(async (req: Record<string, unknown>) => ({
+  const complete = vi.fn(async (_req: Record<string, unknown>) => ({
     text: "hello world",
     model: "test-model",
     usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
@@ -46,12 +46,16 @@ function portDouble(result: Record<string, unknown> = {}) {
 }
 
 function depsWith(
-  provider: { id: string; complete: (req: never) => Promise<never> } | ReturnType<typeof portDouble>,
-  resolveSecret: (ref: string) => Promise<string> = async () => "super-secret-value-abc123",
+  provider:
+    | { id: string; complete: (req: never) => Promise<never> }
+    | ReturnType<typeof portDouble>,
+  resolveSecret: (ref: string) => Promise<string> = async () =>
+    "super-secret-value-abc123",
 ) {
   return {
-    // biome-ignore lint/suspicious/noExplicitAny: port double intentionally structural
-    providers: new Map([["test-provider", provider as any]]),
+    providers: new Map([
+      ["test-provider", provider as unknown as AiProviderPort],
+    ]),
     resolveSecret,
   };
 }

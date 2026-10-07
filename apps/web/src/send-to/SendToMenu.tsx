@@ -52,9 +52,7 @@ export function SendToMenu({
       );
       setSavedNote(document.document.id);
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "Could not save note",
-      );
+      setError(cause instanceof Error ? cause.message : "Could not save note");
     } finally {
       setBusy(false);
     }

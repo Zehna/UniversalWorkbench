@@ -1,14 +1,17 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ContextEnvelope, ToolDescriptor } from "@uw/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../src/api/client";
 import { ExecutionStatus } from "../src/executions/ExecutionStatus";
 import { RunWorkflow } from "../src/executions/RunWorkflow";
 import type { WorkflowVersion } from "../src/api/client";
-import {
-  formatTokenUsage,
-  sendToCandidates,
-} from "../src/send-to/send-to";
+import { formatTokenUsage, sendToCandidates } from "../src/send-to/send-to";
 import { SendToMenu } from "../src/send-to/SendToMenu";
 import { isLocalSecretRef, validateAiToolConfig } from "../src/tools/ai-config";
 import { WorkflowStepEditor } from "../src/workflows/WorkflowStepEditor";
@@ -52,7 +55,9 @@ const AI_TOOL = tool(
 const TRIM_TOOL = tool("builtin.text.trim", ["text"], ["text"]);
 const CATALOG = [AI_TOOL, TRIM_TOOL];
 
-function aiOutput(usageSource: "provider" | "estimated" = "provider"): ContextEnvelope {
+function aiOutput(
+  usageSource: "provider" | "estimated" = "provider",
+): ContextEnvelope {
   return {
     id: "66666666-6666-4666-8666-666666666666",
     type: "ai_response",

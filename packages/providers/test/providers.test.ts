@@ -4,6 +4,7 @@ import {
   createHttpProvider,
   createMockProvider,
   isMockAllowed,
+  mockProviderIfAllowed,
   ProviderError,
   type ProviderRequest,
 } from "../src/index.js";
@@ -137,6 +138,15 @@ describe("mock provider", () => {
         expect(() => createMockProvider()).not.toThrow();
       },
     );
+  });
+
+  it("exposes the mock only through the gated helper", () => {
+    withEnv({ NODE_ENV: "production", WORKBENCH_AI_MOCK: "1" }, () => {
+      expect(mockProviderIfAllowed()).toBeNull();
+    });
+    withEnv({ NODE_ENV: "test", WORKBENCH_AI_MOCK: "1" }, () => {
+      expect(mockProviderIfAllowed()?.id).toBe("mock");
+    });
   });
 });
 

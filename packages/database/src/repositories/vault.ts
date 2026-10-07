@@ -375,7 +375,6 @@ export async function rekeyVault(pool: Pool): Promise<RekeyResult> {
   }
 
   const after = await getVaultStats(pool);
-  // eslint-disable-next-line no-console
   console.log(
     JSON.stringify({
       event: "vault.rekey",

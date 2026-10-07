@@ -67,9 +67,7 @@ export interface TokenUsage {
 }
 
 function tokenNumber(value: unknown): number | null {
-  return typeof value === "number" &&
-    Number.isInteger(value) &&
-    value >= 0
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
     ? value
     : null;
 }

@@ -89,9 +89,7 @@ function AiStepFields({
         Secret reference
         <input
           value={secretRef}
-          onChange={(event) =>
-            updateConfig({ secretRef: event.target.value })
-          }
+          onChange={(event) => updateConfig({ secretRef: event.target.value })}
           placeholder="secret://vault/openai"
         />
       </label>

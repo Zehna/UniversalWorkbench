@@ -18,6 +18,16 @@ export function isMockAllowed(): boolean {
   );
 }
 
+/**
+ * The mock provider when the flag matrix allows it, otherwise null. Server
+ * composition uses this so the mock constructor is referenced only behind
+ * the gate.
+ */
+export function mockProviderIfAllowed(): AiProvider | null {
+  if (!isMockAllowed()) return null;
+  return createMockProvider();
+}
+
 export function createMockProvider(): AiProvider {
   if (!isMockAllowed()) {
     throw new ProviderError(

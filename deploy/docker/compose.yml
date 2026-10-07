@@ -50,7 +50,7 @@ services:
       WORKBENCH_DOCKER_SMOKE_FIXTURE: ${WORKBENCH_DOCKER_SMOKE_FIXTURE:-}
       # Test-only vault keyring for throwaway smoke deployments. Never commit
       # real keys here; production sets VAULT_MASTER_KEYS from the deployment
-      # secret manager (see docs/runbook/vault.md).
+      # secret manager (see docs/runbooks/local-development.md).
       VAULT_MASTER_KEYS: ${VAULT_MASTER_KEYS:-1:cGhhc2U0LWRvY2tlci1zbW9rZS10ZXN0LWtleXJpbmc=}
     depends_on:
       postgres:
