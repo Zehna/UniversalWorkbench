@@ -106,7 +106,8 @@ describe("PostgreSQL engine submission and execution", () => {
     const saved = await store.load(created.id);
     expect(saved?.workflow).toEqual(graph);
     expect(saved?.grantedPermissions).toEqual([]);
-    expect(saved?.budget).toEqual(budget);
+    // The engine normalizes legacy budgets with the default token cap.
+    expect(saved?.budget).toEqual({ ...budget, maxTotalTokens: 200_000 });
     const ready = await pool.query(
       "select execution_id from execution_queue where execution_id = $1",
       [created.id],

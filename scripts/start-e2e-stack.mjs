@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
 const databaseUrl =
@@ -17,6 +18,10 @@ const env = {
   WORKBENCH_E2E_FIXTURE: "1",
   SESSION_COOKIE_SECURE: "false",
   TRUSTED_ORIGINS: "http://127.0.0.1:4173,http://localhost:4173",
+  // Ephemeral vault keyring for AI E2E only: random per stack start, never
+  // committed, never leaves this process tree. Specs use run-unique secret
+  // names so rows from older runs never collide.
+  VAULT_MASTER_KEYS: `1:${randomBytes(32).toString("base64")}`,
 };
 
 function npmCommand() {
@@ -55,7 +60,9 @@ const runtimeWorkspaces = [
   "@uw/contracts",
   "@uw/shared",
   "@uw/context",
+  "@uw/egress",
   "@uw/tools",
+  "@uw/providers",
   "@uw/workflow",
   "@uw/execution",
   "@uw/auth",

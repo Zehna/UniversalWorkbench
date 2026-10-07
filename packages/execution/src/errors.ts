@@ -9,6 +9,7 @@ export type ExecutionEngineErrorCode =
   | "BUDGET_STEPS"
   | "BUDGET_DURATION"
   | "BUDGET_OUTPUT"
+  | "BUDGET_EXCEEDED"
   | "TOOL_FAILED"
   | "TIMEOUT"
   | "CANCELLED"
@@ -33,6 +34,13 @@ const safeCodes = new Set([
   "NETWORK_FAILURE",
   "TIMEOUT",
   "RESPONSE_TOO_LARGE",
+  "AI_SCHEMA_MISMATCH",
+  "AI_PROVIDER_NOT_CONFIGURED",
+  "LOCAL_SECRET_NOT_AVAILABLE_ON_SERVER",
+  "BUDGET_EXCEEDED",
+  "BUDGET_STEPS",
+  "BUDGET_DURATION",
+  "BUDGET_OUTPUT",
 ]);
 
 export function safeExecutionError(error: unknown): StructuredExecutionError {

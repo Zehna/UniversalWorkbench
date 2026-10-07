@@ -11,7 +11,7 @@ import {
   createEgressPolicy,
   EgressPolicyError,
   type EgressPolicy,
-} from "./egress-policy.js";
+} from "@uw/egress";
 
 const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"] as const;
 export type HttpMethod = (typeof methods)[number];

@@ -1,6 +1,6 @@
 # Local Development Runbook
 
-Universal Workbench supports Phase 2 local-first synchronization and the Phase 3 Tool & Workflow Core on the development branch. Phase 3 Task 11 remains under final verification.
+Universal Workbench supports Phase 2 local-first synchronization, the Phase 3 Tool & Workflow Core, and the Phase 4 AI provider on the development branch. Phase 4 Task 11 remains under final verification.
 
 ## Prerequisites
 
@@ -171,24 +171,158 @@ TEST_DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test
 
 It verifies OPFS/IndexedDB persistence, multi-device catch-up, offline reconnect, conflict preservation, tombstone no-resurrection, and revoked-device rejection.
 
-Run the canonical Docker vertical smoke (Phase 2 sync plus Phase 3 workflow):
+Run the canonical Docker vertical smoke (Phase 2 sync plus Phase 3 workflow plus Phase 4 AI):
 
 ```bash
 WORKBENCH_DOCKER_SMOKE_FIXTURE=1 docker compose -f deploy/docker/compose.yml up -d --build
-WORKBENCH_DOCKER_SMOKE_FIXTURE=1 SMOKE_SECRET_CANARY=phase3-local-canary node scripts/smoke-http.mjs
-docker compose -f deploy/docker/compose.yml logs --no-color > phase3-docker.log
-SMOKE_SECRET_CANARY=phase3-local-canary node scripts/verify-no-secrets.mjs phase3-docker.log
+WORKBENCH_DOCKER_SMOKE_FIXTURE=1 SMOKE_SECRET_CANARY=phase4-local-canary SMOKE_AI_KEY=phase4-local-ai-key VAULT_MASTER_KEYS="1:<test-keyring>" node scripts/smoke-http.mjs
+docker compose -f deploy/docker/compose.yml logs --no-color > phase4-docker.log
+SMOKE_SECRET_CANARY=phase4-local-canary SMOKE_AI_KEY=phase4-local-ai-key node scripts/verify-no-secrets.mjs phase4-docker.log
 docker compose -f deploy/docker/compose.yml down -v
 ```
 
-The smoke covers owner setup, two devices, project/note sync, HTTP recovery, idempotent replay, stale conflict preservation, revocation, WebSocket catch-up, isolation headers, credential-log scanning, and logout. The Phase 3 section additionally covers the tool catalog, an `HTTP -> JSON extract` execution with receipt and provenance checks, saving the output as an Artifact, and the execution cancellation gate. `WORKBENCH_DOCKER_SMOKE_FIXTURE=1` enables only the deterministic injected-transport HTTP fixture (`https://fixture.workbench.dev/response`); it makes no external network connections. Never enable it in production deployments.
+The smoke covers owner setup, two devices, project/note sync, HTTP recovery, idempotent replay, stale conflict preservation, revocation, WebSocket catch-up, isolation headers, credential-log scanning, and logout. The Phase 3 section additionally covers the tool catalog, an `HTTP -> JSON extract` execution with receipt and provenance checks, saving the output as an Artifact, and the execution cancellation gate. The Phase 4 section additionally covers vault put, an `HTTP -> JSON extract -> AI` execution with token totals and provenance checks, unknown-provider fail-closed, saving the AI output as a Note and an Artifact, fresh-session note read-back with sync-pull Note-op assertion, and canary leak scans. `WORKBENCH_DOCKER_SMOKE_FIXTURE=1` enables only the deterministic injected-transport HTTP fixture (`https://fixture.workbench.dev/response`) and the deterministic mock AI provider; it makes no external network connections. Never enable it in production deployments.
 
 ## Phase 3 — Tool & Workflow Core
 
-The `phase-3-tools-workflow` branch adds a typed context compatibility bus,
-version-pinned tools, DAG preflight, PostgreSQL-backed workflow definitions and
-executions, a leased queue, an execution worker and a linear-first browser UI.
-See [the architecture reference](../architecture/phase-3.md).
+Phase 3 added a typed context compatibility bus, version-pinned tools, DAG
+preflight, PostgreSQL-backed workflow definitions and executions, a leased
+queue, an execution worker and a linear-first browser UI. See
+[the architecture reference](../architecture/phase-3.md).
+
+## Phase 4 — AI provider
+
+The `phase-4-ai-provider` branch adds the BYO-key AI provider seam
+(`@uw/providers`), server vault envelope encryption, the
+`builtin.ai.complete@1.0.0` tool with structured outputs, execution token
+accounting, Universal Send-to, and AI workflow UI. See
+[the architecture reference](../architecture/phase-4.md).
+
+The supported north-star flow is `HTTP -> JSON extract -> AI -> Note`: a
+fixture or granted HTTP request feeds JSON extraction, the AI step produces an
+`ai_response` output, and the output is saved as a project note (or artifact)
+from the execution view.
+
+### Vault keyring setup and backup warning
+
+Server vault encryption keys come from `VAULT_MASTER_KEYS` (a versioned
+keyring, `1:<base64>` entries; legacy single-key `VAULT_MASTER_KEY` reads as
+version 1). Provide it to every server process that touches the vault:
+
+```bash
+VAULT_MASTER_KEYS="1:$(head -c 32 /dev/urandom | base64)" \
+DATABASE_URL=postgresql://workbench:workbench@127.0.0.1:5432/workbench_test \
+npm run dev -w @uw/server
+```
+
+**Losing every copy of the keyring makes the vault unrecoverable by design.**
+There is no recovery decryption path. If the keyring is lost:
+
+1. generate a fresh keyring and deploy it;
+2. delete the now-unreadable vault rows;
+3. rotate the affected third-party provider keys (assume exposure);
+4. re-enter the secrets with `PUT /api/vault/:name`.
+
+Back the keyring up in the deployment secret manager before storing the first
+secret. The reference Compose file ships a test-only keyring for throwaway
+smoke deployments; never use it for real data.
+
+Manage vault secrets over the authenticated API (same session cookie as the
+app):
+
+```text
+GET    /api/vault/health
+GET    /api/vault
+PUT    /api/vault/:name      {"value": "<plaintext>"}
+DELETE /api/vault/:name
+```
+
+Without a configured keyring these routes return `503 VAULT_UNAVAILABLE`.
+
+### Key rotation
+
+Append the new key version to the keyring, verify, then re-encrypt:
+
+```bash
+npm run vault:rekey -- --dry-run
+npm run vault:rekey
+```
+
+`--dry-run` reports per-row decryptability without writing. The live run
+re-encrypts every row to the newest version inside one audit event
+(`vault.rekey` / `vault.rekey.dry-run`).
+
+### BYO keys: local vs vault
+
+- `secret://vault/<name>` resolves and decrypts on the server at tool-run
+  time. Use it for every server execution.
+- `secret://local/<name>` lives in the browser LocalSecretStore and never
+  leaves the device. The Run preflight flags it as `server-unresolvable`,
+  and server runs fail closed with
+  `LOCAL_SECRET_NOT_AVAILABLE_ON_SERVER`. The step editor warns that local
+  secrets stay on the device.
+
+### AI mock vs real providers
+
+| Mode                 | Environment                                                                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit/component tests | `NODE_ENV=test` + `WORKBENCH_AI_MOCK=1` (deterministic mock, estimated usage)                                                                                     |
+| Browser E2E          | test-mode launcher sets `WORKBENCH_E2E_FIXTURE=1`                                                                                                                 |
+| Docker smoke         | `WORKBENCH_DOCKER_SMOKE_FIXTURE=1` (production image, smoke-scoped flag)                                                                                          |
+| Real provider        | `AI_PROVIDER_BASE_URL` + `AI_PROVIDER_SECRET_REF` (+ optional `AI_PROVIDER_ID`, default `"http"`); per-request secrets still come from the node's own `secretRef` |
+
+The mock returns `mock:<model>:<first-32-chars>` text and never touches the
+network. `MOCK_NOT_ALLOWED` means the flags above are absent. Never enable any
+fixture flag in production deployments.
+
+A real OpenAI-compatible provider needs its base URL plus a credential
+reference gate, for example:
+
+```bash
+AI_PROVIDER_BASE_URL=https://api.example-provider.dev/v1 \
+AI_PROVIDER_SECRET_REF=secret://vault/provider-creds \
+npm run dev -w @uw/server
+```
+
+Unconfigured production fails AI runs closed with
+`AI_PROVIDER_NOT_CONFIGURED`; an unknown `providerId` fails as
+`INVALID_CONFIG`.
+
+### Token budgets and observed-vs-invoice accounting
+
+Executions aggregate `promptTokens`, `completionTokens`, and `totalTokens`
+from completed `ai_response` outputs. The run API accepts step, duration, and
+output-byte budgets; the token cap (`maxTotalTokens`, default 200,000) is an
+engine default tunable in server composition, not per request. Overflow fails
+structured `BUDGET_EXCEEDED` before further work is enqueued.
+
+Local token usage is observed accounting, not an invoice: provider-side
+metering may differ (retried attempts, rounding), and `estimated` sources
+render with a `~` marker in the UI.
+
+### Troubleshooting
+
+- `MISSING_PERMISSION` with the `ai` permission listed: the server composition
+  grants no `ai` permission by default. Fixture and smoke compositions grant
+  `["network", "ai"]`; production grants come from trusted server policy.
+  Editing user content or AI output text cannot grant permissions.
+- `LOCAL_SECRET_NOT_AVAILABLE_ON_SERVER`: the AI node references
+  `secret://local/*`. Re-enter the key as `secret://vault/*` for server runs.
+- `AI_SCHEMA_MISMATCH`: the provider output did not validate against the
+  node's JSON schema (the deterministic mock returns text, so JSON formats
+  need a schema the `{ echo }` shape satisfies). Never retries.
+- `BUDGET_EXCEEDED`: token usage reached `maxTotalTokens`. Split the
+  workflow, shorten prompts, lower `maxOutputTokens`, or raise the
+  composition default.
+- `AI_PROVIDER_NOT_CONFIGURED`: no provider is registered. In tests enable
+  the mock flag; in production set `AI_PROVIDER_BASE_URL` plus the
+  credential reference.
+- `MOCK_NOT_ALLOWED`: the mock was requested without its flag matrix (see
+  above). Requesting `providerId: "mock"` in unflagged production fails the
+  same way by design.
+- AI execution stays `failed` with `TOOL_FAILED` at the execution level:
+  read the step-level `error.code` on `GET .../executions/:id` for the typed
+  cause; execution receipts never carry secret or payload material.
 
 ### Runtime modes
 
@@ -235,9 +369,10 @@ Authenticated owner-scoped endpoints under `/api`:
   output context as a JSON-serialized Artifact (512 KiB limit).
 
 No endpoint accepts owner identity from client-provided JSON. The production
-composition currently grants no workflow network permission by default:
-workflows using `builtin.http.request` fail preflight until a trusted server
-policy grants it. Never enable the test-only HTTP fixture in production.
+composition currently grants no workflow network or `ai` permission by
+default: workflows using `builtin.http.request` or `builtin.ai.complete` fail
+preflight until a trusted server policy grants them. Never enable the
+test-only HTTP fixture or the mock AI provider in production.
 
 ### Phase 3 targeted checks
 
@@ -285,10 +420,10 @@ that arbitrary production HTTP egress is authorized.
   `apps/web/e2e/workflow-linear.spec.ts` and the job's Playwright artifacts
   before changing preflight or execution semantics.
 
-### Phase 3 release gate
+### Phase 4 release gate
 
-Task 11 must still establish the full golden workflow suite, Phase 3 Docker
-vertical smoke (including execution receipts and cancellation), worker-mode
-coverage and credential-leak checks. Require green Quality, Browser Sync,
-Browser Workflow and Docker Smoke on the **same final commit** before opening
-the Phase 3 pull request to `main`.
+Task 11 must still establish the full golden AI workflow suite, Phase 4 Docker
+vertical smoke (including token receipts, Send-to saves, and cancellation),
+worker-mode coverage and credential-leak checks. Require green Quality,
+Browser Sync, Browser Workflow and Docker Smoke on the **same final commit**
+before opening the Phase 4 pull request to `main`.

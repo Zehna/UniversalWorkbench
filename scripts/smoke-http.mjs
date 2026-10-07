@@ -7,6 +7,11 @@ const retryDelayMs = Number(process.env.SMOKE_RETRY_DELAY_MS ?? "1000");
 const secretCanary =
   process.env.SMOKE_SECRET_CANARY ??
   `phase2-smoke-${randomBytes(24).toString("base64url")}`;
+// Distinct AI-key canary: the plaintext stored as the vault AI secret. The
+// no-secrets gate scans deployment logs for both canaries.
+const aiKeyCanary =
+  process.env.SMOKE_AI_KEY ??
+  `phase4-ai-${randomBytes(24).toString("base64url")}`;
 
 const sleep = (milliseconds) =>
   new Promise((resolve) => globalThis.setTimeout(resolve, milliseconds));
@@ -642,6 +647,301 @@ if (
 }
 
 console.log("docker Phase 3 workflow smoke passed");
+
+// --- Phase 4 AI smoke (vault -> HTTP -> JSON -> AI -> Note/Artifact) ---
+// Requires the Docker smoke fixture (WORKBENCH_DOCKER_SMOKE_FIXTURE=1, which
+// registers the mock AI provider) and a vault keyring (VAULT_MASTER_KEYS)
+// when starting the deployment. Without them this section fails by design.
+const vaultHealth = await expectJson(
+  await fetch(api("/vault/health"), { headers: { cookie } }),
+  200,
+  "vault health",
+);
+if (vaultHealth.configured !== true) {
+  throw new Error(
+    "vault keyring is not configured; set VAULT_MASTER_KEYS for the deployment",
+  );
+}
+await expectJson(
+  await fetch(api("/vault/e2e-ai"), {
+    method: "PUT",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({ value: aiKeyCanary }),
+  }),
+  200,
+  "vault secret put",
+);
+if (!toolsCatalog.tools?.some((tool) => tool.id === "builtin.ai.complete")) {
+  throw new Error(
+    "tool catalog is missing builtin.ai.complete; is the Phase 4 deployment running?",
+  );
+}
+
+const aiHttpNodeId = randomUUID();
+const aiExtractNodeId = randomUUID();
+const aiNodeId = randomUUID();
+const aiWorkflowId = randomUUID();
+const aiWorkflow = {
+  id: aiWorkflowId,
+  projectId,
+  name: "Phase 4 Smoke HTTP JSON AI",
+  schemaVersion: 1,
+  nodes: [
+    {
+      id: aiHttpNodeId,
+      toolId: "builtin.http.request",
+      toolVersion: "1.0.0",
+      config: { method: "GET", url: FIXTURE_HTTP_URL },
+      input: { source: "workflow_input" },
+    },
+    {
+      id: aiExtractNodeId,
+      toolId: "builtin.json.extract",
+      toolVersion: "1.0.0",
+      config: { path: "answer" },
+      input: { source: "node_output", nodeId: aiHttpNodeId, outputIndex: 0 },
+    },
+    {
+      id: aiNodeId,
+      toolId: "builtin.ai.complete",
+      toolVersion: "1.0.0",
+      config: {
+        providerId: "mock",
+        model: "smoke-model",
+        prompt: "Summarize the answer:",
+        secretRef: "secret://vault/e2e-ai",
+      },
+      input: { source: "node_output", nodeId: aiExtractNodeId, outputIndex: 0 },
+    },
+  ],
+  edges: [
+    { from: aiHttpNodeId, to: aiExtractNodeId },
+    { from: aiExtractNodeId, to: aiNodeId },
+  ],
+};
+await expectJson(
+  await fetch(api(`/projects/${projectId}/workflows`), {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({ definition: aiWorkflow }),
+  }),
+  201,
+  "AI workflow save",
+);
+const enqueuedAi = await expectJson(
+  await fetch(
+    api(`/projects/${projectId}/workflows/${aiWorkflowId}/executions`),
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({
+        input: workflowEnvelope("json", {}, "application/json"),
+      }),
+    },
+  ),
+  202,
+  "workflow run (HTTP -> JSON -> AI)",
+);
+const aiCompleted = await pollExecution(
+  cookie,
+  projectId,
+  enqueuedAi.executionId,
+  "HTTP -> JSON -> AI execution",
+);
+if (aiCompleted.execution.status !== "completed") {
+  throw new Error(
+    `HTTP -> JSON -> AI execution ended as ${aiCompleted.execution.status}: ${JSON.stringify(aiCompleted.execution.error ?? {})}`,
+  );
+}
+const aiSteps = aiCompleted.steps ?? [];
+const aiStep = aiSteps.find((step) => step.toolId === "builtin.ai.complete");
+const aiOutput = aiStep?.outputContexts?.[0];
+if (
+  aiStep?.toolVersion !== "1.0.0" ||
+  aiOutput?.type !== "ai_response" ||
+  typeof aiOutput?.payload?.text !== "string" ||
+  !aiOutput.payload.text.startsWith("mock:smoke-model:")
+) {
+  throw new Error(
+    `AI step did not return the deterministic mock text: ${JSON.stringify(aiOutput?.payload ?? null)}`,
+  );
+}
+const aiUsage = aiOutput.payload.usage ?? {};
+if (
+  typeof aiUsage.totalTokens !== "number" ||
+  aiUsage.totalTokens <= 0 ||
+  aiUsage.totalTokens !== aiUsage.promptTokens + aiUsage.completionTokens
+) {
+  throw new Error(
+    `AI receipt usage is not totaled: ${JSON.stringify(aiUsage)}`,
+  );
+}
+if (
+  aiCompleted.execution.usage?.totalTokens !== aiUsage.totalTokens ||
+  !aiCompleted.receipt ||
+  aiCompleted.receipt.status !== "completed" ||
+  !aiCompleted.receipt.outputContextIds?.includes(aiOutput.id) ||
+  !Array.isArray(aiCompleted.receipt.provenance) ||
+  aiCompleted.receipt.provenance.length < 3
+) {
+  throw new Error("AI execution receipt is missing usage/outputs/provenance");
+}
+const aiText = JSON.stringify(aiCompleted);
+if (
+  aiText.includes(aiKeyCanary) ||
+  aiText.includes(secretCanary) ||
+  /uw_session|password/i.test(aiText)
+) {
+  throw new Error("AI execution view contains credential material");
+}
+
+// Unknown providers fail closed with a structured code, without a retry storm.
+const badProviderNodeId = randomUUID();
+const badProviderWorkflowId = randomUUID();
+await expectJson(
+  await fetch(api(`/projects/${projectId}/workflows`), {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({
+      definition: {
+        id: badProviderWorkflowId,
+        projectId,
+        name: "Phase 4 Smoke Bad Provider",
+        schemaVersion: 1,
+        nodes: [
+          {
+            id: badProviderNodeId,
+            toolId: "builtin.ai.complete",
+            toolVersion: "1.0.0",
+            config: {
+              providerId: "nope",
+              model: "smoke-model",
+              prompt: "Summarize:",
+              secretRef: "secret://vault/e2e-ai",
+            },
+            input: { source: "workflow_input" },
+            retry: { maxAttempts: 5, backoffMs: 0 },
+            idempotencyKey: "phase4-smoke-bad-provider",
+          },
+        ],
+        edges: [],
+      },
+    }),
+  }),
+  201,
+  "bad provider workflow save",
+);
+const enqueuedBad = await expectJson(
+  await fetch(
+    api(`/projects/${projectId}/workflows/${badProviderWorkflowId}/executions`),
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({
+        input: workflowEnvelope("text", "hi", "text/plain"),
+      }),
+    },
+  ),
+  202,
+  "bad provider workflow run",
+);
+const badView = await pollExecution(
+  cookie,
+  projectId,
+  enqueuedBad.executionId,
+  "bad provider execution",
+);
+if (
+  badView.execution.status !== "failed" ||
+  badView.steps?.length !== 1 ||
+  badView.steps[0]?.error?.code !== "INVALID_CONFIG"
+) {
+  throw new Error(
+    `unknown provider did not fail closed: ${JSON.stringify(badView.execution?.error ?? badView.steps?.[0]?.error ?? null)}`,
+  );
+}
+
+const savedNote = await expectJson(
+  await fetch(api(`/projects/${projectId}/documents/from-execution`), {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({
+      executionId: enqueuedAi.executionId,
+      outputContextId: aiOutput.id,
+    }),
+  }),
+  201,
+  "save AI output as note",
+);
+const savedNoteId = savedNote.document?.document?.id;
+if (typeof savedNoteId !== "string") {
+  throw new Error("AI note save did not return a document id");
+}
+const savedAiArtifact = await expectJson(
+  await fetch(api(`/projects/${projectId}/artifacts/from-execution`), {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({
+      executionId: enqueuedAi.executionId,
+      outputContextId: aiOutput.id,
+    }),
+  }),
+  201,
+  "save AI output as artifact",
+);
+if (typeof savedAiArtifact.artifact?.id !== "string") {
+  throw new Error("AI artifact save did not return an artifact id");
+}
+
+// Fresh login session (second-device equivalent) reads the note back and
+// pulls the sync change carrying the Note op.
+const freshLogin = await fetch(api("/auth/login"), {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ username, password: secretCanary }),
+});
+await expectJson(freshLogin, 200, "fresh session login");
+const freshCookie = sessionCookie(freshLogin);
+const freshDocuments = await expectJson(
+  await fetch(api(`/projects/${projectId}/documents`), {
+    headers: { cookie: freshCookie },
+  }),
+  200,
+  "fresh session document list",
+);
+if (
+  !freshDocuments.documents?.some((document) => document?.id === savedNoteId)
+) {
+  throw new Error("fresh session document list is missing the AI note");
+}
+const freshNote = await expectJson(
+  await fetch(api(`/projects/${projectId}/documents/${savedNoteId}`), {
+    headers: { cookie: freshCookie },
+  }),
+  200,
+  "fresh session note read",
+);
+if (freshNote.revision?.content?.body !== aiOutput.payload.text) {
+  throw new Error("fresh session note body does not match the AI output");
+}
+const notePull = await syncChanges(freshCookie, "0");
+const noteOp = notePull.find(
+  (change) =>
+    change?.entityType === "document" && change?.entityId === savedNoteId,
+);
+if (!noteOp || noteOp.kind !== "upsert" || !noteOp.payload?.note) {
+  throw new Error("sync pull is missing the Note op for the AI note");
+}
+const pullText = JSON.stringify(notePull);
+if (
+  pullText.includes(aiKeyCanary) ||
+  pullText.includes(secretCanary) ||
+  /uw_session|password/i.test(pullText)
+) {
+  throw new Error("sync pull payload contains credential material");
+}
+
+console.log("docker Phase 4 AI smoke passed");
 
 const logoutResponse = await fetch(api("/auth/logout"), {
   method: "POST",

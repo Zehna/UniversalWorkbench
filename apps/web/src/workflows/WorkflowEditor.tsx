@@ -6,6 +6,7 @@ import type {
   WorkflowNode,
 } from "@uw/contracts";
 import { api, type WorkflowVersion } from "../api/client";
+import { validateAiToolConfig } from "../tools/ai-config";
 import {
   compatibleTools,
   descriptorFor,
@@ -131,7 +132,9 @@ export function WorkflowEditor({
             config.path.trim().length === 0)) ||
         (node.toolId === "builtin.http.request" &&
           !["GET", "HEAD"].includes(String(config.method)) &&
-          !node.idempotencyKey)
+          !node.idempotencyKey) ||
+        (node.toolId === "builtin.ai.complete" &&
+          validateAiToolConfig(config).length > 0)
       );
     });
     if (incomplete) {

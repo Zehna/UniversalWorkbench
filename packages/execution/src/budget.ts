@@ -1,18 +1,47 @@
 import { ExecutionEngineError } from "./errors.js";
 
+export const DEFAULT_MAX_TOTAL_TOKENS = 200_000;
+
 export interface ExecutionBudget {
   maxSteps: number;
   maxDurationMs: number;
   maxOutputBytes: number;
+  maxTotalTokens?: number;
 }
 
 export interface ExecutionUsage {
   attempts: number;
   inputBytes: number;
   outputBytes: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+}
+
+export interface NormalizedExecutionUsage {
+  attempts: number;
+  inputBytes: number;
+  outputBytes: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export function normalizeUsage(
+  usage: ExecutionUsage,
+): NormalizedExecutionUsage {
+  return {
+    attempts: usage.attempts,
+    inputBytes: usage.inputBytes,
+    outputBytes: usage.outputBytes,
+    promptTokens: usage.promptTokens ?? 0,
+    completionTokens: usage.completionTokens ?? 0,
+    totalTokens: usage.totalTokens ?? 0,
+  };
 }
 
 export function validateBudget(budget: ExecutionBudget): ExecutionBudget {
+  const maxTotalTokens = budget.maxTotalTokens ?? DEFAULT_MAX_TOTAL_TOKENS;
   if (
     !Number.isSafeInteger(budget.maxSteps) ||
     budget.maxSteps < 1 ||
@@ -22,14 +51,16 @@ export function validateBudget(budget: ExecutionBudget): ExecutionBudget {
     budget.maxDurationMs > 3_600_000 ||
     !Number.isSafeInteger(budget.maxOutputBytes) ||
     budget.maxOutputBytes < 1 ||
-    budget.maxOutputBytes > 104_857_600
+    budget.maxOutputBytes > 104_857_600 ||
+    !Number.isSafeInteger(maxTotalTokens) ||
+    maxTotalTokens < 1
   ) {
     throw new ExecutionEngineError(
       "INVALID_BUDGET",
       "Execution budget is invalid",
     );
   }
-  return { ...budget };
+  return { ...budget, maxTotalTokens };
 }
 
 export function outputSize(outputs: readonly unknown[]): number {
@@ -74,6 +105,14 @@ export function requireBudget(
     throw new ExecutionEngineError(
       "BUDGET_STEPS",
       "Workflow step budget exceeded",
+    );
+  }
+  const maxTotalTokens = budget.maxTotalTokens ?? DEFAULT_MAX_TOTAL_TOKENS;
+  const totalTokens = usage.totalTokens ?? 0;
+  if (totalTokens >= maxTotalTokens || totalTokens < 0) {
+    throw new ExecutionEngineError(
+      "BUDGET_EXCEEDED",
+      "Workflow token budget exceeded",
     );
   }
 }

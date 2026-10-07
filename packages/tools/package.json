@@ -10,14 +10,15 @@
     }
   },
   "scripts": {
-    "pretest": "npm run build -w @uw/contracts && npm run build -w @uw/context",
+    "pretest": "npm run build -w @uw/contracts && npm run build -w @uw/context && npm run build -w @uw/egress",
     "test": "vitest run",
-    "typecheck": "npm run build -w @uw/contracts && npm run build -w @uw/context && tsc --noEmit",
-    "build": "npm run build -w @uw/contracts && npm run build -w @uw/context && tsup src/index.ts --format esm --dts --clean"
+    "typecheck": "npm run build -w @uw/contracts && npm run build -w @uw/context && npm run build -w @uw/egress && tsc --noEmit",
+    "build": "npm run build -w @uw/contracts && npm run build -w @uw/context && npm run build -w @uw/egress && tsup src/index.ts --format esm --dts --clean"
   },
   "dependencies": {
     "@uw/context": "*",
     "@uw/contracts": "*",
+    "@uw/egress": "*",
     "zod": "^4.0.0"
   }
 }

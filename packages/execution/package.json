@@ -10,15 +10,16 @@
     }
   },
   "scripts": {
-    "pretest": "npm run build -w @uw/contracts && npm run build -w @uw/tools && npm run build -w @uw/workflow && npm run build -w @uw/shared",
+    "pretest": "npm run build -w @uw/contracts && npm run build -w @uw/tools && npm run build -w @uw/workflow && npm run build -w @uw/shared && npm run build -w @uw/providers",
     "test": "vitest run",
-    "typecheck": "npm run build -w @uw/contracts && npm run build -w @uw/tools && npm run build -w @uw/workflow && npm run build -w @uw/shared && tsc --noEmit",
-    "build": "npm run build -w @uw/contracts && npm run build -w @uw/tools && npm run build -w @uw/workflow && npm run build -w @uw/shared && tsup src/index.ts --format esm --dts --clean"
+    "typecheck": "npm run build -w @uw/contracts && npm run build -w @uw/tools && npm run build -w @uw/workflow && npm run build -w @uw/shared && npm run build -w @uw/providers && tsc --noEmit",
+    "build": "npm run build -w @uw/contracts && npm run build -w @uw/tools && npm run build -w @uw/workflow && npm run build -w @uw/shared && npm run build -w @uw/providers && tsup src/index.ts --format esm --dts --clean"
   },
   "dependencies": {
     "@uw/contracts": "*",
     "@uw/shared": "*",
     "@uw/tools": "*",
-    "@uw/workflow": "*"
+    "@uw/workflow": "*",
+    "@uw/providers": "*"
   }
 }

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { ContextEnvelopeSchema } from "@uw/contracts";
 import type { ContextEnvelope, WorkflowNode } from "@uw/contracts";
+import { redactSecrets } from "@uw/shared";
 import { runTool } from "@uw/tools";
 import type { ToolRegistry } from "@uw/tools";
 import { buildPreflightPlan, validateWorkflow } from "@uw/workflow";
@@ -46,8 +47,58 @@ function payloadBytes(payload: unknown): number {
   return json === undefined ? 0 : new TextEncoder().encode(json).byteLength;
 }
 
+function aiTokensOf(output: ContextEnvelope): {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+} {
+  if (output.type !== "ai_response") {
+    return { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+  }
+  const payload = output.payload as unknown as {
+    usage?: {
+      promptTokens?: unknown;
+      completionTokens?: unknown;
+      totalTokens?: unknown;
+    };
+  };
+  const usage = payload?.usage;
+  const promptTokens =
+    typeof usage?.promptTokens === "number" &&
+    Number.isInteger(usage.promptTokens) &&
+    usage.promptTokens >= 0
+      ? usage.promptTokens
+      : 0;
+  const completionTokens =
+    typeof usage?.completionTokens === "number" &&
+    Number.isInteger(usage.completionTokens) &&
+    usage.completionTokens >= 0
+      ? usage.completionTokens
+      : 0;
+  const totalTokens =
+    typeof usage?.totalTokens === "number" &&
+    Number.isInteger(usage.totalTokens) &&
+    usage.totalTokens >= 0
+      ? usage.totalTokens
+      : 0;
+  return { promptTokens, completionTokens, totalTokens };
+}
+
+function addOutputTokens(
+  usage: ExecutionUsage,
+  outputs: readonly ContextEnvelope[],
+): void {
+  for (const output of outputs) {
+    const tokens = aiTokensOf(output);
+    usage.promptTokens = (usage.promptTokens ?? 0) + tokens.promptTokens;
+    usage.completionTokens =
+      (usage.completionTokens ?? 0) + tokens.completionTokens;
+    usage.totalTokens = (usage.totalTokens ?? 0) + tokens.totalTokens;
+  }
+}
+
 function existingUsage(steps: readonly ExecutionStepRecord[]): ExecutionUsage {
-  return {
+  const usage: ExecutionUsage = {
     attempts: steps.length,
     inputBytes: steps.reduce(
       (total, step) => total + payloadBytes(step.inputContext.payload),
@@ -57,7 +108,30 @@ function existingUsage(steps: readonly ExecutionStepRecord[]): ExecutionUsage {
       (total, step) => total + outputSize(step.outputContexts),
       0,
     ),
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
   };
+  // Single source of truth is persisted steps: tokens come only from
+  // completed ai_response payloads, so interrupted/failed attempts add 0
+  // and reclaimed leases reusing completed steps never double-count.
+  for (const step of steps) {
+    if (step.status !== "completed") continue;
+    addOutputTokens(usage, step.outputContexts);
+  }
+  return usage;
+}
+
+function effectiveIdempotencyKey(
+  executionId: string,
+  node: WorkflowNode,
+  descriptorIdempotency: string | undefined,
+): string | null {
+  if (node.idempotencyKey) return node.idempotencyKey;
+  // Worker-generated keys are deterministic per logical step so retries and
+  // lease reclaims reuse the same key for provider-side dedup.
+  if (descriptorIdempotency === "keyed") return `${executionId}:${node.id}`;
+  return null;
 }
 
 function isTerminal(status: ExecutionRecord["status"]): boolean {
@@ -283,6 +357,11 @@ export function createWorkflowEngine(
           ) {
             requireBudget(budget, usage, startedAt, now());
             const started = now();
+            const stepKey = effectiveIdempotencyKey(
+              executionId,
+              node,
+              descriptor.idempotency,
+            );
             const step: ExecutionStepRecord = {
               id: createId(),
               executionId,
@@ -293,10 +372,11 @@ export function createWorkflowEngine(
               status: "running",
               startedAt: started,
               finishedAt: null,
-              inputContext: source,
+              // Secret-safe persistence: never store raw secret-bearing values.
+              inputContext: redactSecrets(source) as ContextEnvelope,
               outputContexts: [],
               error: null,
-              idempotencyKey: node.idempotencyKey ?? null,
+              idempotencyKey: stepKey,
             };
             await deps.store.startStep(step);
             steps.push(step);
@@ -321,12 +401,13 @@ export function createWorkflowEngine(
                   executionId,
                   stepId: step.id,
                   projectId: run.projectId,
+                  ownerId: run.ownerId,
                   traceId: run.traceId,
                   signal: callSignal,
+                  // Re-checked per step from the server grant: AI output
+                  // content can request actions but can never widen this set.
                   permissions,
-                  ...(node.idempotencyKey
-                    ? { idempotencyKey: node.idempotencyKey }
-                    : {}),
+                  ...(stepKey ? { idempotencyKey: stepKey } : {}),
                 }),
                 callSignal,
               );
@@ -384,6 +465,9 @@ export function createWorkflowEngine(
               step.finishedAt = now();
               step.outputContexts = tool.outputs;
               usage.outputBytes += bytes;
+              addOutputTokens(usage, tool.outputs);
+              // Post-step token guard: fail fast before enqueueing more work.
+              requireBudget(budget, usage, startedAt, now(), "output");
               results.set(nodeId, tool.outputs);
               break;
             } catch (error) {
@@ -422,19 +506,27 @@ export function createWorkflowEngine(
                 step.error = structured;
               }
               if (!canRetry(descriptor, node, attempt, structured.code)) {
-                throw new ExecutionEngineError(
+                const preserved =
                   structured.code === "CANCELLED"
                     ? "CANCELLED"
                     : structured.code === "BUDGET_OUTPUT"
                       ? "BUDGET_OUTPUT"
                       : structured.code === "BUDGET_DURATION"
                         ? "BUDGET_DURATION"
-                        : structured.code === "TIMEOUT"
-                          ? "TIMEOUT"
-                          : "TOOL_FAILED",
-                  structured.code === "CANCELLED"
+                        : structured.code === "BUDGET_STEPS"
+                          ? "BUDGET_STEPS"
+                          : structured.code === "BUDGET_EXCEEDED"
+                            ? "BUDGET_EXCEEDED"
+                            : structured.code === "TIMEOUT"
+                              ? "TIMEOUT"
+                              : "TOOL_FAILED";
+                throw new ExecutionEngineError(
+                  preserved,
+                  preserved === "CANCELLED"
                     ? "Workflow was cancelled"
-                    : "Workflow step failed",
+                    : preserved === "BUDGET_EXCEEDED"
+                      ? "Workflow token budget exceeded"
+                      : "Workflow step failed",
                 );
               }
               try {

@@ -1,5 +1,8 @@
+import { useState } from "react";
+import type { OwnerPublic } from "@uw/contracts";
 import { AuthGate } from "./auth/AuthGate";
 import { ProjectList } from "./projects/ProjectList";
+import { SecretsSettings } from "./secrets/SecretsSettings";
 import {
   SyncRuntime,
   type SyncCoordinatorFactory,
@@ -27,12 +30,38 @@ const cardStyle = {
   background: "#181818",
 } as const;
 
-function Workbench() {
+function Workbench({ owner }: { owner: OwnerPublic }) {
   const { status } = useSyncRuntime();
+  const [tab, setTab] = useState<"projects" | "secrets">("projects");
   return (
     <>
       <SyncStatusBadge status={status} />
-      <ProjectList />
+      <nav
+        aria-label="Workbench tabs"
+        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "projects"}
+          onClick={() => setTab("projects")}
+        >
+          Projects
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "secrets"}
+          onClick={() => setTab("secrets")}
+        >
+          Local Secrets
+        </button>
+      </nav>
+      {tab === "secrets" ? (
+        <SecretsSettings ownerId={owner.id} />
+      ) : (
+        <ProjectList />
+      )}
     </>
   );
 }
@@ -50,7 +79,7 @@ export function App({
         <AuthGate>
           {(owner) => (
             <SyncRuntime owner={owner} factory={syncFactory}>
-              <Workbench />
+              <Workbench owner={owner} />
             </SyncRuntime>
           )}
         </AuthGate>

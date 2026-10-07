@@ -43,6 +43,8 @@ jobs:
       image: ubuntu-2404:current
     environment:
       SMOKE_SECRET_CANARY: phase3-smoke-secret-canary-do-not-log
+      SMOKE_AI_KEY: phase4-smoke-ai-key-do-not-log
+      VAULT_MASTER_KEYS: "1:cGhhc2U0LWRvY2tlci1zbW9rZS10ZXN0LWtleXJpbmc="
       WORKBENCH_DOCKER_SMOKE_FIXTURE: "1"
     steps:
       - checkout

@@ -1,5 +1,10 @@
 import { useState } from "react";
 import type { ToolDescriptor, WorkflowNode } from "@uw/contracts";
+import {
+  isLocalSecretRef,
+  parseJsonSchemaInput,
+  validateAiToolConfig,
+} from "../tools/ai-config";
 
 interface WorkflowStepEditorProps {
   node: WorkflowNode;
@@ -12,6 +17,163 @@ interface WorkflowStepEditorProps {
   onMoveUp(): void;
   onMoveDown(): void;
   onRemove(): void;
+}
+
+function AiStepFields({
+  config,
+  updateConfig,
+}: {
+  config: Record<string, unknown>;
+  updateConfig(patch: Record<string, unknown>): void;
+}) {
+  const format =
+    config.responseFormat !== null && typeof config.responseFormat === "object"
+      ? (config.responseFormat as { kind?: unknown; jsonSchema?: unknown })
+      : { kind: "text" };
+  const kind = format.kind === "json" ? "json" : "text";
+  const [rawSchema, setRawSchema] = useState(
+    typeof format.jsonSchema === "string"
+      ? format.jsonSchema
+      : format.jsonSchema !== undefined
+        ? JSON.stringify(format.jsonSchema, null, 2)
+        : "",
+  );
+  const [schemaError, setSchemaError] = useState("");
+  const secretRef =
+    typeof config.secretRef === "string" ? config.secretRef : "";
+  const errors = validateAiToolConfig(config);
+
+  return (
+    <>
+      <label>
+        AI provider
+        <input
+          value={String(config.providerId ?? "mock")}
+          onChange={(event) => updateConfig({ providerId: event.target.value })}
+          placeholder="mock"
+          list="ai-provider-options"
+        />
+        <datalist id="ai-provider-options">
+          <option value="mock" />
+          <option value="http" />
+        </datalist>
+      </label>
+      <label>
+        AI model
+        <input
+          value={String(config.model ?? "")}
+          onChange={(event) => updateConfig({ model: event.target.value })}
+          placeholder="e2e-model"
+        />
+      </label>
+      <label>
+        AI prompt
+        <textarea
+          rows={3}
+          value={String(config.prompt ?? "")}
+          onChange={(event) => updateConfig({ prompt: event.target.value })}
+          placeholder="Summarize the input:"
+        />
+      </label>
+      <label>
+        System prompt (optional)
+        <textarea
+          rows={2}
+          value={String(config.systemPrompt ?? "")}
+          onChange={(event) =>
+            updateConfig({ systemPrompt: event.target.value || undefined })
+          }
+        />
+      </label>
+      <label>
+        Secret reference
+        <input
+          value={secretRef}
+          onChange={(event) => updateConfig({ secretRef: event.target.value })}
+          placeholder="secret://vault/openai"
+        />
+      </label>
+      <p>Use a vault secret for server runs, such as secret://vault/openai.</p>
+      {isLocalSecretRef(secretRef) ? (
+        <p role="alert">
+          secret://local/* stays on this device; server runs will fail. Use a
+          vault secret for server execution.
+        </p>
+      ) : null}
+      <fieldset>
+        <legend>Response format</legend>
+        <label>
+          <input
+            type="radio"
+            name="ai-response-format"
+            checked={kind === "text"}
+            onChange={() => updateConfig({ responseFormat: { kind: "text" } })}
+          />
+          Text
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="ai-response-format"
+            checked={kind === "json"}
+            onChange={() =>
+              updateConfig({
+                responseFormat: { kind: "json", jsonSchema: {} },
+              })
+            }
+          />
+          JSON
+        </label>
+      </fieldset>
+      {kind === "json" ? (
+        <label>
+          JSON schema
+          <textarea
+            rows={4}
+            value={rawSchema}
+            onChange={(event) => setRawSchema(event.target.value)}
+            onBlur={() => {
+              const parsed = parseJsonSchemaInput(rawSchema);
+              if (parsed.error) {
+                setSchemaError(parsed.error);
+              } else {
+                setSchemaError("");
+                updateConfig({
+                  responseFormat: {
+                    kind: "json",
+                    jsonSchema: parsed.schema ?? {},
+                  },
+                });
+              }
+            }}
+            placeholder='{"type": "object"}'
+          />
+          {schemaError ? <span role="alert">{schemaError}</span> : null}
+        </label>
+      ) : null}
+      <label>
+        Max output tokens
+        <input
+          type="number"
+          min={1}
+          max={128000}
+          value={Number(config.maxOutputTokens ?? 1024)}
+          onChange={(event) =>
+            updateConfig({ maxOutputTokens: Number(event.target.value) })
+          }
+        />
+      </label>
+      {errors.length > 0 ? (
+        <ul>
+          {errors.map((message) => (
+            <li key={message} role="alert">
+              {message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
 }
 
 export function WorkflowStepEditor({
@@ -116,6 +278,8 @@ export function WorkflowStepEditor({
       ) : descriptor.id === "builtin.text.trim" ||
         descriptor.id === "builtin.markdown.to-text" ? (
         <p>No configuration required.</p>
+      ) : descriptor.id === "builtin.ai.complete" ? (
+        <AiStepFields config={config} updateConfig={updateConfig} />
       ) : (
         <label>
           Tool configuration (JSON)
