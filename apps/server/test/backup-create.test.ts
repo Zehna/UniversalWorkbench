@@ -171,6 +171,20 @@ describe("unified backup creation", () => {
     }
   });
 
+  it("round-trips storage-key-length paths via the USTAR prefix field", async () => {
+    const longPath = `artifacts/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/${"a".repeat(64)}`;
+    expect(longPath.length).toBeGreaterThan(100);
+    const archive = await createBackupArchive({
+      ...sampleInput(),
+      artifacts: [{ path: longPath, bytes: enc.encode("long-path") }],
+    });
+    const { files } = await readBackupArchive(archive);
+    expect(new TextDecoder().decode(files.get(longPath))).toBe("long-path");
+    await expect(verifyBackupIntegrity(archive)).resolves.toMatchObject({
+      format: "uw-backup",
+    });
+  });
+
   it("rejects unsafe archive paths", async () => {
     await expect(
       createBackupArchive({

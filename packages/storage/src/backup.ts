@@ -25,8 +25,13 @@ export function sha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+export const MAX_ARCHIVE_PATH_BYTES = 256;
+
 function assertSafeArchivePath(path: string): void {
-  if (path.length === 0 || path.length > 100) {
+  if (
+    path.length === 0 ||
+    new TextEncoder().encode(path).byteLength > MAX_ARCHIVE_PATH_BYTES
+  ) {
     throw new UnsafeBackupPathError(path);
   }
   if (
@@ -52,12 +57,28 @@ function writeOctal(value: number, length: number): Uint8Array {
   return new TextEncoder().encode(text);
 }
 
-function encodeTarHeader(name: string, size: number, mtime: number): Uint8Array {
-  assertSafeArchivePath(name);
-  const header = new Uint8Array(512);
+function splitUstarPath(name: string): { name: string; prefix: string } {
   const nameBytes = new TextEncoder().encode(name);
-  if (nameBytes.byteLength > 100) throw new UnsafeBackupPathError(name);
-  header.set(nameBytes, 0);
+  if (nameBytes.byteLength <= 100) return { name, prefix: "" };
+  // USTAR prefix field (155 bytes): split at a separator so both halves fit.
+  const slash = name.lastIndexOf("/", 100);
+  if (slash <= 0) throw new UnsafeBackupPathError(name);
+  const prefix = name.slice(0, slash);
+  const rest = name.slice(slash + 1);
+  const prefixBytes = new TextEncoder().encode(prefix);
+  const restBytes = new TextEncoder().encode(rest);
+  if (prefixBytes.byteLength > 155 || restBytes.byteLength > 100) {
+    throw new UnsafeBackupPathError(name);
+  }
+  return { name: rest, prefix };
+}
+
+function encodeTarHeader(path: string, size: number, mtime: number): Uint8Array {
+  assertSafeArchivePath(path);
+  const { name, prefix } = splitUstarPath(path);
+  const header = new Uint8Array(512);
+  header.set(new TextEncoder().encode(name), 0);
+  header.set(new TextEncoder().encode(prefix), 345);
   header.set(writeOctal(0o644, 8), 100);
   header.set(writeOctal(0, 8), 108);
   header.set(writeOctal(0, 8), 116);
@@ -129,7 +150,14 @@ export function readTarArchive(bytes: Uint8Array): Map<string, Uint8Array> {
       throw new BackupIntegrityError("Unsupported tar entry type");
     }
     const nameEnd = header.indexOf(0, 0);
-    const name = new TextDecoder().decode(header.slice(0, nameEnd));
+    const namePart = new TextDecoder().decode(header.slice(0, nameEnd));
+    const prefixNul = header.slice(345, 500).indexOf(0);
+    const prefixEnd = prefixNul === -1 ? 500 : 345 + prefixNul;
+    const prefixPart =
+      prefixEnd > 345
+        ? new TextDecoder().decode(header.slice(345, prefixEnd))
+        : "";
+    const name = prefixPart ? `${prefixPart}/${namePart}` : namePart;
     assertSafeArchivePath(name);
     if (files.has(name)) {
       throw new BackupIntegrityError(`Duplicate archive entry: ${name}`);
