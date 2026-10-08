@@ -5,6 +5,11 @@ import type { OwnerPublic } from "@uw/contracts";
 import { IdSchema } from "@uw/contracts";
 import type { AuthService } from "@uw/auth";
 import type { ArtifactService } from "@uw/artifacts";
+import {
+  MAX_INLINE_JSON_BYTES,
+  sanitizeFilename,
+  validateArtifactUpload,
+} from "@uw/artifacts";
 import type { ExecutionRepository } from "@uw/execution";
 import { requireOwner, type SessionCookieConfig } from "../middleware/auth.js";
 import {
@@ -26,6 +31,29 @@ function ownerFromLocals(locals: Record<string, unknown>): OwnerPublic {
 
 function projectIdFromParams(params: object): string {
   return parseRequest(IdSchema, (params as Record<string, unknown>).projectId);
+}
+
+function toUploadHttpError(error: unknown): unknown {
+  if (error instanceof Error) {
+    if (error.name === "ArtifactTooLargeError") {
+      return new HttpError(413, "OUTPUT_TOO_LARGE", error.message);
+    }
+    if (error.name === "InvalidArtifactContentError") {
+      return new HttpError(400, "INVALID_CONTENT", error.message);
+    }
+  }
+  return mapDomainError(error);
+}
+
+function downloadFilename(
+  metadata: Record<string, unknown>,
+  artifactId: string,
+): string {
+  const raw =
+    typeof metadata.filename === "string" && metadata.filename.length > 0
+      ? metadata.filename
+      : artifactId;
+  return sanitizeFilename(raw);
 }
 
 export function createArtifactsRouter(deps: ArtifactRouterDependencies) {
@@ -87,32 +115,44 @@ export function createArtifactsRouter(deps: ArtifactRouterDependencies) {
         );
       }
       const bytes = new TextEncoder().encode(serialized);
-      if (bytes.byteLength > 524288) {
+      if (bytes.byteLength > MAX_INLINE_JSON_BYTES) {
         throw new HttpError(413, "OUTPUT_TOO_LARGE", "Output exceeds 512 KB");
+      }
+      try {
+        validateArtifactUpload(bytes, "application/json", {
+          maxBytes: MAX_INLINE_JSON_BYTES,
+        });
+      } catch (error) {
+        throw toUploadHttpError(error);
       }
       const requestId = res.locals.requestId;
       const traceId =
         typeof requestId === "string" && IdSchema.safeParse(requestId).success
           ? requestId
           : randomUUID();
-      const artifact = await deps.artifactService.create(
-        owner.id,
-        projectId,
-        {
-          type: "workflow-output",
-          mimeType: "application/json",
-          bytes,
-          metadata: {
-            sourceExecutionId: executionId,
-            sourceContextId: outputContextId,
-            toolId: step.toolId,
-            // ai_response outputs persist as JSON like any other payload;
-            // the 512 KiB cap below applies unchanged.
-            sourceOutputType: output.type,
+      let artifact;
+      try {
+        artifact = await deps.artifactService.create(
+          owner.id,
+          projectId,
+          {
+            type: "workflow-output",
+            mimeType: "application/json",
+            bytes,
+            metadata: {
+              sourceExecutionId: executionId,
+              sourceContextId: outputContextId,
+              toolId: step.toolId,
+              // ai_response outputs persist as JSON like any other payload;
+              // the 512 KiB cap below applies unchanged.
+              sourceOutputType: output.type,
+            },
           },
-        },
-        traceId,
-      );
+          traceId,
+        );
+      } catch (error) {
+        throw toUploadHttpError(error);
+      }
       res.status(201).json({ artifact });
     } catch (error) {
       next(mapDomainError(error));
@@ -162,9 +202,17 @@ export function createArtifactsRouter(deps: ArtifactRouterDependencies) {
         artifactId,
       );
 
+      const filename = downloadFilename(
+        artifact.metadata as Record<string, unknown>,
+        artifact.id,
+      );
       res.setHeader("Content-Type", artifact.mimeType);
       res.setHeader("Content-Length", String(bytes.byteLength));
-      res.setHeader("Content-Disposition", "attachment");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`,
+      );
+      res.setHeader("X-Content-Type-Options", "nosniff");
       res.status(200).send(Buffer.from(bytes));
     } catch (error) {
       next(mapDomainError(error));

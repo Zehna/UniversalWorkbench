@@ -9,6 +9,12 @@ import type { Clock, IdGenerator } from "@uw/shared";
 import type { StorageBackend } from "@uw/storage";
 import { ArtifactNotFoundError } from "./model.js";
 import type { ArtifactRepository } from "./repository.js";
+import { assertSizeWithinLimit, verifyMimeType } from "./security.js";
+import {
+  ArtifactTooLargeError,
+  InvalidArtifactContentError,
+  MAX_ARTIFACT_BYTES,
+} from "./security.js";
 
 export interface CreateArtifactInput {
   type: string;
@@ -75,6 +81,20 @@ export function createArtifactService(
         run: async () => {
           const artifactId = idGenerator.next();
           const bytes = new Uint8Array(input.bytes);
+          try {
+            assertSizeWithinLimit(bytes.byteLength, MAX_ARTIFACT_BYTES);
+          } catch (error) {
+            if (error instanceof RangeError) throw error;
+            throw new ArtifactTooLargeError(
+              bytes.byteLength,
+              MAX_ARTIFACT_BYTES,
+            );
+          }
+          if (!verifyMimeType(bytes, input.mimeType)) {
+            throw new InvalidArtifactContentError(
+              `Artifact content does not match declared MIME type ${input.mimeType}`,
+            );
+          }
           const checksumSha256 = createHash("sha256")
             .update(bytes)
             .digest("hex");
