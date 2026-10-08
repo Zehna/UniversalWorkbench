@@ -2,6 +2,7 @@ import express from "express";
 import type { ErrorRequestHandler, RequestHandler } from "express";
 import type { AuthService } from "@uw/auth";
 import type { ArtifactService } from "@uw/artifacts";
+import type { AuditRepository } from "@uw/core";
 import type { ErrorEnvelope } from "@uw/contracts";
 import type { ProjectService } from "@uw/core";
 import type { DocumentService } from "@uw/documents";
@@ -39,6 +40,7 @@ export interface AppDependencies {
   executionRepository?: ExecutionRepository;
   syncRepository?: SyncRepository;
   vaultPool?: Parameters<typeof createVaultStore>[0];
+  auditRepository?: AuditRepository;
 }
 
 function requestIdFromLocals(
@@ -241,6 +243,7 @@ export function createApp(deps: AppDependencies) {
         authService: deps.authService,
         sessionCookie: deps.sessionCookie,
         pool: deps.vaultPool,
+        ...(deps.auditRepository ? { audit: deps.auditRepository } : {}),
       }),
     );
   }

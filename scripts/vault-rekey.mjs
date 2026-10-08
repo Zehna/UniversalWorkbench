@@ -1,4 +1,9 @@
-import { closeDatabasePool, createDatabasePool } from "@uw/database";
+import { randomUUID } from "node:crypto";
+import {
+  closeDatabasePool,
+  createDatabasePool,
+  createPostgresAuditRepository,
+} from "@uw/database";
 
 const databaseUrl = process.env.DATABASE_URL ?? process.env.TEST_DATABASE_URL;
 if (!databaseUrl) {
@@ -31,6 +36,32 @@ try {
         failed: result.failed,
       }),
     );
+    // Ownership audit for the rekey event. Best-effort: the rekey itself
+    // already happened, so a failed audit write warns instead of failing.
+    try {
+      const audit = createPostgresAuditRepository(pool);
+      await audit.record({
+        id: randomUUID(),
+        actorId: "operator",
+        action: "vault.rekey",
+        targetType: "vault-keyring",
+        traceId: randomUUID(),
+        metadata: {
+          totalRows: result.totalRows,
+          rekeyed: result.rekeyed,
+          failed: result.failed,
+        },
+        createdAt: new Date(),
+      });
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "vault.rekey.audit-warning",
+          message:
+            error instanceof Error ? error.message : "audit record failed",
+        }),
+      );
+    }
     if (result.failed > 0) {
       console.error(
         JSON.stringify({

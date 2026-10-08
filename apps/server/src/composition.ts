@@ -131,6 +131,7 @@ export function composeApplication(
     executionRepository: executionStore,
     syncRepository,
     vaultPool: pool,
+    auditRepository: audit,
   });
 
   return { app, pool, authService, syncService };

@@ -41,6 +41,7 @@ function createDeps(authenticated = true) {
     list: vi.fn().mockResolvedValue([project]),
     get: vi.fn().mockResolvedValue(project),
     update: vi.fn().mockResolvedValue({ ...project, name: "Updated" }),
+    delete: vi.fn().mockResolvedValue(undefined),
   } satisfies ProjectService;
 
   const revision = {
@@ -103,6 +104,7 @@ const protectedRoutes = [
   ["post", "/projects"],
   ["get", `/projects/${PROJECT_ID}`],
   ["patch", `/projects/${PROJECT_ID}`],
+  ["delete", `/projects/${PROJECT_ID}`],
   ["get", `/projects/${PROJECT_ID}/documents`],
   ["post", `/projects/${PROJECT_ID}/documents`],
   ["get", `/projects/${PROJECT_ID}/documents/${DOCUMENT_ID}`],
@@ -225,7 +227,9 @@ describe("protected data API", () => {
     expect(response.status).toBe(200);
     expect(response.headers["content-type"]).toMatch(/^application\/json/);
     expect(response.headers["content-length"]).toBe("2");
-    expect(response.headers["content-disposition"]).toBe("attachment");
+    expect(response.headers["content-disposition"]).toBe(
+      `attachment; filename="${ARTIFACT_ID}"`,
+    );
   });
 
   it("rejects invalid UUID params with the shared request-correlated 400 envelope", async () => {

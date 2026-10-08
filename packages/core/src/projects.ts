@@ -30,6 +30,7 @@ export interface ProjectRepository {
     projectId: string,
     input: UpdateProjectRecordInput,
   ): Promise<Project | null>;
+  remove(ownerId: string, projectId: string): Promise<boolean>;
 }
 
 export interface AuditRecordInput {
@@ -69,6 +70,7 @@ export interface ProjectService {
     input: UpdateProjectRequest,
     traceId: string,
   ): Promise<Project>;
+  delete(ownerId: string, projectId: string, traceId: string): Promise<void>;
 }
 
 export interface CreateProjectServiceOptions {
@@ -167,6 +169,36 @@ export function createProjectService(
             targetId: project.id,
             traceId,
             metadata: { fields: changedFields(input) },
+            createdAt: clock.now(),
+          });
+        },
+      });
+    },
+
+    async delete(ownerId, projectId, traceId) {
+      return executeAction({
+        name: "project.delete",
+        input: { projectId },
+        context: { actorId: ownerId, traceId, projectId },
+        authorize: async () => {
+          if (!(await projects.get(ownerId, projectId))) {
+            throw new ProjectNotFoundError(projectId);
+          }
+        },
+        run: async () => {
+          const removed = await projects.remove(ownerId, projectId);
+          if (!removed) throw new ProjectNotFoundError(projectId);
+        },
+        audit: async () => {
+          await audit.record({
+            id: idGenerator.next(),
+            actorId: ownerId,
+            projectId,
+            action: "project.delete",
+            targetType: "project",
+            targetId: projectId,
+            traceId,
+            metadata: {},
             createdAt: clock.now(),
           });
         },
