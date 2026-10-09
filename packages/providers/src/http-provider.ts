@@ -5,6 +5,7 @@ import {
   type AiProvider,
   type ProviderRequest,
   type ProviderResult,
+  type ProviderToolCall,
 } from "./types.js";
 
 const DEFAULT_MAX_RESPONSE_BYTES = 262_144; // 256 KiB
@@ -87,6 +88,18 @@ function buildBody(req: ProviderRequest): string {
   if (req.responseFormat?.kind === "json") {
     body.response_format = { type: "json_object" };
   }
+  if (req.tools !== undefined && req.tools.length > 0) {
+    body.tools = req.tools.map((tool) => ({
+      type: "function",
+      function: {
+        name: tool.name,
+        ...(tool.description !== undefined
+          ? { description: tool.description }
+          : {}),
+        parameters: tool.parameters,
+      },
+    }));
+  }
   return JSON.stringify(body);
 }
 
@@ -129,6 +142,51 @@ function extractUsage(
     completionTokens: completion,
     totalTokens: total,
   };
+}
+
+function extractToolCalls(
+  payload: ChatCompletionsResponse,
+): ProviderToolCall[] | undefined {
+  if (!isRecord(payload)) return undefined;
+  const choices = (payload as Record<string, unknown>).choices;
+  if (!Array.isArray(choices) || choices.length === 0) return undefined;
+  const first = choices[0];
+  if (!isRecord(first)) return undefined;
+  const message = (first as Record<string, unknown>).message;
+  if (!isRecord(message)) return undefined;
+  const rawCalls = (message as Record<string, unknown>).tool_calls;
+  if (rawCalls === undefined) return undefined;
+  if (!Array.isArray(rawCalls)) return undefined;
+  const calls: ProviderToolCall[] = [];
+  for (const raw of rawCalls) {
+    if (!isRecord(raw)) continue;
+    const fn = (raw as Record<string, unknown>).function;
+    if (!isRecord(fn)) continue;
+    const name = (fn as Record<string, unknown>).name;
+    if (typeof name !== "string" || name.length === 0) continue;
+    const rawArgs = (fn as Record<string, unknown>).arguments;
+    let parsedArgs: Record<string, unknown> = {};
+    if (typeof rawArgs === "string") {
+      const trimmed = rawArgs.trim();
+      if (trimmed.length > 0) {
+        try {
+          const parsed: unknown = JSON.parse(trimmed);
+          if (isRecord(parsed)) parsedArgs = parsed;
+        } catch {
+          parsedArgs = {};
+        }
+      }
+    } else if (isRecord(rawArgs)) {
+      parsedArgs = rawArgs as Record<string, unknown>;
+    }
+    const id = (raw as Record<string, unknown>).id;
+    const call: ProviderToolCall =
+      typeof id === "string" && id.length > 0
+        ? { id, name, arguments: parsedArgs }
+        : { name, arguments: parsedArgs };
+    calls.push(call);
+  }
+  return calls;
 }
 
 function extractRequestId(
@@ -315,7 +373,8 @@ export function createHttpProvider(options: HttpProviderOptions): AiProvider {
         }
 
         const content = extractText(payload);
-        if (!content) {
+        const toolCalls = extractToolCalls(payload);
+        if (!content && (!toolCalls || toolCalls.length === 0)) {
           throw new ProviderError(
             "PROVIDER_ERROR",
             "AI provider returned an invalid response",
@@ -335,6 +394,9 @@ export function createHttpProvider(options: HttpProviderOptions): AiProvider {
           usage,
           usageSource: reported ? "provider" : "estimated",
         };
+        if (toolCalls !== undefined && toolCalls.length > 0) {
+          result.toolCalls = toolCalls;
+        }
         const requestId = extractRequestId(payload);
         if (requestId) result.providerRequestId = requestId;
         if (req.responseFormat?.kind === "json") {
