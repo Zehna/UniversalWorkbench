@@ -1,3 +1,4 @@
+export * from "./agent.js";
 export * from "./ai.js";
 export * from "./artifact.js";
 export * from "./auth.js";

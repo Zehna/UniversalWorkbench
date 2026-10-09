@@ -8,6 +8,7 @@ export const ContextTypeSchema = z.enum([
   "api_response",
   "artifact_ref",
   "ai_response",
+  "agent_response",
 ]);
 
 export const ContextProvenanceSchema = z.object({
@@ -20,7 +21,6 @@ export const ContextEnvelopeSchema = z.object({
   id: IdSchema,
   type: ContextTypeSchema,
   schemaVersion: z.literal(1),
-  mimeType: z.string().trim().min(1).max(255),
   metadata: JsonMetadataSchema,
   payload: z.unknown(),
   provenance: ContextProvenanceSchema,
