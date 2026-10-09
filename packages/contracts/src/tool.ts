@@ -35,6 +35,7 @@ export const ToolDescriptorSchema = z.object({
   executionMode: ToolExecutionModeSchema,
   idempotency: ToolIdempotencySchema,
   configSchema: z.record(z.string(), z.unknown()),
+  requiresApproval: z.boolean().default(false),
 });
 
 export type ToolExecutionMode = z.infer<typeof ToolExecutionModeSchema>;

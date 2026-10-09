@@ -60,7 +60,10 @@ describe("phase 3 contracts", () => {
       configSchema: { type: "object" },
     };
 
-    expect(ToolDescriptorSchema.parse(descriptor)).toEqual(descriptor);
+    expect(ToolDescriptorSchema.parse(descriptor)).toEqual({
+      ...descriptor,
+      requiresApproval: false,
+    });
   });
 
   it("rejects duplicate workflow node IDs", () => {
