@@ -4,7 +4,12 @@ import {
   type AiProvider,
   type ProviderRequest,
   type ProviderResult,
+  type ProviderToolCall,
 } from "./types.js";
+
+export interface MockProviderOptions {
+  toolCalls?: ProviderToolCall[];
+}
 
 export function isMockAllowed(): boolean {
   // Docker smoke runs the production image; the smoke-scoped flag alone
@@ -28,13 +33,17 @@ export function mockProviderIfAllowed(): AiProvider | null {
   return createMockProvider();
 }
 
-export function createMockProvider(): AiProvider {
+export function createMockProvider(options?: MockProviderOptions): AiProvider {
   if (!isMockAllowed()) {
     throw new ProviderError(
       "MOCK_NOT_ALLOWED",
       "Mock AI provider is not allowed in this environment",
     );
   }
+  const configuredToolCalls = options?.toolCalls?.map((call) => ({
+    ...call,
+    arguments: { ...call.arguments },
+  }));
   return {
     id: "mock",
     async complete(req: ProviderRequest): Promise<ProviderResult> {
@@ -54,6 +63,23 @@ export function createMockProvider(): AiProvider {
         usageSource: "estimated",
       };
       if (structured !== undefined) result.structured = structured;
+      if (configuredToolCalls !== undefined) {
+        result.toolCalls = configuredToolCalls.map((call) => ({
+          ...call,
+          arguments: { ...call.arguments },
+        }));
+      } else if (req.tools !== undefined && req.tools.length > 0) {
+        const first = req.tools[0];
+        if (first !== undefined) {
+          result.toolCalls = [
+            {
+              id: "mock-call-1",
+              name: first.name,
+              arguments: {},
+            },
+          ];
+        }
+      }
       return result;
     },
   };

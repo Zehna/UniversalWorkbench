@@ -52,7 +52,7 @@ function aiTokensOf(output: ContextEnvelope): {
   completionTokens: number;
   totalTokens: number;
 } {
-  if (output.type !== "ai_response") {
+  if (output.type !== "ai_response" && output.type !== "agent_response") {
     return { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
   }
   const payload = output.payload as unknown as {
@@ -113,8 +113,9 @@ function existingUsage(steps: readonly ExecutionStepRecord[]): ExecutionUsage {
     totalTokens: 0,
   };
   // Single source of truth is persisted steps: tokens come only from
-  // completed ai_response payloads, so interrupted/failed attempts add 0
-  // and reclaimed leases reusing completed steps never double-count.
+  // completed ai_response/agent_response payloads, so interrupted/failed
+  // attempts add 0 and reclaimed leases reusing completed steps never
+  // double-count.
   for (const step of steps) {
     if (step.status !== "completed") continue;
     addOutputTokens(usage, step.outputContexts);

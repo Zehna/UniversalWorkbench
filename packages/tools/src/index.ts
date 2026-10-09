@@ -16,12 +16,34 @@ export type {
   AiProviderPortResult,
   AiToolDeps,
 } from "./builtin/ai.js";
+export { createAgentTool } from "./builtin/agent.js";
+export type {
+  AgentProviderPort,
+  AgentProviderPortRequest,
+  AgentProviderPortResult,
+  AgentProviderToolCall,
+  AgentProviderToolDefinition,
+  AgentToolDeps,
+} from "./builtin/agent.js";
 export { createMarkdownToTextTool } from "./builtin/markdown.js";
 export { createTextTrimTool } from "./builtin/text.js";
 export { ToolRegistryError, ToolRuntimeError } from "./errors.js";
 export type { ToolRuntimeErrorCode } from "./errors.js";
 export { createToolRegistry } from "./registry.js";
 export type { ToolRegistry } from "./registry.js";
+export {
+  AgentToolDispatcher,
+  createAgentToolDispatcher,
+  toFunctionCallingSpec,
+  toFunctionCallingSpecs,
+  toToolName,
+} from "./agent/dispatcher.js";
+export type {
+  AgentDispatchObservation,
+  AgentToolCallInput,
+  AgentToolDispatcherOptions,
+  FunctionCallingSpec,
+} from "./agent/dispatcher.js";
 export { createLocalResult, runTool, validateInvocation } from "./runtime.js";
 export type { ToolExecutor, ToolRunContext, ToolRunResult } from "./runtime.js";
 export {

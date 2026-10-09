@@ -3,6 +3,7 @@ import type { ContextType, ToolDescriptor } from "@uw/contracts";
 /** Output types the server can persist as notes or artifacts. */
 export const SAVABLE_OUTPUT_TYPES: readonly ContextType[] = [
   "ai_response",
+  "agent_response",
   "text",
   "markdown",
 ];
@@ -87,7 +88,8 @@ export function usageSourceOf(output: {
   type: string;
   payload: unknown;
 }): string | undefined {
-  if (output.type !== "ai_response") return undefined;
+  if (output.type !== "ai_response" && output.type !== "agent_response")
+    return undefined;
   if (output.payload !== null && typeof output.payload === "object") {
     const source = (output.payload as { usageSource?: unknown }).usageSource;
     if (source === "provider" || source === "estimated") return source;

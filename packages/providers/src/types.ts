@@ -1,6 +1,18 @@
 export type ProviderResponseFormat =
   { kind: "text" } | { kind: "json"; jsonSchema: Record<string, unknown> };
 
+export interface ProviderToolDefinition {
+  name: string;
+  description?: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface ProviderToolCall {
+  id?: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
 export interface ProviderRequest {
   model: string;
   prompt: string;
@@ -11,6 +23,7 @@ export interface ProviderRequest {
   secretValue: string;
   signal: AbortSignal;
   idempotencyKey?: string;
+  tools?: ProviderToolDefinition[];
 }
 
 export interface ProviderResult {
@@ -24,6 +37,7 @@ export interface ProviderResult {
   };
   usageSource: "provider" | "estimated";
   providerRequestId?: string;
+  toolCalls?: ProviderToolCall[];
 }
 
 export interface AiProvider {

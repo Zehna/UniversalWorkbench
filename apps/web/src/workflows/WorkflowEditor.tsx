@@ -6,7 +6,7 @@ import type {
   WorkflowNode,
 } from "@uw/contracts";
 import { api, type WorkflowVersion } from "../api/client";
-import { validateAiToolConfig } from "../tools/ai-config";
+import { validateAiAgentConfig, validateAiToolConfig } from "../tools/ai-config";
 import {
   compatibleTools,
   descriptorFor,
@@ -134,7 +134,9 @@ export function WorkflowEditor({
           !["GET", "HEAD"].includes(String(config.method)) &&
           !node.idempotencyKey) ||
         (node.toolId === "builtin.ai.complete" &&
-          validateAiToolConfig(config).length > 0)
+          validateAiToolConfig(config).length > 0) ||
+        (node.toolId === "builtin.ai.agent" &&
+          validateAiAgentConfig(config).length > 0)
       );
     });
     if (incomplete) {
@@ -225,6 +227,7 @@ export function WorkflowEditor({
               sourceLabel={source}
               canMoveUp={index > 0}
               canMoveDown={index < definition.nodes.length - 1}
+              tools={tools}
               onChange={(changed) =>
                 changeNodes(
                   definition.nodes.map((item) =>
