@@ -22,6 +22,19 @@ export { ToolRegistryError, ToolRuntimeError } from "./errors.js";
 export type { ToolRuntimeErrorCode } from "./errors.js";
 export { createToolRegistry } from "./registry.js";
 export type { ToolRegistry } from "./registry.js";
+export {
+  AgentToolDispatcher,
+  createAgentToolDispatcher,
+  toFunctionCallingSpec,
+  toFunctionCallingSpecs,
+  toToolName,
+} from "./agent/dispatcher.js";
+export type {
+  AgentDispatchObservation,
+  AgentToolCallInput,
+  AgentToolDispatcherOptions,
+  FunctionCallingSpec,
+} from "./agent/dispatcher.js";
 export { createLocalResult, runTool, validateInvocation } from "./runtime.js";
 export type { ToolExecutor, ToolRunContext, ToolRunResult } from "./runtime.js";
 export {
