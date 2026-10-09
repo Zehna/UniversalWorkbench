@@ -18,7 +18,6 @@ import { createVaultRouter } from "../src/routes/vault.js";
 const OWNER_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OWNER_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const PROJECT_ID = "22222222-2222-4222-8222-222222222222";
-const OTHER_PROJECT_ID = "99999999-9999-4999-8999-999999999999";
 const COOKIE = "uw_session=test";
 const NOW = "2026-10-08T00:00:00.000Z";
 
@@ -44,7 +43,6 @@ const sessionCookie = {
 
 // Mirrors createApp's 4xx envelope so tests can assert on error codes.
 function jsonErrors(app: express.Express): void {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use(
     (
       error: unknown,

@@ -41,7 +41,7 @@ function assertSafeArchivePath(path: string): void {
   ) {
     throw new UnsafeBackupPathError(path);
   }
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional guard
+  // eslint-disable-next-line no-control-regex
   if (/[\x00-\x1f\x7f]/.test(path)) {
     throw new UnsafeBackupPathError(path);
   }

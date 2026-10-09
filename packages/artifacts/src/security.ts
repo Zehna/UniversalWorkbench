@@ -130,7 +130,7 @@ export function sanitizeFilename(name: string): string {
   const withoutNul = name.replace(/\0/g, "");
   const lastSegment = withoutNul.split("/").pop()?.split("\\").pop() ?? "";
   // Remove ASCII control characters entirely (not replaced with _).
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional stripping
+  // eslint-disable-next-line no-control-regex
   const withoutControls = lastSegment.replace(/[\x00-\x1f\x7f]/g, "");
   const trimmed = withoutControls.trim();
   // Strip leading dots to avoid hidden files / dot-dot traversal residue.
