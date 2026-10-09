@@ -173,6 +173,21 @@ class FakeStore implements WorkflowExecutionStore {
     row.view.execution.status = "running";
     row.view.execution.startedAt = startedAt;
   }
+  async suspendExecution(id: string, usage: Record<string, unknown>): Promise<void> {
+    const row = this.runs.get(id)!;
+    row.view.execution.status = "awaiting_approval";
+    row.view.execution.usage = usage;
+  }
+  async resumeExecution(id: string): Promise<void> {
+    const row = this.runs.get(id)!;
+    row.view.execution.status = "running";
+  }
+  async suspend(input: { executionId: string; usage: Record<string, unknown> }): Promise<void> {
+    return this.suspendExecution(input.executionId, input.usage);
+  }
+  async resume(id: string): Promise<void> {
+    return this.resumeExecution(id);
+  }
   async startStep(step: ExecutionStepRecord): Promise<void> {
     this.runs.get(step.executionId)!.view.steps.push({ ...step });
   }

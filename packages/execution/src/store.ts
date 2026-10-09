@@ -29,10 +29,15 @@ export interface FinishStepInput {
   executionId: string;
   nodeId: string;
   attempt: number;
-  status: "completed" | "failed" | "cancelled" | "interrupted";
+  status: "completed" | "failed" | "cancelled" | "interrupted" | "awaiting_approval";
   finishedAt: Date;
   outputContexts: ContextEnvelope[];
   error: StructuredExecutionError | null;
+}
+
+export interface SuspendExecutionInput {
+  executionId: string;
+  usage: Record<string, unknown>;
 }
 
 export interface WorkflowExecutionStore extends ExecutionRepository {
@@ -42,4 +47,6 @@ export interface WorkflowExecutionStore extends ExecutionRepository {
   load(executionId: string): Promise<StoredWorkflowRun | null>;
   startStep(step: ExecutionStepRecord): Promise<void>;
   finishStep(step: FinishStepInput): Promise<void>;
+  suspend(input: SuspendExecutionInput): Promise<void>;
+  resume(executionId: string): Promise<void>;
 }

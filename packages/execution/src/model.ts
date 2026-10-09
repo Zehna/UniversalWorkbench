@@ -76,3 +76,10 @@ export interface ExecutionView {
   provenanceEdges: ProvenanceEdgeRecord[];
   receipt: ExecutionJson | null;
 }
+
+export type ApprovalDecision = "approved" | "rejected";
+
+export interface ApprovalResolution {
+  decision: ApprovalDecision;
+  rejectionReason?: string;
+}

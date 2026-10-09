@@ -178,6 +178,14 @@ export function createPostgresWorkflowExecutionStore(
       };
     },
 
+    async suspend(input: { executionId: string; usage: ExecutionJson }) {
+      return execution.suspendExecution(input.executionId, input.usage);
+    },
+
+    async resume(executionId: string) {
+      return execution.resumeExecution(executionId);
+    },
+
     async startStep(step: ExecutionStepRecord) {
       const client = await pool.connect();
       try {
