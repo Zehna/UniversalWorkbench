@@ -45,6 +45,8 @@ export function VirtualizedList<T>({
     <div
       ref={scroller}
       data-testid="virtual-scroller"
+      role="region"
+      tabIndex={0}
       onScroll={onScroll}
       style={{ overflowY: "auto", height: containerHeight }}
       {...rest}

@@ -39,10 +39,12 @@ export function ConfirmDialog({
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    const first = dialog.current
-      ? focusableElements(dialog.current)[0]
-      : undefined;
-    first?.focus();
+    // Focus the safe default (Cancel, the last action): Enter alone must
+    // never confirm a destructive action.
+    const elements = dialog.current
+      ? focusableElements(dialog.current)
+      : [];
+    elements[elements.length - 1]?.focus();
     return () => {
       previousFocus.current?.focus?.();
     };

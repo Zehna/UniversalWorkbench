@@ -162,6 +162,19 @@ describe("project destructive safeguards", () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
+  it("accepts confirmation as a query parameter for proxy compatibility", async () => {
+    const { service, remove } = projectServiceMock();
+    const app = projectsApp(OWNER_A, service);
+
+    const del = await request(app)
+      .delete(`/projects/${PROJECT_ID}?confirm=${PROJECT_ID}`)
+      .set("Cookie", COOKIE)
+      .send({});
+    expect(del.status).toBe(200);
+    expect(del.body).toEqual({ deleted: true });
+    expect(remove).toHaveBeenCalledTimes(1);
+  });
+
   it("deletes with matching confirmation and reports the deletion", async () => {
     const { service, remove } = projectServiceMock();
     const app = projectsApp(OWNER_A, service);
@@ -175,6 +188,40 @@ describe("project destructive safeguards", () => {
     expect(remove).toHaveBeenCalledTimes(1);
     expect(remove.mock.calls[0]?.[0]).toBe(OWNER_A);
     expect(remove.mock.calls[0]?.[1]).toBe(PROJECT_ID);
+  });
+
+  it("scopes service deletion by owner: wrong owner cannot delete", async () => {
+    const audit = {
+      record: vi.fn(async (_input: unknown) => {}),
+    } satisfies AuditRepository;
+    const remove = vi.fn(async () => true);
+    // Strict stub: storage exposes the row only to its owning pair, exactly
+    // like the `where owner_id = $1` repository scoping.
+    const service = createProjectService({
+      projects: {
+        create: vi.fn(),
+        list: vi.fn(async () => []),
+        get: vi.fn(async (ownerId: string, projectId: string) =>
+          ownerId === OWNER_A && projectId === PROJECT_ID
+            ? projectFixture
+            : null,
+        ),
+        update: vi.fn(),
+        remove,
+      },
+      audit,
+      clock: new SystemClock(),
+      idGenerator: new UuidGenerator(),
+    });
+
+    await service.delete(OWNER_A, PROJECT_ID, "trace-1");
+    expect(remove).toHaveBeenCalledWith(OWNER_A, PROJECT_ID);
+
+    remove.mockClear();
+    await expect(
+      service.delete(OWNER_B, PROJECT_ID, "trace-2"),
+    ).rejects.toThrow(ProjectNotFoundError);
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it("records a project.delete audit entry through the service", async () => {

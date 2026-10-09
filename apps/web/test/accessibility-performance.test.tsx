@@ -49,9 +49,9 @@ describe("VirtualizedList", () => {
     expect(buttons.length).toBeLessThan(100);
     expect(buttons.length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "item-0" })).toBeInTheDocument();
-    expect(
-      container.querySelector('[aria-label="Large list"]'),
-    ).toBeInTheDocument();
+    // The scroll window is an AT-exposed, keyboard-focusable landmark.
+    const region = screen.getByRole("region", { name: "Large list" });
+    expect(region).toHaveAttribute("tabindex", "0");
   });
 
   it("advances the window on scroll and keeps items keyboard-focusable", () => {
@@ -145,10 +145,10 @@ describe("ConfirmDialog", () => {
     expect(dialog).toBeInTheDocument();
     const confirm = screen.getByRole("button", { name: "Confirm delete" });
     const cancel = screen.getByRole("button", { name: "Cancel" });
-    expect(document.activeElement).toBe(confirm);
+    // The safe default owns initial focus: Enter alone must never delete.
+    expect(document.activeElement).toBe(cancel);
 
     // Tab on the last focusable element wraps to the first.
-    cancel.focus();
     fireEvent.keyDown(cancel, { key: "Tab" });
     expect(document.activeElement).toBe(confirm);
 

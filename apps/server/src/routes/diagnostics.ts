@@ -87,7 +87,9 @@ export async function collectReadiness(
 }
 
 export function readinessStatus(checks: ReadinessChecks): boolean {
-  return checks.database === "ok" && checks.storage !== "error";
+  // Fail closed: storage must be positively verified, not merely
+  // non-failing — an unverified ("unknown") artifacts dir must not serve.
+  return checks.database === "ok" && checks.storage === "ok";
 }
 
 async function countOrNull(

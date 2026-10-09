@@ -121,6 +121,14 @@ describe("diagnostics API", () => {
     expect(res.body.checks.vault.status).toBe("degraded");
   });
 
+  it("reports 503 when storage cannot be verified", async () => {
+    const app = diagnosticsApp({ ownerId: null, pool: healthyPool() });
+    const res = await request(app).get("/api/diagnostics/readiness");
+    expect(res.status).toBe(503);
+    expect(res.body.status).toBe("not_ready");
+    expect(res.body.checks.storage).toBe("unknown");
+  });
+
   it("reports 503 when the database is unreachable", async () => {
     const app = diagnosticsApp({
       ownerId: null,

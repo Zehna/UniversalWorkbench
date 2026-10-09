@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 import { closeDatabasePool, createDatabasePool } from "@uw/database";
 import { readBackupArchive, verifyBackupIntegrity } from "@uw/storage";
 
@@ -98,16 +98,21 @@ try {
   if (!dump) fail("backup-restore: archive is missing database.sql");
   runPsql(databaseUrl, null, Buffer.from(dump));
 
-  // Artifacts: archive paths are artifacts/<storage-key>.
+  // Artifacts: archive paths are artifacts/<storage-key>. Containment is
+  // enforced here (not just upstream in the tar reader) by resolving every
+  // target and requiring it to stay inside the storage dir.
   let restoredArtifacts = 0;
   for (const entry of manifest.artifacts) {
     const bytes = files.get(entry.path);
     if (!bytes) fail(`backup-restore: archive is missing ${entry.path}`);
-    const key = entry.path.replace(/^artifacts\//, "");
-    if (!key || key.includes("..")) {
+    if (!entry.path.startsWith("artifacts/")) {
+      fail(`backup-restore: artifact outside artifacts prefix: ${entry.path}`);
+    }
+    const key = entry.path.slice("artifacts/".length);
+    const target = resolve(storageDir, key);
+    if (target !== storageDir && !target.startsWith(storageDir + sep)) {
       fail(`backup-restore: unsafe artifact path ${entry.path}`);
     }
-    const target = join(storageDir, key);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, bytes);
     restoredArtifacts += 1;
