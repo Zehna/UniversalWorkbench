@@ -3,6 +3,7 @@ import type { OwnerPublic } from "@uw/contracts";
 import { AuthGate } from "./auth/AuthGate";
 import { ProjectList } from "./projects/ProjectList";
 import { SecretsSettings } from "./secrets/SecretsSettings";
+import { DiagnosticsView } from "./settings/DiagnosticsView";
 import {
   SyncRuntime,
   type SyncCoordinatorFactory,
@@ -32,7 +33,9 @@ const cardStyle = {
 
 function Workbench({ owner }: { owner: OwnerPublic }) {
   const { status } = useSyncRuntime();
-  const [tab, setTab] = useState<"projects" | "secrets">("projects");
+  const [tab, setTab] = useState<"projects" | "secrets" | "diagnostics">(
+    "projects",
+  );
   return (
     <>
       <SyncStatusBadge status={status} />
@@ -56,9 +59,19 @@ function Workbench({ owner }: { owner: OwnerPublic }) {
         >
           Local Secrets
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "diagnostics"}
+          onClick={() => setTab("diagnostics")}
+        >
+          Diagnostics
+        </button>
       </nav>
       {tab === "secrets" ? (
         <SecretsSettings ownerId={owner.id} />
+      ) : tab === "diagnostics" ? (
+        <DiagnosticsView />
       ) : (
         <ProjectList />
       )}

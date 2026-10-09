@@ -15,6 +15,7 @@ import type { SessionCookieConfig } from "./middleware/auth.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { createAuthRouter } from "./routes/auth.js";
 import { createArtifactsRouter } from "./routes/artifacts.js";
+import { createDiagnosticsRouter } from "./routes/diagnostics.js";
 import { createDocumentsRouter } from "./routes/documents.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createProjectsRouter } from "./routes/projects.js";
@@ -41,6 +42,7 @@ export interface AppDependencies {
   syncRepository?: SyncRepository;
   vaultPool?: Parameters<typeof createVaultStore>[0];
   auditRepository?: AuditRepository;
+  artifactsDir?: string;
 }
 
 function requestIdFromLocals(
@@ -139,6 +141,20 @@ export function createApp(deps: AppDependencies) {
   app.use(requestIdMiddleware);
   app.use(express.json({ limit: "1mb" }));
   app.use("/health", createHealthRouter(deps));
+  app.use(
+    ["/diagnostics", "/api/diagnostics"],
+    createDiagnosticsRouter({
+      databaseReady: deps.databaseReady,
+      ...(deps.vaultPool ? { pool: deps.vaultPool } : {}),
+      ...(deps.artifactsDir ? { artifactsDir: deps.artifactsDir } : {}),
+      ...(hasAuthDependencies(deps)
+        ? {
+            authService: deps.authService,
+            sessionCookie: deps.sessionCookie,
+          }
+        : {}),
+    }),
+  );
 
   if (hasAuthDependencies(deps)) {
     app.use("/setup", createSetupRouter(deps.authService, deps.sessionCookie));
