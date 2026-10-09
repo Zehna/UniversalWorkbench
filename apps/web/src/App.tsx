@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { OwnerPublic } from "@uw/contracts";
 import { AuthGate } from "./auth/AuthGate";
+import { OfflineBanner } from "./lib/OfflineBanner";
+import { TabList } from "./lib/TabList";
 import { ProjectList } from "./projects/ProjectList";
 import { SecretsSettings } from "./secrets/SecretsSettings";
 import { DiagnosticsView } from "./settings/DiagnosticsView";
@@ -39,35 +41,19 @@ function Workbench({ owner }: { owner: OwnerPublic }) {
   return (
     <>
       <SyncStatusBadge status={status} />
-      <nav
+      <OfflineBanner />
+      <TabList
         aria-label="Workbench tabs"
-        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "projects"}
-          onClick={() => setTab("projects")}
-        >
-          Projects
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "secrets"}
-          onClick={() => setTab("secrets")}
-        >
-          Local Secrets
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "diagnostics"}
-          onClick={() => setTab("diagnostics")}
-        >
-          Diagnostics
-        </button>
-      </nav>
+        tabs={[
+          { id: "projects", label: "Projects" },
+          { id: "secrets", label: "Local Secrets" },
+          { id: "diagnostics", label: "Diagnostics" },
+        ]}
+        selected={tab}
+        onSelect={(id) =>
+          setTab(id as "projects" | "secrets" | "diagnostics")
+        }
+      />
       {tab === "secrets" ? (
         <SecretsSettings ownerId={owner.id} />
       ) : tab === "diagnostics" ? (

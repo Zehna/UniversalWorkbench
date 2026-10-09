@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { Project } from "@uw/contracts";
+import { VirtualizedList } from "../lib/VirtualizedList";
 import { useSyncRuntime } from "../sync/runtime";
 import { ProjectWorkspace } from "./ProjectWorkspace";
 
@@ -69,15 +70,20 @@ export function ProjectList() {
       </form>
       {error ? <p role="alert">{error}</p> : null}
       {projects.length === 0 ? <p>No projects yet.</p> : null}
-      {projects.map((project) => (
-        <button
-          key={project.id}
-          type="button"
-          onClick={() => setSelected(project)}
-        >
-          {project.name}
-        </button>
-      ))}
+      {projects.length > 0 ? (
+        <VirtualizedList
+          aria-label="Projects"
+          items={projects}
+          itemHeight={40}
+          containerHeight={400}
+          keyOf={(project) => project.id}
+          renderItem={(project) => (
+            <button type="button" onClick={() => setSelected(project)}>
+              {project.name}
+            </button>
+          )}
+        />
+      ) : null}
     </section>
   );
 }
