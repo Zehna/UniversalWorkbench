@@ -168,6 +168,7 @@ describe("agent contracts and schemas", () => {
         id: "11111111-1111-4111-8111-111111111111",
         type: "agent_response" as const,
         schemaVersion: 1 as const,
+        mimeType: "application/json",
         metadata: {},
         payload,
         provenance: {
