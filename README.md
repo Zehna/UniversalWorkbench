@@ -2,7 +2,7 @@
 
 Universal Workbench is a local-first, self-hosted-first workspace for connecting tools without losing project context or provenance.
 
-**Phase 5 — Hardening & Private Release is complete and ready for private release.** Phase 0–4 are merged to `main`; Phase 5 adds upload content verification, destructive-action safeguards with ownership audit, unified backup/restore with automated disaster-recovery drills, redacted system diagnostics, a resilient accessible web UI, and hardened production deployment with a self-hosting runbook. See [the Phase 5 architecture](docs/architecture/phase-5.md) and [the private-deployment runbook](docs/runbooks/private-deployment.md).
+**Phase 6 — Autonomous ReAct Agent is complete on `phase-6-react-agent`.** Phase 0–5 are merged to `main`; Phase 6 adds a goal-driven ReAct agent loop (`builtin.ai.agent@1.0.0`) with whitelisted tool calling, iteration (default 5, cap 15) and token budgets, prompt-injection isolation, secret-scrubbed trace persistence, Send-to Document/Artifact for agent outputs, and a trace timeline UI. See [the Phase 6 architecture](docs/architecture/phase-6.md). Phase 5 remains ready for private release ([Phase 5 architecture](docs/architecture/phase-5.md), [private-deployment runbook](docs/runbooks/private-deployment.md)).
 
 ## Phase 2 capabilities
 
@@ -78,6 +78,47 @@ deployment smoke, security review and same-commit final verification. See
   isolated network with fail-fast secrets, and a complete private self-hosting
   runbook (reverse proxy HTTPS, backup cron, disaster recovery, updates).
 
+## Phase 6 capabilities (react agent)
+
+- ReAct loop engine (`prompt -> thought + toolCall -> observation -> final`):
+  `builtin.ai.agent@1.0.0` with default 5 iterations, hard cap 15, and early
+  termination (`completed` vs `iteration_limit_reached`);
+- provider tool-calling seam: `tools` on provider requests, `toolCalls` on
+  results (mock + OpenAI-compatible HTTP), surfaced as function-calling specs;
+- whitelist authorization: the agent can only invoke `allowedTools`-listed
+  tools; disallowed calls become `UNAUTHORIZED_TOOL` error observations and
+  content can never widen the server permission grant;
+- prompt-injection mitigation: observations are serialized JSON context, the
+  agent is excluded from its own dispatch set, and untrusted content cannot
+  escalate tools or permissions;
+- trace persistence with secret scrubbing: every thought, tool-call argument,
+  duration, and observation is stored in `agent_response` (`text`, `status`,
+  `iterations`, `trace`, `usage`); resolved `secret://` values persist only
+  as `[REDACTED]`;
+- token accounting: per-iteration usage accumulates into execution usage
+  (provider vs estimated source), with the same budget guards as Phase 4;
+- Universal Send-to for `agent_response` (Save as Note with `Agent result`
+  title, Save as Artifact) plus the `AgentTraceViewer` timeline and
+  `AgentStepEditor` (allowed tools, 1–15 iterations) in the web UI;
+- golden coverage: `packages/execution/test/golden-agent.integration.test.ts`
+  (HTTP tool → observe JSON → reason → final response, whitelist negative,
+  iteration-cap termination, trace/token/Send-to/no-leak assertions).
+
+## Test commands
+
+```sh
+npm test                                   # all workspace suites (includes Phase 6 golden agent)
+npm run typecheck                          # zero TypeScript errors required
+npm run test -w @uw/execution              # execution engine + golden agent/AI suites
+npm run test -w @uw/tools                  # agent executor + dispatcher suites
+npm run test -w @uw/providers              # provider tool-calling suite
+npm run test -w @uw/contracts              # agent schema suite
+```
+
+No test sends real network traffic (deterministic injected transports) or
+weakens the production egress policy. DB-backed suites need
+`TEST_DATABASE_URL`.
+
 ## Stack
 
 - Node.js 24 LTS
@@ -116,7 +157,8 @@ docs                architecture, runbooks, specs, and plans
 
 ## Next boundary
 
-**Finish Phase 4 Task 11 before merging.** MCP/plugin expansion, broader
-ingestion and private-release hardening remain deferred.
+**Phase 6 Task 7 gate is the merge boundary.** MCP/plugin expansion, broader
+ingestion, multi-agent orchestration, and arbitrary code execution remain
+deferred.
 
-See [the runbook](docs/runbooks/local-development.md), [Phase 2 architecture](docs/architecture/phase-2.md), [Phase 3 architecture](docs/architecture/phase-3.md), [Phase 4 architecture](docs/architecture/phase-4.md) and [the product blueprint](docs/superpowers/specs/2026-09-15-universal-workbench-design.md).
+See [the runbook](docs/runbooks/local-development.md), [Phase 2 architecture](docs/architecture/phase-2.md), [Phase 3 architecture](docs/architecture/phase-3.md), [Phase 4 architecture](docs/architecture/phase-4.md), [Phase 5 architecture](docs/architecture/phase-5.md), [Phase 6 architecture](docs/architecture/phase-6.md) and [the product blueprint](docs/superpowers/specs/2026-09-15-universal-workbench-design.md).
