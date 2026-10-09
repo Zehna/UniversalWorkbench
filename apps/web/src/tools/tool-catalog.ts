@@ -112,6 +112,16 @@ export function initialConfig(tool: ToolDescriptor): Record<string, unknown> {
         responseFormat: { kind: "text" },
         maxOutputTokens: 1024,
       };
+    case "builtin.ai.agent":
+      return {
+        providerId: "mock",
+        model: "",
+        prompt: "",
+        secretRef: "secret://vault/",
+        allowedTools: [],
+        maxIterations: 5,
+        maxOutputTokens: 1024,
+      };
     default:
       return {};
   }

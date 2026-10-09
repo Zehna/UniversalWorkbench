@@ -5,6 +5,7 @@ import {
   parseJsonSchemaInput,
   validateAiToolConfig,
 } from "../tools/ai-config";
+import { AgentStepEditor } from "./AgentStepEditor";
 
 interface WorkflowStepEditorProps {
   node: WorkflowNode;
@@ -13,6 +14,7 @@ interface WorkflowStepEditorProps {
   sourceLabel: string;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  tools?: ToolDescriptor[];
   onChange(node: WorkflowNode): void;
   onMoveUp(): void;
   onMoveDown(): void;
@@ -183,6 +185,7 @@ export function WorkflowStepEditor({
   sourceLabel,
   canMoveUp,
   canMoveDown,
+  tools = [],
   onChange,
   onMoveUp,
   onMoveDown,
@@ -280,6 +283,12 @@ export function WorkflowStepEditor({
         <p>No configuration required.</p>
       ) : descriptor.id === "builtin.ai.complete" ? (
         <AiStepFields config={config} updateConfig={updateConfig} />
+      ) : descriptor.id === "builtin.ai.agent" ? (
+        <AgentStepEditor
+          config={config}
+          updateConfig={updateConfig}
+          availableTools={tools}
+        />
       ) : (
         <label>
           Tool configuration (JSON)

@@ -1,13 +1,35 @@
 import { useEffect, useState } from "react";
-import type { ContextEnvelope } from "@uw/contracts";
+import type { AgentTraceItem, ContextEnvelope } from "@uw/contracts";
 import { api, type ExecutionDetails } from "../api/client";
 import { formatTokenUsage, usageSourceOf } from "../send-to/send-to";
+import { AgentTraceViewer } from "./AgentTraceViewer";
 
 const PAYLOAD_PREVIEW_LIMIT = 4000;
 
+interface AgentResponsePayloadView {
+  text?: unknown;
+  model?: unknown;
+  status?: unknown;
+  iterations?: unknown;
+  trace?: unknown;
+  usage?: Record<string, unknown>;
+  usageSource?: unknown;
+}
+
+function agentPayloadOf(output: ContextEnvelope): AgentResponsePayloadView | null {
+  if (output.type !== "agent_response") return null;
+  if (output.payload === null || typeof output.payload !== "object")
+    return null;
+  return output.payload as AgentResponsePayloadView;
+}
+
+function toTraceItems(value: unknown): AgentTraceItem[] {
+  return Array.isArray(value) ? (value as AgentTraceItem[]) : [];
+}
+
 function renderPayloadText(output: ContextEnvelope): string {
   if (
-    output.type === "ai_response" &&
+    (output.type === "ai_response" || output.type === "agent_response") &&
     output.payload !== null &&
     typeof output.payload === "object" &&
     "text" in output.payload &&
@@ -55,7 +77,8 @@ export function ExecutionStatus({
   } {
     const totals = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
     for (const output of outputs) {
-      if (output.type !== "ai_response") continue;
+      if (output.type !== "ai_response" && output.type !== "agent_response")
+        continue;
       const usage =
         output.payload !== null && typeof output.payload === "object"
           ? ((output.payload as { usage?: Record<string, unknown> }).usage ??
@@ -221,7 +244,8 @@ export function ExecutionStatus({
             {step.toolId} · Attempt {step.attempt}: {step.status}
           </strong>
           {step.outputContexts.some(
-            (output) => output.type === "ai_response",
+            (output) =>
+              output.type === "ai_response" || output.type === "agent_response",
           ) ? (
             <p>
               Tokens:{" "}
@@ -246,9 +270,41 @@ export function ExecutionStatus({
             const isExpanded = expanded.has(output.id);
             const truncated =
               fullText.length > PAYLOAD_PREVIEW_LIMIT && !isExpanded;
+            const agentPayload = agentPayloadOf(output);
             return (
             <div key={output.id}>
               <p>{output.type}</p>
+              {agentPayload ? (
+                <AgentTraceViewer
+                  trace={toTraceItems(agentPayload.trace)}
+                  status={
+                    typeof agentPayload.status === "string"
+                      ? agentPayload.status
+                      : "completed"
+                  }
+                  usage={agentPayload.usage}
+                  usageSource={
+                    typeof agentPayload.usageSource === "string"
+                      ? agentPayload.usageSource
+                      : usageSourceOf(output)
+                  }
+                  model={
+                    typeof agentPayload.model === "string"
+                      ? agentPayload.model
+                      : undefined
+                  }
+                  iterations={
+                    typeof agentPayload.iterations === "number"
+                      ? agentPayload.iterations
+                      : undefined
+                  }
+                  text={
+                    typeof agentPayload.text === "string"
+                      ? agentPayload.text
+                      : undefined
+                  }
+                />
+              ) : null}
               <pre
                 style={{
                   overflowX: "auto",

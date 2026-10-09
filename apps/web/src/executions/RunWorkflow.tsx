@@ -48,7 +48,10 @@ export function RunWorkflow({
     (value) => !grantedPermissions.includes(value),
   );
   const aiModels = nodes
-    .filter((node) => node.toolId === "builtin.ai.complete")
+    .filter(
+      (node) =>
+        node.toolId === "builtin.ai.complete" || node.toolId === "builtin.ai.agent",
+    )
     .map((node) => String((node.config as Record<string, unknown>).model ?? ""))
     .filter((model) => model.length > 0);
   const serverUnresolvable = findServerUnresolvableSecretRefs(
