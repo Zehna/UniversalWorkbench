@@ -113,6 +113,36 @@ function toSafeArguments(value: unknown): Record<string, unknown> {
   return {};
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Deep-scrub resolved secret plaintexts from successful payload content
+ * (final text, trace thoughts, tool-call arguments, observation outputs)
+ * before persistence. Complements the error-path scrub below: provider
+ * echoes of the Bearer secret in reasoning text would otherwise persist
+ * verbatim in execution outputContexts.
+ */
+function scrubTraceValue(value: unknown, secrets: readonly string[]): unknown {
+  if (typeof value === "string") return scrubSecret(value, secrets);
+  if (Array.isArray(value)) {
+    return value.map((item) => scrubTraceValue(item, secrets));
+  }
+  if (isPlainRecord(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value)) {
+      out[key] = scrubTraceValue(child, secrets);
+    }
+    return out;
+  }
+  return value;
+}
+
 export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
   return {
     descriptor: ToolDescriptorSchema.parse(descriptor),
@@ -322,11 +352,11 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
         }
 
         const payloadCandidate = {
-          text,
+          text: scrubSecret(text, knownSecrets),
           model,
           status,
           iterations,
-          trace,
+          trace: scrubTraceValue(trace, knownSecrets) as AgentTraceItem[],
           usage: { promptTokens, completionTokens, totalTokens },
           usageSource: allProviderUsage ? ("provider" as const) : ("estimated" as const),
         };

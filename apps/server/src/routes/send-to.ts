@@ -38,7 +38,7 @@ const FromExecutionSchema = z.strictObject({
 
 function noteBodyFor(output: ContextEnvelope): string {
   if (
-    output.type === "ai_response" &&
+    (output.type === "ai_response" || output.type === "agent_response") &&
     output.payload !== null &&
     typeof output.payload === "object" &&
     "text" in output.payload &&
@@ -94,13 +94,14 @@ export function createSendToRouter(deps: SendToRouterDependencies) {
       }
       if (
         output.type !== "ai_response" &&
+        output.type !== "agent_response" &&
         output.type !== "text" &&
         output.type !== "markdown"
       ) {
         throw new HttpError(
           400,
           "UNSUPPORTED_OUTPUT_TYPE",
-          "Only ai_response, text, and markdown outputs can be saved as notes",
+          "Only ai_response, agent_response, text, and markdown outputs can be saved as notes",
         );
       }
       const body = noteBodyFor(output);
@@ -113,7 +114,11 @@ export function createSendToRouter(deps: SendToRouterDependencies) {
           ? requestId
           : randomUUID();
       const title =
-        output.type === "ai_response" ? "AI result" : "Workflow output";
+        output.type === "ai_response"
+          ? "AI result"
+          : output.type === "agent_response"
+            ? "Agent result"
+            : "Workflow output";
       const document = await deps.documentService.createNote(
         owner.id,
         projectId,

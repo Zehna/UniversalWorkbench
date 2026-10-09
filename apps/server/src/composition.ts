@@ -21,6 +21,7 @@ import { parseSecretRef, SystemClock, UuidGenerator } from "@uw/shared";
 import { createWorkflowEngine, createExecutionWorker } from "@uw/execution";
 import { createWorkflowService } from "@uw/workflow";
 import {
+  createAgentTool,
   createAiTool,
   createToolRegistry,
   createTextTrimTool,
@@ -28,9 +29,11 @@ import {
   createMarkdownToTextTool,
   createHttpTool,
   EgressPolicyError,
+  type AgentProviderPort,
   type AiProviderPort,
   type EgressPolicy,
   type HttpTransport,
+  type ToolExecutor,
 } from "@uw/tools";
 import {
   createHttpProvider,
@@ -250,16 +253,55 @@ export function composeToolRegistry(
   pool: Parameters<typeof createVaultStore>[0],
 ) {
   const registry = createToolRegistry();
-  registry.register(createTextTrimTool());
-  registry.register(createJsonExtractTool());
-  registry.register(createMarkdownToTextTool());
-  registry.register(
-    fixtureModeEnabled() || dockerSmokeFixtureEnabled()
-      ? createFixtureHttpTool()
-      : createHttpTool(),
-  );
-  registry.register(composeAiTool(pool));
+  const textTrim = createTextTrimTool();
+  const jsonExtract = createJsonExtractTool();
+  const markdownToText = createMarkdownToTextTool();
+  const httpTool = fixtureModeEnabled() || dockerSmokeFixtureEnabled()
+    ? createFixtureHttpTool()
+    : createHttpTool();
+  const aiTool = composeAiTool(pool);
+  registry.register(textTrim);
+  registry.register(jsonExtract);
+  registry.register(markdownToText);
+  registry.register(httpTool);
+  registry.register(aiTool);
+  registry.register(composeAgentTool(pool, [textTrim, jsonExtract, markdownToText, httpTool, aiTool]));
   return registry;
+}
+
+/**
+ * Agent wiring. Reuses the same provider composition as builtin.ai.complete
+ * (mock-gated + HTTP) through a structural cast: at runtime both ports call
+ * `provider.complete` with `{model, prompt, secretValue, signal, tools}` and
+ * read `{text, model, usage, toolCalls}` back. `ProviderRequest.responseFormat`
+ * is optional at runtime (mock/HTTP use `?.kind`), so the agent's
+ * format-free requests are served without a second provider instance.
+ * Dispatch tools exclude the agent itself to avoid recursive invocation.
+ */
+export function composeAgentTool(
+  pool: Parameters<typeof createVaultStore>[0],
+  tools: ToolExecutor[],
+) {
+  const vaultStore: VaultStore = createVaultStore(pool);
+  const agentProviders = new Map<string, AgentProviderPort>();
+  const gatedMock = mockProviderIfAllowed();
+  if (gatedMock) {
+    agentProviders.set(
+      gatedMock.id,
+      gatedMock as unknown as AgentProviderPort,
+    );
+  }
+  const httpOptions = httpProviderOptionsFromEnv();
+  if (httpOptions) {
+    const http: AiProvider = createHttpProvider(httpOptions);
+    agentProviders.set(http.id, http as unknown as AgentProviderPort);
+  }
+  return createAgentTool({
+    providers: agentProviders,
+    resolveSecret: (ref: string, ownerId?: string) =>
+      resolveSecretResource(ref, ownerId ?? "", vaultStore),
+    tools,
+  });
 }
 
 export function composeExecutionEngine(
