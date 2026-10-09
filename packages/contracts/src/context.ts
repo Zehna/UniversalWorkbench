@@ -21,6 +21,7 @@ export const ContextEnvelopeSchema = z.object({
   id: IdSchema,
   type: ContextTypeSchema,
   schemaVersion: z.literal(1),
+  mimeType: z.string().trim().min(1).max(255),
   metadata: JsonMetadataSchema,
   payload: z.unknown(),
   provenance: ContextProvenanceSchema,
