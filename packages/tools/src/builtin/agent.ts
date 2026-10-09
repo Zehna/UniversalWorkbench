@@ -5,6 +5,7 @@ import {
 } from "@uw/contracts";
 import type { AgentTraceItem } from "@uw/contracts";
 import { AgentToolDispatcher } from "../agent/dispatcher.js";
+import type { AgentApprovalResolutionInput } from "../agent/dispatcher.js";
 import { ToolRuntimeError } from "../errors.js";
 import type { ToolExecutor } from "../runtime.js";
 import { createLocalResult, validateInvocation } from "../runtime.js";
@@ -113,6 +114,33 @@ function toSafeArguments(value: unknown): Record<string, unknown> {
   return {};
 }
 
+function toApprovalMap(value: unknown): Record<string, AgentApprovalResolutionInput> | undefined {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const out: Record<string, AgentApprovalResolutionInput> = {};
+  let found = false;
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const record = entry as Record<string, unknown>;
+    if (record["decision"] === "approved") {
+      out[key] = { decision: "approved" };
+      found = true;
+    } else if (record["decision"] === "rejected") {
+      const reason =
+        typeof record["rejectionReason"] === "string" && record["rejectionReason"].trim().length > 0
+          ? (record["rejectionReason"] as string)
+          : undefined;
+      out[key] =
+        reason !== undefined
+          ? { decision: "rejected", rejectionReason: reason }
+          : { decision: "rejected" };
+      found = true;
+    }
+  }
+  return found ? out : undefined;
+}
+
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return false;
@@ -213,6 +241,9 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
         const timeoutMs = 30_000;
         const maxIterations = toolConfig.maxIterations;
 
+        const rawConfig = config as Record<string, unknown>;
+        const approvalResolutions = toApprovalMap(rawConfig["approvalResolutions"]);
+
         let conversation = `${toolConfig.prompt}\n\n${inputText}`;
         const trace: AgentTraceItem[] = [];
         let promptTokens = 0;
@@ -221,8 +252,15 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
         let allProviderUsage = true;
         let text = "";
         let model = toolConfig.model;
-        let status: "completed" | "iteration_limit_reached" = "completed";
+        let status: "completed" | "iteration_limit_reached" | "awaiting_approval" =
+          "completed";
         let iterations = 0;
+        let pendingApprovals: Array<{
+          tool: string;
+          toolCallId?: string;
+          arguments?: Record<string, unknown>;
+          reason: string;
+        }> | undefined;
 
         for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
           if (context.signal.aborted) {
@@ -306,44 +344,80 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
             break;
           }
 
-          const callName = firstCall.name.trim();
-          const callArgs = toSafeArguments(firstCall.arguments);
-          const dispatchInput = {
-            ...(firstCall.id !== undefined ? { id: firstCall.id } : {}),
-            name: callName,
-            arguments: callArgs,
-          };
-          const observation = await dispatcher.dispatch(
-            dispatchInput,
-            validInput,
-            context,
-          );
-
-          trace.push({
-            iteration,
-            thought: result.text,
-            toolCall: {
-              ...(firstCall.id !== undefined ? { id: firstCall.id } : {}),
+          const dispatchInputs = toolCalls.map((toolCall) => {
+            const callName = toolCall.name.trim();
+            const callArgs = toSafeArguments(toolCall.arguments);
+            return {
+              ...(toolCall.id !== undefined ? { id: toolCall.id } : {}),
               name: callName,
               arguments: callArgs,
-            },
-            observation: {
-              ...(observation.toolCallId !== undefined
-                ? { toolCallId: observation.toolCallId }
-                : {}),
-              output: observation.output,
-              durationMs: observation.durationMs,
-              isError: observation.isError,
-            },
+            };
           });
+          const observations = await dispatcher.dispatchMany(
+            dispatchInputs,
+            validInput,
+            context,
+            approvalResolutions,
+          );
 
-          let observationText: string;
-          try {
-            observationText = JSON.stringify(observation.output) ?? "";
-          } catch {
-            observationText = String(observation.output);
+          const awaiting = observations.filter(
+            (observation) => observation.requiresApproval === true,
+          );
+          for (let index = 0; index < toolCalls.length; index += 1) {
+            const toolCall = toolCalls[index];
+            if (!toolCall) continue;
+            const callName = toolCall.name.trim();
+            const callArgs = toSafeArguments(toolCall.arguments);
+            const observation = observations[index];
+            if (!observation) continue;
+            trace.push({
+              iteration,
+              ...(index === 0 ? { thought: result.text } : {}),
+              toolCall: {
+                ...(toolCall.id !== undefined ? { id: toolCall.id } : {}),
+                name: callName,
+                arguments: callArgs,
+              },
+              observation: {
+                ...(observation.toolCallId !== undefined
+                  ? { toolCallId: observation.toolCallId }
+                  : {}),
+                output: observation.output,
+                durationMs: observation.durationMs,
+                isError: observation.isError,
+              },
+            });
           }
-          conversation += `\n\nAssistant: ${result.text}\nObservation[${iteration}]: ${observationText}`;
+
+          if (awaiting.length > 0) {
+            pendingApprovals = awaiting.map((observation) => ({
+              tool:
+                observation.pendingApproval?.tool ??
+                dispatchInputs[observations.indexOf(observation)]?.name ??
+                "",
+              ...(observation.pendingApproval?.toolCallId !== undefined ||
+              observation.toolCallId !== undefined
+                ? {
+                    toolCallId:
+                      observation.pendingApproval?.toolCallId ?? observation.toolCallId,
+                  }
+                : {}),
+              arguments: observation.pendingApproval?.arguments ?? {},
+              reason:
+                observation.pendingApproval?.reason ?? "Tool requires approval",
+            }));
+            status = "awaiting_approval";
+            break;
+          }
+
+          const observationTexts = observations.map((observation) => {
+            try {
+              return JSON.stringify(observation.output) ?? "";
+            } catch {
+              return String(observation.output);
+            }
+          });
+          conversation += `\n\nAssistant: ${result.text}\nObservation[${iteration}]: ${observationTexts.join("\n")}`;
 
           if (iteration === maxIterations) {
             status = "iteration_limit_reached";
@@ -359,6 +433,9 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
           trace: scrubTraceValue(trace, knownSecrets) as AgentTraceItem[],
           usage: { promptTokens, completionTokens, totalTokens },
           usageSource: allProviderUsage ? ("provider" as const) : ("estimated" as const),
+          ...(pendingApprovals !== undefined
+            ? { structured: { pendingApprovals } }
+            : {}),
         };
         const payloadParsed =
           AgentResponsePayloadSchema.safeParse(payloadCandidate);

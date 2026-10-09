@@ -39,7 +39,9 @@ export {
   toToolName,
 } from "./agent/dispatcher.js";
 export type {
+  AgentApprovalResolutionInput,
   AgentDispatchObservation,
+  AgentPendingApproval,
   AgentToolCallInput,
   AgentToolDispatcherOptions,
   FunctionCallingSpec,
