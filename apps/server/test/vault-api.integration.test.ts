@@ -99,8 +99,14 @@ describe("vault API", () => {
       expect(list.body).toEqual({ secrets: ["mykey"] });
       expect(JSON.stringify(list.body)).not.toContain(plaintext);
 
-      const del = await request(app)
+      const unconfirmed = await request(app)
         .delete("/api/vault/mykey")
+        .set("Cookie", COOKIE);
+      expect(unconfirmed.status).toBe(400);
+      expect(unconfirmed.body.error.code).toBe("CONFIRMATION_REQUIRED");
+
+      const del = await request(app)
+        .delete("/api/vault/mykey?confirm=mykey")
         .set("Cookie", COOKIE);
       expect(del.status).toBe(200);
       expect(del.body).toEqual({ deleted: true });

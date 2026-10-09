@@ -175,6 +175,19 @@ export function createPostgresProjectRepository(pool: Pool): ProjectRepository {
       const row = result.rows[0];
       return row ? mapProject(row) : null;
     },
+
+    async remove(ownerId: string, projectId: string) {
+      const result = await pool.query(
+        `update projects
+            set deleted_at = now(),
+                updated_at = now()
+          where owner_id = $1
+            and id = $2
+            and deleted_at is null`,
+        [ownerId, projectId],
+      );
+      return (result.rowCount ?? 0) > 0;
+    },
   };
 }
 

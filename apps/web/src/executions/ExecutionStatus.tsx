@@ -3,6 +3,22 @@ import type { ContextEnvelope } from "@uw/contracts";
 import { api, type ExecutionDetails } from "../api/client";
 import { formatTokenUsage, usageSourceOf } from "../send-to/send-to";
 
+const PAYLOAD_PREVIEW_LIMIT = 4000;
+
+function renderPayloadText(output: ContextEnvelope): string {
+  if (
+    output.type === "ai_response" &&
+    output.payload !== null &&
+    typeof output.payload === "object" &&
+    "text" in output.payload &&
+    typeof (output.payload as { text: unknown }).text === "string"
+  ) {
+    return (output.payload as { text: string }).text;
+  }
+  if (typeof output.payload === "string") return output.payload;
+  return JSON.stringify(output.payload, null, 2) ?? "";
+}
+
 interface ExecutionStatusProps {
   projectId: string;
   executionId: string;
@@ -21,6 +37,10 @@ export function ExecutionStatus({
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [online, setOnline] = useState<boolean>(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
 
   function tokenNumber(value: unknown): number {
     return typeof value === "number" && Number.isInteger(value) && value >= 0
@@ -78,12 +98,29 @@ export function ExecutionStatus({
   }, [projectId, executionId]);
 
   useEffect(() => {
-    if (view && terminal.has(view.execution.status)) return;
-    const timer = window.setInterval(() => {
+    function goOnline(): void {
+      setOnline(true);
       void refresh();
+    }
+    function goOffline(): void {
+      setOnline(false);
+    }
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, [projectId, executionId]);
+
+  useEffect(() => {
+    if (view && terminal.has(view.execution.status)) return;
+    if (!online) return;
+    const timer = window.setInterval(() => {
+      if (navigator.onLine) void refresh();
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [view?.execution.status, projectId, executionId]);
+  }, [view?.execution.status, projectId, executionId, online]);
 
   async function cancel() {
     setBusy(true);
@@ -149,6 +186,11 @@ export function ExecutionStatus({
         Execution ID: <code>{executionId}</code>
       </p>
       <p role="status">Status: {status ?? "Loading"}</p>
+      {!online ? (
+        <p role="status">
+          Connection lost — retrying automatically on reconnect…
+        </p>
+      ) : null}
       {view?.execution.error ? (
         <p role="alert">
           {view.execution.error.code}: {view.execution.error.message}
@@ -199,7 +241,12 @@ export function ExecutionStatus({
       {status === "completed" && outputs.length > 0 ? (
         <section>
           <h4>Workflow outputs</h4>
-          {outputs.map((output) => (
+          {outputs.map((output) => {
+            const fullText = renderPayloadText(output);
+            const isExpanded = expanded.has(output.id);
+            const truncated =
+              fullText.length > PAYLOAD_PREVIEW_LIMIT && !isExpanded;
+            return (
             <div key={output.id}>
               <p>{output.type}</p>
               <pre
@@ -209,16 +256,29 @@ export function ExecutionStatus({
                   overflowWrap: "anywhere",
                 }}
               >
-                {output.type === "ai_response" &&
-                output.payload !== null &&
-                typeof output.payload === "object" &&
-                "text" in output.payload &&
-                typeof (output.payload as { text: unknown }).text === "string"
-                  ? (output.payload as { text: string }).text
-                  : typeof output.payload === "string"
-                    ? output.payload
-                    : JSON.stringify(output.payload, null, 2)}
+                {truncated
+                  ? fullText.slice(0, PAYLOAD_PREVIEW_LIMIT)
+                  : fullText}
               </pre>
+              {fullText.length > PAYLOAD_PREVIEW_LIMIT ? (
+                <button
+                  type="button"
+                  aria-expanded={isExpanded}
+                  aria-label={
+                    isExpanded ? "Show less payload" : "Show full payload"
+                  }
+                  onClick={() =>
+                    setExpanded((current) => {
+                      const next = new Set(current);
+                      if (next.has(output.id)) next.delete(output.id);
+                      else next.add(output.id);
+                      return next;
+                    })
+                  }
+                >
+                  {isExpanded ? "Show less" : "Show full payload"}
+                </button>
+              ) : null}
               <button
                 type="button"
                 disabled={busy}
@@ -234,7 +294,8 @@ export function ExecutionStatus({
                 Save as Note
               </button>
             </div>
-          ))}
+            );
+          })}
         </section>
       ) : null}
       {saved ? <p role="status">Artifact saved: {saved}</p> : null}

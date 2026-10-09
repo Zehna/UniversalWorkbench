@@ -8,6 +8,8 @@ import type {
 import type { LocalConflictRecord } from "../local/store";
 import { api } from "../api/client";
 import { NoteEditor } from "../documents/NoteEditor";
+import { TabList } from "../lib/TabList";
+import { VirtualizedList } from "../lib/VirtualizedList";
 import { SendToMenu } from "../send-to/SendToMenu";
 import { WorkflowList } from "../workflows/WorkflowList";
 import { useSyncRuntime } from "../sync/runtime";
@@ -120,27 +122,15 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
       </button>
       <h2>{project.name}</h2>
       {error ? <p role="alert">{error}</p> : null}
-      <nav
+      <TabList
         aria-label="Project tabs"
-        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "notes"}
-          onClick={() => setTab("notes")}
-        >
-          Notes
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "workflows"}
-          onClick={() => setTab("workflows")}
-        >
-          Workflows
-        </button>
-      </nav>
+        tabs={[
+          { id: "notes", label: "Notes" },
+          { id: "workflows", label: "Workflows" },
+        ]}
+        selected={tab}
+        onSelect={(id) => setTab(id as "notes" | "workflows")}
+      />
       {tab === "workflows" ? (
         <WorkflowList projectId={project.id} />
       ) : (
@@ -156,43 +146,51 @@ export function ProjectWorkspace({ project, onBack }: ProjectWorkspaceProps) {
             >
               New Note
             </button>
-            {notes.map((note) => (
-              <div key={note.document.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelected(note);
-                    setCreating(false);
-                  }}
-                >
-                  {note.document.title}
-                </button>{" "}
-                <button
-                  type="button"
-                  aria-expanded={sendToFor === note.document.id}
-                  onClick={() =>
-                    setSendToFor((current) =>
-                      current === note.document.id ? null : note.document.id,
-                    )
-                  }
-                >
-                  Send to…
-                </button>
-                {sendToFor === note.document.id ? (
-                  <SendToMenu
-                    output={noteContext(note)}
-                    projectId={project.id}
-                    tools={tools}
-                    grantedPermissions={grantedPermissions}
-                    onSelectTool={(toolId) =>
-                      setToolHint(
-                        `Open Workflows to build a ${toolId} step for this note.`,
+            <VirtualizedList
+              aria-label="Notes"
+              items={notes}
+              itemHeight={48}
+              containerHeight={480}
+              keyOf={(note) => note.document.id}
+              renderItem={(note) => (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelected(note);
+                      setCreating(false);
+                    }}
+                  >
+                    {note.document.title}
+                  </button>{" "}
+                  <button
+                    type="button"
+                    aria-expanded={sendToFor === note.document.id}
+                    aria-label={`Send ${note.document.title} to…`}
+                    onClick={() =>
+                      setSendToFor((current) =>
+                        current === note.document.id ? null : note.document.id,
                       )
                     }
-                  />
-                ) : null}
-              </div>
-            ))}
+                  >
+                    Send to…
+                  </button>
+                  {sendToFor === note.document.id ? (
+                    <SendToMenu
+                      output={noteContext(note)}
+                      projectId={project.id}
+                      tools={tools}
+                      grantedPermissions={grantedPermissions}
+                      onSelectTool={(toolId) =>
+                        setToolHint(
+                          `Open Workflows to build a ${toolId} step for this note.`,
+                        )
+                      }
+                    />
+                  ) : null}
+                </div>
+              )}
+            />
             {toolHint ? <p role="status">{toolHint}</p> : null}
           </div>
           {selected ? (

@@ -2,7 +2,7 @@
 
 Universal Workbench is a local-first, self-hosted-first workspace for connecting tools without losing project context or provenance.
 
-**Phase 4 — AI Provider is under final verification on the development branch.** Phase 0–3 are merged to `main`; the branch adds a BYO-key AI provider seam, server vault encryption, the AI tool with structured outputs, execution token accounting, and Universal Send-to, while retaining Phase 2 local-first persistence, HTTP/WebSocket synchronization and explicit conflict resolution. Phase 4 is not release-complete until the remaining Task 11 checks pass on one final commit.
+**Phase 5 — Hardening & Private Release is complete and ready for private release.** Phase 0–4 are merged to `main`; Phase 5 adds upload content verification, destructive-action safeguards with ownership audit, unified backup/restore with automated disaster-recovery drills, redacted system diagnostics, a resilient accessible web UI, and hardened production deployment with a self-hosting runbook. See [the Phase 5 architecture](docs/architecture/phase-5.md) and [the private-deployment runbook](docs/runbooks/private-deployment.md).
 
 ## Phase 2 capabilities
 
@@ -57,6 +57,26 @@ Task 11 is still in progress: golden AI workflow integration, expanded Phase 4
 deployment smoke, security review and same-commit final verification. See
 [the Phase 4 architecture](docs/architecture/phase-4.md) and
 [the implementation plan](docs/superpowers/plans/2026-09-28-phase-4-ai-provider.md).
+
+## Phase 5 capabilities (private release)
+
+- artifact upload content verification: magic-byte sniffing, filename
+  sanitization, strict size limits and SHA-256 checksums;
+- destructive-action safeguards: confirmation-gated project and vault-secret
+  deletion, ownership audit (`project.delete`, `vault.secret.delete`,
+  `vault.rekey`), cross-owner IDOR concealment as 404;
+- unified backup engine: PostgreSQL dump, artifact files, and encrypted vault
+  envelope in one checksummed `.tar.gz` with `manifest.json`;
+- automated restore drill: seed → backup → tamper negative → restore →
+  assert, verified against PostgreSQL (`scripts/test-restore-drill.mjs`);
+- system diagnostics: liveness/readiness probes plus an owner-authenticated,
+  strictly redacted recovery bundle;
+- resilient accessible web UI: virtualized lists, keyboard-navigable tabs,
+  focus-trapped confirmation dialogs, offline banner with reconnect-aware
+  execution polling, and truncated large-payload rendering;
+- production hardening: resource-bounded rootless Compose deployment on an
+  isolated network with fail-fast secrets, and a complete private self-hosting
+  runbook (reverse proxy HTTPS, backup cron, disaster recovery, updates).
 
 ## Stack
 

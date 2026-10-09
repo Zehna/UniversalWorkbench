@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { ConfirmDialog } from "../lib/ConfirmDialog";
 import {
   LOCAL_SECRETS_DEVICE_WARNING,
   LOCAL_SECRETS_VAULT_WARNING,
@@ -107,18 +108,13 @@ export function SecretsSettings({ ownerId, store }: SecretsSettingsProps) {
             <li key={item}>
               <span>{item}</span> <code>{toLocalSecretRef(item)}</code>{" "}
               {confirming === item ? (
-                <>
-                  <span>Delete {item}?</span>{" "}
-                  <button
-                    type="button"
-                    onClick={() => void confirmRemove(item)}
-                  >
-                    Confirm delete
-                  </button>{" "}
-                  <button type="button" onClick={() => setConfirming(null)}>
-                    Cancel
-                  </button>
-                </>
+                <ConfirmDialog
+                  title={`Delete ${item}?`}
+                  description={`Delete the local secret ${item}? This cannot be undone.`}
+                  confirmLabel="Confirm delete"
+                  onConfirm={() => void confirmRemove(item)}
+                  onCancel={() => setConfirming(null)}
+                />
               ) : (
                 <button
                   type="button"

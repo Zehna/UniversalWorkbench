@@ -1,6 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import type { OwnerPublic } from "@uw/contracts";
+import { IdSchema } from "@uw/contracts";
 import type { AuthService } from "@uw/auth";
+import type { AuditRepository } from "@uw/core";
 import {
   countVaultRows,
   createVaultStore,
@@ -27,6 +30,8 @@ interface VaultRouterDependencies {
   authService: AuthService;
   sessionCookie: SessionCookieConfig;
   pool: VaultPool;
+  /** Optional audit sink for destructive vault events; skipped when absent. */
+  audit?: AuditRepository;
 }
 
 function ownerFromLocals(locals: Record<string, unknown>): OwnerPublic {
@@ -146,7 +151,37 @@ export function createVaultRouter(deps: VaultRouterDependencies) {
       if (existing === null) {
         throw new HttpError(404, "NOT_FOUND", "Secret not found");
       }
+      // Destructive guard: the caller must echo the secret name back as
+      // ?confirm=<name>. Existence is checked first so cross-owner
+      // concealment stays 404 regardless of confirmation.
+      const confirm =
+        typeof req.query.confirm === "string" ? req.query.confirm : undefined;
+      if (confirm !== name) {
+        throw new HttpError(
+          400,
+          "CONFIRMATION_REQUIRED",
+          "Secret deletion requires ?confirm=<name>",
+        );
+      }
       await store.remove(owner.id, name);
+      if (deps.audit) {
+        const requestId = res.locals.requestId;
+        const traceId =
+          typeof requestId === "string" &&
+          IdSchema.safeParse(requestId).success
+            ? requestId
+            : randomUUID();
+        await deps.audit.record({
+          id: randomUUID(),
+          actorId: owner.id,
+          action: "vault.secret.delete",
+          targetType: "vault-secret",
+          targetId: name,
+          traceId,
+          metadata: {},
+          createdAt: new Date(),
+        });
+      }
       res.json({ deleted: true });
     } catch (error) {
       if (error instanceof HttpError) {

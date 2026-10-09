@@ -131,6 +131,8 @@ export function composeApplication(
     executionRepository: executionStore,
     syncRepository,
     vaultPool: pool,
+    auditRepository: audit,
+    artifactsDir: config.artifactsDir,
   });
 
   return { app, pool, authService, syncService };

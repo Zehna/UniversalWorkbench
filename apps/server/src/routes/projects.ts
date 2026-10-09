@@ -8,7 +8,11 @@ import {
 import type { AuthService } from "@uw/auth";
 import type { ProjectService } from "@uw/core";
 import { requireOwner, type SessionCookieConfig } from "../middleware/auth.js";
-import { mapDomainError, parseRequest } from "../middleware/validate.js";
+import {
+  HttpError,
+  mapDomainError,
+  parseRequest,
+} from "../middleware/validate.js";
 
 interface ProjectRouterDependencies {
   authService: AuthService;
@@ -76,6 +80,39 @@ export function createProjectsRouter(deps: ProjectRouterDependencies) {
         traceIdFromLocals(res.locals),
       );
       res.json({ project });
+    } catch (error) {
+      next(mapDomainError(error));
+    }
+  });
+
+  router.delete("/:projectId", async (req, res, next) => {
+    try {
+      const owner = ownerFromLocals(res.locals);
+      const projectId = parseRequest(IdSchema, req.params.projectId);
+      // Concealment first: another owner's (or missing) project surfaces as
+      // 404 before the confirmation check reveals anything.
+      await deps.projectService.get(owner.id, projectId);
+      // DELETE bodies are unreliable through some proxies, so confirmation
+      // is accepted either in the body or as ?confirm=<projectId>.
+      const bodyConfirm = (req.body as { confirm?: unknown } | undefined)
+        ?.confirm;
+      const queryConfirm =
+        typeof req.query.confirm === "string" ? req.query.confirm : undefined;
+      const confirm =
+        typeof bodyConfirm === "string" ? bodyConfirm : queryConfirm;
+      if (confirm !== projectId) {
+        throw new HttpError(
+          400,
+          "CONFIRMATION_REQUIRED",
+          "Project deletion requires { confirm: <projectId> } or ?confirm=<projectId>",
+        );
+      }
+      await deps.projectService.delete(
+        owner.id,
+        projectId,
+        traceIdFromLocals(res.locals),
+      );
+      res.json({ deleted: true });
     } catch (error) {
       next(mapDomainError(error));
     }
