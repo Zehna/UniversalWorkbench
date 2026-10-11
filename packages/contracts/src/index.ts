@@ -8,6 +8,7 @@ export * from "./document.js";
 export * from "./error.js";
 export * from "./execution.js";
 export * from "./health.js";
+export * from "./mcp.js";
 export * from "./project.js";
 export * from "./secrets.js";
 export * from "./sync.js";
