@@ -8,6 +8,16 @@ export interface PendingApproval {
   arguments?: Record<string, unknown> | undefined;
   args?: Record<string, unknown> | undefined;
   reason?: string | undefined;
+  subAgentId?: string | undefined;
+  role?: string | undefined;
+}
+
+function lineageLabel(entry: PendingApproval): string | null {
+  if (typeof entry.subAgentId !== "string" || entry.subAgentId.length === 0)
+    return null;
+  if (typeof entry.role === "string" && entry.role.length > 0)
+    return `Sub-agent ${entry.subAgentId} (${entry.role})`;
+  return `Sub-agent ${entry.subAgentId}`;
 }
 
 interface ApprovalCardProps {
@@ -124,6 +134,11 @@ export function ApprovalCard({
             return (
               <li key={key}>
                 <p>{name}</p>
+                {lineageLabel(entry) ? (
+                  <span data-testid="sub-agent-lineage">
+                    {lineageLabel(entry)}
+                  </span>
+                ) : null}
                 {Object.keys(args).length > 0 ? (
                   <pre aria-label="Pending tool arguments">
                     {formatArgs(args)}

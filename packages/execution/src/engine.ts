@@ -165,10 +165,24 @@ function isAwaitingApprovalOutput(
   return false;
 }
 
-function extractPendingApprovals(
-  outputs: readonly ContextEnvelope[],
-): Array<{ tool: string; toolCallId?: string }> {
-  const pending: Array<{ tool: string; toolCallId?: string }> = [];
+function extractPendingApprovals(outputs: readonly ContextEnvelope[]): Array<{
+  tool: string;
+  toolCallId?: string;
+  arguments?: Record<string, unknown>;
+  reason?: string;
+  subAgentId?: string;
+  role?: string;
+  toolCall?: unknown;
+}> {
+  const pending: Array<{
+    tool: string;
+    toolCallId?: string;
+    arguments?: Record<string, unknown>;
+    reason?: string;
+    subAgentId?: string;
+    role?: string;
+    toolCall?: unknown;
+  }> = [];
   for (const output of outputs) {
     if (output.type !== "agent_response") continue;
     const payload = output.payload as unknown as {
@@ -185,7 +199,24 @@ function extractPendingApprovals(
         typeof record["toolCallId"] === "string"
           ? (record["toolCallId"] as string)
           : undefined;
-      pending.push(toolCallId !== undefined ? { tool, toolCallId } : { tool });
+      // Preserve nested sub-agent lineage (subAgentId/role/toolCall) so the
+      // UI can attribute the request, while mapping still keys resolutions
+      // by the gated tool name + nested toolCallId for child dispatch.
+      const lineage: Record<string, unknown> = {};
+      if (typeof record["subAgentId"] === "string")
+        lineage["subAgentId"] = record["subAgentId"];
+      if (typeof record["role"] === "string") lineage["role"] = record["role"];
+      if (record["toolCall"] !== undefined)
+        lineage["toolCall"] = record["toolCall"];
+      if (record["arguments"] !== undefined)
+        lineage["arguments"] = record["arguments"];
+      if (typeof record["reason"] === "string")
+        lineage["reason"] = record["reason"];
+      pending.push({
+        tool,
+        ...(toolCallId !== undefined ? { toolCallId } : {}),
+        ...lineage,
+      });
     }
   }
   return pending;
@@ -747,6 +778,10 @@ export function createWorkflowEngine(
           "No pending approvals for execution",
         );
       }
+      // Map resolutions by both gated tool name and nested toolCallId so the
+      // supervisor can forward them into runSubAgentDelegation and the child
+      // dispatcher finds the decision (approved runs the tool, rejected
+      // injects feedback and the child continues alternatively).
       const mapped: Record<string, ResolveApprovalInput> = {};
       for (const entry of pending) {
         const value: ResolveApprovalInput =

@@ -38,6 +38,21 @@ export {
   toFunctionCallingSpecs,
   toToolName,
 } from "./agent/dispatcher.js";
+export {
+  DELEGATION_TOOL_ID,
+  DELEGATION_TOOL_NAME,
+  DELEGATION_TOOL_VERSION,
+  createDelegationToolDescriptor,
+  runSubAgentDelegation,
+  toDelegationFunctionSpec,
+} from "./agent/delegation.js";
+export type {
+  DelegationInput,
+  DelegationOptions,
+  DelegationSupervisorContext,
+  SubAgentDelegationResult,
+  SubAgentPendingApproval,
+} from "./agent/delegation.js";
 export type {
   AgentApprovalResolutionInput,
   AgentDispatchObservation,

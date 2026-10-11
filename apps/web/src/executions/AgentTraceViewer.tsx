@@ -74,6 +74,9 @@ function toPendingApprovals(value: unknown): PendingApproval[] {
         approval.arguments = call.arguments as Record<string, unknown>;
     }
     if (typeof record.reason === "string") approval.reason = record.reason;
+    if (typeof record.subAgentId === "string")
+      approval.subAgentId = record.subAgentId;
+    if (typeof record.role === "string") approval.role = record.role;
     out.push(approval);
   }
   return out;
@@ -109,6 +112,9 @@ export function AgentTraceViewer({
   executionId,
 }: AgentTraceViewerProps) {
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
+  const [subExpanded, setSubExpanded] = useState<ReadonlySet<number>>(
+    new Set(),
+  );
   const [liveItems, setLiveItems] = useState<AgentTraceItem[]>([]);
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [liveText, setLiveText] = useState<string | null>(null);
@@ -225,6 +231,15 @@ export function AgentTraceViewer({
     });
   }
 
+  function toggleSubAgent(iteration: number) {
+    setSubExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(iteration)) next.delete(iteration);
+      else next.add(iteration);
+      return next;
+    });
+  }
+
   return (
     <section aria-label="Agent trace">
       <span data-testid="agent-status" role="status">
@@ -297,6 +312,76 @@ export function AgentTraceViewer({
                       <p aria-label="Observation preview">
                         {renderValue(observation.output).slice(0, 500)}
                       </p>
+                    </section>
+                  ) : null}
+                  {item.nestedTrace ? (
+                    <section
+                      aria-label={`Sub-agent ${item.nestedTrace.subAgentId}`}
+                    >
+                      <h6>
+                        Sub-agent {item.nestedTrace.subAgentId} (
+                        {item.nestedTrace.role})
+                      </h6>
+                      <p>Status: {item.nestedTrace.status}</p>
+                      <p>
+                        Usage: {formatTokenUsage(item.nestedTrace.usage ?? {})}
+                      </p>
+                      <button
+                        type="button"
+                        aria-expanded={subExpanded.has(item.iteration)}
+                        aria-label={`Sub-agent ${item.nestedTrace.subAgentId} details`}
+                        onClick={() => toggleSubAgent(item.iteration)}
+                      >
+                        {subExpanded.has(item.iteration)
+                          ? "Hide sub-agent"
+                          : "Show sub-agent"}
+                      </button>
+                      {subExpanded.has(item.iteration) ? (
+                        <ol
+                          aria-label={`Sub-agent ${item.nestedTrace.subAgentId} timeline`}
+                        >
+                          {item.nestedTrace.trace.map((child) => {
+                            const childTool =
+                              child.toolCall?.tool ??
+                              child.toolCall?.name ??
+                              "";
+                            return (
+                              <li
+                                key={child.iteration}
+                                aria-label={`Sub-agent iteration ${child.iteration}`}
+                              >
+                                <article>
+                                  <h6>Sub-agent iteration {child.iteration}</h6>
+                                  {child.thought ? (
+                                    <section aria-label="Thought">
+                                      <p>{child.thought}</p>
+                                    </section>
+                                  ) : null}
+                                  {child.toolCall ? (
+                                    <section aria-label="Tool call">
+                                      <p>{childTool}</p>
+                                      <pre aria-label="Sub-agent tool arguments">
+                                        {renderValue(
+                                          child.toolCall.arguments ?? {},
+                                        )}
+                                      </pre>
+                                    </section>
+                                  ) : null}
+                                  {child.observation !== undefined ? (
+                                    <section aria-label="Observation">
+                                      <p aria-label="Sub-agent observation preview">
+                                        {renderValue(
+                                          child.observation.output,
+                                        ).slice(0, 500)}
+                                      </p>
+                                    </section>
+                                  ) : null}
+                                </article>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      ) : null}
                     </section>
                   ) : null}
                   <button

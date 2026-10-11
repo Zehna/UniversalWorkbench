@@ -1,11 +1,20 @@
 import {
+  AgentDelegationInputSchema,
   AgentResponsePayloadSchema,
   AiAgentConfigSchema,
   ToolDescriptorSchema,
 } from "@uw/contracts";
-import type { AgentTraceItem } from "@uw/contracts";
+import type { AgentNestedTraceItem, AgentTraceItem } from "@uw/contracts";
 import { AgentToolDispatcher } from "../agent/dispatcher.js";
-import type { AgentApprovalResolutionInput } from "../agent/dispatcher.js";
+import type {
+  AgentApprovalResolutionInput,
+  AgentDispatchObservation,
+} from "../agent/dispatcher.js";
+import {
+  DELEGATION_TOOL_NAME,
+  runSubAgentDelegation,
+  toDelegationFunctionSpec,
+} from "../agent/delegation.js";
 import { ToolRuntimeError } from "../errors.js";
 import type { ToolExecutor } from "../runtime.js";
 import { createLocalResult, validateInvocation } from "../runtime.js";
@@ -236,6 +245,11 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
           tools: deps.tools ?? [],
           allowedTools: toolConfig.allowedTools,
         });
+        const maxOutputTokens = toolConfig.maxOutputTokens ?? 1024;
+        const timeoutMs = 30_000;
+        const maxIterations = toolConfig.maxIterations;
+        const subAgents = toolConfig.subAgents ?? [];
+        const hasSubAgents = subAgents.length > 0;
         const toolDefs: AgentProviderToolDefinition[] = dispatcher
           .listSpecs()
           .map((spec) => ({
@@ -243,10 +257,9 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
             description: spec.description,
             parameters: spec.parameters,
           }));
-
-        const maxOutputTokens = toolConfig.maxOutputTokens ?? 1024;
-        const timeoutMs = 30_000;
-        const maxIterations = toolConfig.maxIterations;
+        if (hasSubAgents) {
+          toolDefs.push(toDelegationFunctionSpec());
+        }
 
         const rawConfig = config as Record<string, unknown>;
         const approvalResolutions = toApprovalMap(
@@ -271,6 +284,13 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
               toolCallId?: string;
               arguments?: Record<string, unknown>;
               reason: string;
+              subAgentId?: string;
+              role?: string;
+              toolCall?: {
+                id?: string;
+                name: string;
+                arguments: Record<string, unknown>;
+              };
             }>
           | undefined;
 
@@ -365,15 +385,186 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
               arguments: callArgs,
             };
           });
-          const observations = await dispatcher.dispatchMany(
-            dispatchInputs,
-            validInput,
-            context,
-            approvalResolutions,
-          );
+
+          const isDelegationCall = (name: string): boolean =>
+            hasSubAgents && name === DELEGATION_TOOL_NAME;
+
+          const normalIndices: number[] = [];
+          const normalInputs: typeof dispatchInputs = [];
+          dispatchInputs.forEach((input, idx) => {
+            if (!isDelegationCall(input.name)) {
+              normalIndices.push(idx);
+              normalInputs.push(input);
+            }
+          });
+          const normalObservations: AgentDispatchObservation[] =
+            normalInputs.length > 0
+              ? await dispatcher.dispatchMany(
+                  normalInputs,
+                  validInput,
+                  context,
+                  approvalResolutions,
+                )
+              : [];
+
+          const observations: AgentDispatchObservation[] = new Array(
+            toolCalls.length,
+          ) as AgentDispatchObservation[];
+          const nestedTraces = new Map<number, AgentNestedTraceItem>();
+          const childPendingByIndex = new Map<
+            number,
+            Array<{
+              tool: string;
+              toolCallId?: string;
+              arguments?: Record<string, unknown>;
+              reason: string;
+              subAgentId: string;
+              role: string;
+              toolCall: {
+                id?: string;
+                name: string;
+                arguments: Record<string, unknown>;
+              };
+            }>
+          >();
+          normalObservations.forEach((obs, i) => {
+            const originalIdx = normalIndices[i];
+            if (originalIdx !== undefined) {
+              observations[originalIdx] = obs;
+            }
+          });
+
+          for (let index = 0; index < toolCalls.length; index += 1) {
+            const toolCall = toolCalls[index];
+            if (!toolCall) continue;
+            if (!isDelegationCall(toolCall.name.trim())) continue;
+            const startedAt = Date.now();
+            const toolCallId = toolCall.id;
+            const callArgs = toSafeArguments(toolCall.arguments);
+            const parsedDelegation = AgentDelegationInputSchema.safeParse({
+              subAgentId:
+                typeof callArgs["subAgentId"] === "string"
+                  ? (callArgs["subAgentId"] as string)
+                  : "",
+              task:
+                typeof callArgs["task"] === "string"
+                  ? (callArgs["task"] as string)
+                  : "",
+              ...(callArgs["context"] !== undefined
+                ? { context: callArgs["context"] }
+                : {}),
+            });
+            if (!parsedDelegation.success) {
+              observations[index] = {
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+                output: {
+                  error: {
+                    code: "INVALID_DELEGATION_INPUT",
+                    message: "Delegation requires subAgentId and task",
+                    tool: DELEGATION_TOOL_NAME,
+                  },
+                },
+                durationMs: Math.max(0, Date.now() - startedAt),
+                isError: true,
+              };
+              continue;
+            }
+            const spec = subAgents.find(
+              (candidate) => candidate.id === parsedDelegation.data.subAgentId,
+            );
+            if (!spec) {
+              observations[index] = {
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+                output: {
+                  error: {
+                    code: "UNKNOWN_SUB_AGENT",
+                    message: `Unknown sub-agent: ${parsedDelegation.data.subAgentId}`,
+                    tool: DELEGATION_TOOL_NAME,
+                  },
+                },
+                durationMs: Math.max(0, Date.now() - startedAt),
+                isError: true,
+              };
+              continue;
+            }
+            const remainingSupervisorIterations = maxIterations - iteration + 1;
+            const child = await runSubAgentDelegation(
+              {
+                provider,
+                secretValue,
+                tools: deps.tools ?? [],
+                input: validInput,
+                context,
+                model: toolConfig.model,
+                ...(toolConfig.systemPrompt !== undefined
+                  ? { systemPrompt: toolConfig.systemPrompt }
+                  : {}),
+                maxOutputTokens,
+                timeoutMs,
+              },
+              spec,
+              {
+                task: parsedDelegation.data.task,
+                ...(parsedDelegation.data.context !== undefined
+                  ? { context: parsedDelegation.data.context }
+                  : {}),
+              },
+              { remainingSupervisorIterations, approvalResolutions },
+            );
+            promptTokens += child.usage.promptTokens;
+            completionTokens += child.usage.completionTokens;
+            totalTokens += child.usage.totalTokens;
+            if (child.usageSource !== "provider") allProviderUsage = false;
+            nestedTraces.set(index, child.nestedTrace);
+            if (
+              child.status === "awaiting_approval" &&
+              child.pendingApprovals !== undefined &&
+              child.pendingApprovals.length > 0
+            ) {
+              childPendingByIndex.set(index, [...child.pendingApprovals]);
+              observations[index] = {
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+                output: {
+                  subAgentId: child.nestedTrace.subAgentId,
+                  text: child.text,
+                  status: child.status,
+                  iterations: child.iterations,
+                  pendingApprovals: child.pendingApprovals,
+                },
+                durationMs: Math.max(0, Date.now() - startedAt),
+                isError: false,
+                requiresApproval: true,
+                pendingApproval: {
+                  tool: child.pendingApprovals[0]?.tool ?? "",
+                  ...(child.pendingApprovals[0]?.toolCallId !== undefined
+                    ? {
+                        toolCallId: child.pendingApprovals[0]
+                          ?.toolCallId as string,
+                      }
+                    : {}),
+                  arguments: child.pendingApprovals[0]?.arguments ?? {},
+                  reason:
+                    child.pendingApprovals[0]?.reason ??
+                    "Sub-agent tool requires approval",
+                },
+              };
+              continue;
+            }
+            observations[index] = {
+              ...(toolCallId !== undefined ? { toolCallId } : {}),
+              output: {
+                subAgentId: child.nestedTrace.subAgentId,
+                text: child.text,
+                status: child.status,
+                iterations: child.iterations,
+              },
+              durationMs: Math.max(0, Date.now() - startedAt),
+              isError: false,
+            };
+          }
 
           const awaiting = observations.filter(
-            (observation) => observation.requiresApproval === true,
+            (observation) => observation?.requiresApproval === true,
           );
           for (let index = 0; index < toolCalls.length; index += 1) {
             const toolCall = toolCalls[index];
@@ -382,6 +573,7 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
             const callArgs = toSafeArguments(toolCall.arguments);
             const observation = observations[index];
             if (!observation) continue;
+            const nestedTrace = nestedTraces.get(index);
             trace.push({
               iteration,
               ...(index === 0 ? { thought: result.text } : {}),
@@ -398,27 +590,54 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
                 durationMs: observation.durationMs,
                 isError: observation.isError,
               },
+              ...(nestedTrace !== undefined ? { nestedTrace } : {}),
             });
           }
 
           if (awaiting.length > 0) {
-            pendingApprovals = awaiting.map((observation) => ({
-              tool:
-                observation.pendingApproval?.tool ??
-                dispatchInputs[observations.indexOf(observation)]?.name ??
-                "",
-              ...(observation.pendingApproval?.toolCallId !== undefined ||
-              observation.toolCallId !== undefined
-                ? {
-                    toolCallId:
-                      observation.pendingApproval?.toolCallId ??
-                      observation.toolCallId,
-                  }
-                : {}),
-              arguments: observation.pendingApproval?.arguments ?? {},
-              reason:
-                observation.pendingApproval?.reason ?? "Tool requires approval",
-            }));
+            const expanded: Array<{
+              tool: string;
+              toolCallId?: string;
+              arguments?: Record<string, unknown>;
+              reason: string;
+              subAgentId?: string;
+              role?: string;
+              toolCall?: {
+                id?: string;
+                name: string;
+                arguments: Record<string, unknown>;
+              };
+            }> = [];
+            for (let index = 0; index < observations.length; index += 1) {
+              const observation = observations[index];
+              if (observation?.requiresApproval !== true) continue;
+              const childPending = childPendingByIndex.get(index);
+              if (childPending !== undefined && childPending.length > 0) {
+                for (const entry of childPending) {
+                  expanded.push({ ...entry });
+                }
+                continue;
+              }
+              expanded.push({
+                tool:
+                  observation?.pendingApproval?.tool ??
+                  dispatchInputs[index]?.name ??
+                  "",
+                ...(observation?.pendingApproval?.toolCallId !== undefined ||
+                observation?.toolCallId !== undefined
+                  ? {
+                      toolCallId:
+                        observation?.pendingApproval?.toolCallId ??
+                        observation?.toolCallId,
+                    }
+                  : {}),
+                arguments: observation?.pendingApproval?.arguments ?? {},
+                reason:
+                  observation?.pendingApproval?.reason ??
+                  "Tool requires approval",
+              });
+            }
+            pendingApprovals = expanded;
             status = "awaiting_approval";
             break;
           }
