@@ -18,6 +18,63 @@ function toolKey(tool: ToolDescriptor): string {
   return `${tool.id}@${tool.version}`;
 }
 
+interface SubAgentDraft {
+  id: string;
+  role: string;
+  instructions: string;
+  allowedTools: string[];
+  maxIterations: number;
+}
+
+function toSubAgents(value: unknown): SubAgentDraft[] {
+  if (!Array.isArray(value)) return [];
+  const out: SubAgentDraft[] = [];
+  for (const entry of value) {
+    if (entry === null || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const maxRaw = record.maxIterations;
+    out.push({
+      id: typeof record.id === "string" ? record.id : "",
+      role: typeof record.role === "string" ? record.role : "",
+      instructions:
+        typeof record.instructions === "string" ? record.instructions : "",
+      allowedTools: toAllowedTools(record.allowedTools),
+      maxIterations:
+        typeof maxRaw === "number" && Number.isInteger(maxRaw) ? maxRaw : 5,
+    });
+  }
+  return out;
+}
+
+function subAgentErrors(
+  agent: SubAgentDraft,
+  index: number,
+  all: SubAgentDraft[],
+): string[] {
+  const errors: string[] = [];
+  const id = agent.id.trim();
+  if (!id) errors.push(`Sub-agent ${index + 1}: id is required.`);
+  else if (id.length > 128)
+    errors.push(`Sub-agent ${index + 1}: id must be at most 128 characters.`);
+  else if (
+    all.some(
+      (other, otherIndex) => otherIndex !== index && other.id.trim() === id,
+    )
+  )
+    errors.push(`Sub-agent ${index + 1}: id must be unique.`);
+  if (!agent.role.trim())
+    errors.push(`Sub-agent ${index + 1}: role is required.`);
+  if (!agent.instructions.trim())
+    errors.push(`Sub-agent ${index + 1}: instructions are required.`);
+  if (
+    !Number.isInteger(agent.maxIterations) ||
+    agent.maxIterations < 1 ||
+    agent.maxIterations > 15
+  )
+    errors.push(`Sub-agent ${index + 1}: max iterations must be 1-15.`);
+  return errors;
+}
+
 function isMcpTool(tool: ToolDescriptor): boolean {
   return tool.id.startsWith("mcp.");
 }
@@ -61,6 +118,43 @@ export function AgentStepEditor({
   const secretRef =
     typeof config.secretRef === "string" ? config.secretRef : "";
   const [customTool, setCustomTool] = useState("");
+  const subAgents = toSubAgents(config.subAgents);
+
+  function updateSubAgent(index: number, patch: Partial<SubAgentDraft>): void {
+    const next = subAgents.map((agent, current) =>
+      current === index ? { ...agent, ...patch } : agent,
+    );
+    updateConfig({ subAgents: next });
+  }
+
+  function addSubAgent(): void {
+    const next: SubAgentDraft[] = [
+      ...subAgents,
+      {
+        id: "",
+        role: "",
+        instructions: "",
+        allowedTools: [],
+        maxIterations: 5,
+      },
+    ];
+    updateConfig({ subAgents: next });
+  }
+
+  function removeSubAgent(index: number): void {
+    const next = subAgents.filter((_, current) => current !== index);
+    updateConfig({ subAgents: next });
+  }
+
+  function toggleSubAgentTool(index: number, key: string): void {
+    const agent = subAgents[index];
+    if (!agent) return;
+    const current = agent.allowedTools;
+    const nextTools = current.includes(key)
+      ? current.filter((item) => item !== key)
+      : [...current, key];
+    updateSubAgent(index, { allowedTools: nextTools });
+  }
 
   function clampIterations(value: number): number {
     if (!Number.isFinite(value)) return 5;
@@ -231,6 +325,126 @@ export function AgentStepEditor({
             ))}
           </ul>
         ) : null}
+      </fieldset>
+      <fieldset aria-label="Sub-Agent Squad">
+        <legend>Sub-Agent Squad</legend>
+        <p>
+          Define specialist sub-agents supervised by this agent. Each sub-agent
+          gets its own role, instructions, tools, and iteration budget.
+        </p>
+        {subAgents.length === 0 ? (
+          <p>No sub-agents configured.</p>
+        ) : (
+          <ol style={{ listStyle: "none", padding: 0 }}>
+            {subAgents.map((agent, index) => {
+              const errors = subAgentErrors(agent, index, subAgents);
+              return (
+                <li
+                  key={`sub-agent-${index}`}
+                  aria-label={`Sub-agent ${index + 1}`}
+                >
+                  <h4>Sub-agent {index + 1}</h4>
+                  <label>
+                    Sub-agent {index + 1} id
+                    <input
+                      aria-label={`Sub-agent ${index + 1} id`}
+                      value={agent.id}
+                      onChange={(event) =>
+                        updateSubAgent(index, { id: event.target.value })
+                      }
+                      placeholder="researcher"
+                    />
+                  </label>
+                  <label>
+                    Sub-agent {index + 1} role
+                    <input
+                      aria-label={`Sub-agent ${index + 1} role`}
+                      value={agent.role}
+                      onChange={(event) =>
+                        updateSubAgent(index, { role: event.target.value })
+                      }
+                      placeholder="researcher"
+                    />
+                  </label>
+                  <label>
+                    Sub-agent {index + 1} instructions
+                    <textarea
+                      aria-label={`Sub-agent ${index + 1} instructions`}
+                      rows={2}
+                      value={agent.instructions}
+                      onChange={(event) =>
+                        updateSubAgent(index, {
+                          instructions: event.target.value,
+                        })
+                      }
+                      placeholder="Specialist instructions:"
+                    />
+                  </label>
+                  <label>
+                    Sub-agent {index + 1} max iterations
+                    <input
+                      aria-label={`Sub-agent ${index + 1} max iterations`}
+                      type="number"
+                      min={1}
+                      max={15}
+                      step={1}
+                      value={agent.maxIterations}
+                      onChange={(event) =>
+                        updateSubAgent(index, {
+                          maxIterations: clampIterations(
+                            Number(event.target.value),
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                  <fieldset>
+                    <legend>Sub-agent {index + 1} allowed tools</legend>
+                    {availableTools.length === 0 ? (
+                      <p>No tool catalog available.</p>
+                    ) : (
+                      <ul style={{ listStyle: "none", padding: 0 }}>
+                        {availableTools.map((tool) => {
+                          const key = toolKey(tool);
+                          return (
+                            <li key={key}>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Sub-agent ${index + 1} tool ${tool.name}`}
+                                  checked={agent.allowedTools.includes(key)}
+                                  onChange={() =>
+                                    toggleSubAgentTool(index, key)
+                                  }
+                                />
+                                Sub-agent {index + 1} {tool.name} ({key})
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </fieldset>
+                  {errors.map((message) => (
+                    <p key={message} role="alert">
+                      {message}
+                    </p>
+                  ))}
+                  <button
+                    type="button"
+                    aria-label={`Remove sub-agent ${index + 1}`}
+                    onClick={() => removeSubAgent(index)}
+                  >
+                    Remove sub-agent {index + 1}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        <button type="button" onClick={addSubAgent}>
+          Add sub-agent
+        </button>
       </fieldset>
     </div>
   );
