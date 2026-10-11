@@ -87,3 +87,9 @@ export type {
   ConvertMcpToolOptions,
   McpToolExecutorClient,
 } from "./mcp/adapter.js";
+export {
+  registerMcpTools,
+  resolveMcpEnv,
+  unregisterMcpServerTools,
+} from "./mcp/registry.js";
+export type { McpSecretResolver } from "./mcp/registry.js";
