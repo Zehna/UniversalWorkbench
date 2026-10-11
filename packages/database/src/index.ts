@@ -7,6 +7,7 @@ export * from "./repositories/auth.js";
 export * from "./repositories/documents.js";
 export * from "./repositories/execution.js";
 export * from "./repositories/execution-queue.js";
+export * from "./repositories/mcp-servers.js";
 export * from "./repositories/projects.js";
 export * from "./repositories/sync.js";
 export * from "./repositories/vault.js";

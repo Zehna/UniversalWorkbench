@@ -50,6 +50,13 @@
       "when": 1790404200000,
       "tag": "0006_phase4_vault",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791100000000,
+      "tag": "0007_phase8_mcp_servers",
+      "breakpoints": true
     }
   ]
 }

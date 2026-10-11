@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
+  boolean,
   check,
   customType,
   index,
@@ -461,6 +462,32 @@ export const executionRequests = pgTable(
       "execution_requests_budget_check",
       sql`jsonb_typeof(${table.budget}) = 'object'`,
     ),
+  ],
+);
+
+export const mcpServers = pgTable(
+  "mcp_servers",
+  {
+    id: uuid("id").primaryKey(),
+    ownerId: uuid("owner_id").notNull(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id),
+    name: text("name").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    transportConfig: jsonb("transport_config")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    secretRefs: jsonb("secret_refs").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("mcp_servers_owner_project_idx").on(table.ownerId, table.projectId),
   ],
 );
 

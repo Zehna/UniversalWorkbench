@@ -5,6 +5,7 @@ import { createDocumentService } from "@uw/documents";
 import {
   checkDatabaseReady,
   createDatabasePool,
+  createPostgresMcpServerRepository,
   createPostgresArtifactRepository,
   createPostgresAuditRepository,
   createPostgresAuthRepository,
@@ -116,6 +117,8 @@ export function composeApplication(
     allowedPermissions: workflowPermissions,
   });
 
+  const mcpServers = createPostgresMcpServerRepository(pool);
+
   const app = createApp({
     databaseReady: () => checkDatabaseReady(pool),
     authService,
@@ -137,6 +140,7 @@ export function composeApplication(
     vaultPool: pool,
     auditRepository: audit,
     artifactsDir: config.artifactsDir,
+    mcpServers,
   });
 
   return { app, pool, authService, syncService };
