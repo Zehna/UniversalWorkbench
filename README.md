@@ -161,7 +161,8 @@ deployment smoke, security review and same-commit final verification. See
   resumes and runs, reject feeds back without running);
 - server persistence + API: owner/project-scoped MCP server repository and
   CRUD + `POST /:serverId/sync` discovery/registration endpoints with 404
-  concealment;
+  concealment (sync registers descriptors via a stub echo client; live
+  executor wiring is follow-up work, see [the Phase 8 architecture](docs/architecture/phase-8.md));
 - web settings: `McpSettings` (stdio/SSE form, sync/connection test,
   discovered-tool inspection) and MCP tool selection in `AgentStepEditor`;
 - golden coverage: `packages/execution/test/golden-mcp.integration.test.ts`

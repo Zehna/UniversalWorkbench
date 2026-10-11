@@ -118,9 +118,17 @@ Server sync lifecycle (`POST /:serverId/sync`):
 load server (owner+project scope, else 404)
   -> discover(server) [injected double in tests; default stdio transport in prod]
   -> unregisterMcpServerTools(registry, server.id) (best-effort, ignored on first sync)
-  -> registerMcpTools(registry, server.id, mcpTools, executorClient)
+  -> registerMcpTools(registry, server.id, mcpTools, stubExecutorClient)
   -> 200 { server, tools }
 ```
+
+Known gap: `POST /:serverId/sync` registers descriptors with
+`stubExecutorClient()` (`apps/server/src/routes/mcp.ts`), which echoes
+`JSON.stringify(args)` as text instead of calling the MCP server — synced
+tools discover correctly but do not execute live yet. Wiring a persistent
+`McpClient` executor into sync is follow-up work; the golden MCP suite
+proves live execution in-engine with a real `McpClient` over
+`InMemoryMcpTransport`.
 
 `DELETE /:serverId` removes persistence then best-effort unregisters that
 server's `mcp.<server>.*` tools. All MCP routes require owner auth (401
@@ -191,6 +199,16 @@ built-in. The golden MCP suite proves discovery (`connect` → `listTools` →
 `registerMcpTools`), execution (provider tool-call → MCP `callTool` →
 observation → final answer with trace/tokens/receipt), and id format in one
 run.
+
+Known limitation: per-call arguments do not reach the transport.
+`AgentToolDispatcher.dispatch` forwards provider `call.arguments` as `config`
+(`packages/tools/src/agent/dispatcher.ts`), but `createMcpToolExecutor`
+does `void config` and derives MCP args from the agent input envelope via
+`extractMcpArgs(validInput)`. The agent therefore cannot parameterize MCP
+calls per reasoning step today — every MCP call in a run receives the same
+workflow-input payload. Per-step argument forwarding is future work; the
+golden suite asserts the envelope-derived args explicitly so the routing is
+visible instead of masked.
 
 ## 4. Security model: Vault secrets, fail-closed whitelist, HITL guardrails
 

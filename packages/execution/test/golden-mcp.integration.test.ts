@@ -218,6 +218,15 @@ describe("Phase 8 golden MCP end-to-end", () => {
     expect(typeof payload.trace[1]?.thought).toBe("string");
 
     expect(callSpy).toHaveBeenCalledTimes(1);
+    // The MCP bridge derives transport args from the agent input envelope
+    // (extractMcpArgs), not from the provider's per-call arguments: the
+    // workflow input above carries { query: "Paris" }, so the transport must
+    // have received exactly that. Per-step parameterization is a known
+    // future-work gap (see docs/architecture/phase-8.md §3).
+    expect(callSpy).toHaveBeenCalledWith(
+      "lookup",
+      expect.objectContaining({ query: "Paris" }),
+    );
     expect(payload.usage).toMatchObject({
       promptTokens: 60,
       completionTokens: 22,
