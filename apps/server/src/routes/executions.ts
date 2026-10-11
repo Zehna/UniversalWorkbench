@@ -76,6 +76,68 @@ function buildExecutionEvents(view: ExecutionView): unknown[] {
               ? { observation: entry["observation"] }
               : {}),
           });
+          const nested =
+            entry["nestedTrace"] !== null &&
+            typeof entry["nestedTrace"] === "object" &&
+            !Array.isArray(entry["nestedTrace"])
+              ? (entry["nestedTrace"] as Record<string, unknown>)
+              : null;
+          if (nested) {
+            const subAgentId =
+              typeof nested["subAgentId"] === "string"
+                ? (nested["subAgentId"] as string)
+                : undefined;
+            const role =
+              typeof nested["role"] === "string"
+                ? (nested["role"] as string)
+                : undefined;
+            if (subAgentId !== undefined && role !== undefined) {
+              events.push({
+                type: "sub_agent_turn",
+                stepId: step.id,
+                outputContextId: output.id,
+                subAgentId,
+                role,
+                ...(typeof nested["status"] === "string"
+                  ? { status: nested["status"] }
+                  : {}),
+                ...(nested["usage"] !== undefined
+                  ? { usage: nested["usage"] }
+                  : {}),
+              });
+              if (Array.isArray(nested["trace"])) {
+                for (const nestedItem of nested["trace"] as unknown[]) {
+                  const nestedEntry =
+                    nestedItem !== null && typeof nestedItem === "object"
+                      ? (nestedItem as Record<string, unknown>)
+                      : {};
+                  const nestedKind =
+                    typeof nestedEntry["type"] === "string"
+                      ? (nestedEntry["type"] as string)
+                      : "thought";
+                  events.push({
+                    type: nestedKind,
+                    stepId: step.id,
+                    outputContextId: output.id,
+                    subAgentId,
+                    role,
+                    ...(typeof nestedEntry["iteration"] === "number"
+                      ? { iteration: nestedEntry["iteration"] }
+                      : {}),
+                    ...(typeof nestedEntry["thought"] === "string"
+                      ? { thought: nestedEntry["thought"] }
+                      : {}),
+                    ...(nestedEntry["toolCall"] !== undefined
+                      ? { toolCall: nestedEntry["toolCall"] }
+                      : {}),
+                    ...(nestedEntry["observation"] !== undefined
+                      ? { observation: nestedEntry["observation"] }
+                      : {}),
+                  });
+                }
+              }
+            }
+          }
         }
       }
       const pending = payload.structured?.pendingApprovals;
