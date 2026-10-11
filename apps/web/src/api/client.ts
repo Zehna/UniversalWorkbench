@@ -8,6 +8,7 @@ import {
   ExecutionStatusSchema,
   ContextEnvelopeSchema,
   ArtifactSchema,
+  McpServerConfigSchema,
   type ToolDescriptor,
   type WorkflowDefinition,
   type ContextEnvelope,
@@ -15,12 +16,15 @@ import {
   type ExecutionStatus,
   type CreateNoteRequest,
   type CreateProjectRequest,
+  type CreateMcpServerRequest,
   type LoginRequest,
+  type McpServerConfig,
   type NoteDocument,
   type NoteDocumentView,
   type OwnerPublic,
   type Project,
   type SetupOwnerRequest,
+  type UpdateMcpServerRequest,
   type UpdateNoteRequest,
 } from "@uw/contracts";
 
@@ -466,5 +470,63 @@ export const api = {
       }),
     );
     return NoteDocumentViewSchema.parse(record(body).document);
+  },
+
+  async listMcpServers(projectId: string): Promise<McpServerConfig[]> {
+    const body = record(await request(`/projects/${projectId}/mcp-servers`));
+    if (!Array.isArray(body.servers))
+      throw new Error("Invalid MCP server list response");
+    return body.servers.map((server) => McpServerConfigSchema.parse(server));
+  },
+
+  async createMcpServer(
+    projectId: string,
+    input: CreateMcpServerRequest,
+  ): Promise<McpServerConfig> {
+    const body = record(
+      await request(`/projects/${projectId}/mcp-servers`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    );
+    return McpServerConfigSchema.parse(body.server);
+  },
+
+  async updateMcpServer(
+    projectId: string,
+    serverId: string,
+    input: UpdateMcpServerRequest,
+  ): Promise<McpServerConfig> {
+    const body = record(
+      await request(`/projects/${projectId}/mcp-servers/${serverId}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    );
+    return McpServerConfigSchema.parse(body.server);
+  },
+
+  async deleteMcpServer(projectId: string, serverId: string): Promise<void> {
+    await request(`/projects/${projectId}/mcp-servers/${serverId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async syncMcpServer(
+    projectId: string,
+    serverId: string,
+  ): Promise<{ server: McpServerConfig; tools: ToolDescriptor[] }> {
+    const body = record(
+      await request(`/projects/${projectId}/mcp-servers/${serverId}/sync`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+    if (!Array.isArray(body.tools))
+      throw new Error("Invalid MCP sync response");
+    return {
+      server: McpServerConfigSchema.parse(body.server),
+      tools: body.tools.map((value) => ToolDescriptorSchema.parse(value)),
+    };
   },
 };
