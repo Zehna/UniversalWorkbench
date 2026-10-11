@@ -132,6 +132,7 @@ export function composeApplication(
     toolRegistry: registry,
     grantedWorkflowPermissions: workflowPermissions,
     executionRepository: executionStore,
+    executionEngine: engine,
     syncRepository,
     vaultPool: pool,
     auditRepository: audit,
