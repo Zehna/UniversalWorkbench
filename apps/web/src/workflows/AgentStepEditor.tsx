@@ -18,6 +18,30 @@ function toolKey(tool: ToolDescriptor): string {
   return `${tool.id}@${tool.version}`;
 }
 
+function isMcpTool(tool: ToolDescriptor): boolean {
+  return tool.id.startsWith("mcp.");
+}
+
+function renderToolItem(
+  tool: ToolDescriptor,
+  allowedTools: string[],
+  toggleTool: (key: string) => void,
+) {
+  const key = toolKey(tool);
+  return (
+    <li key={key}>
+      <label>
+        <input
+          type="checkbox"
+          checked={allowedTools.includes(key)}
+          onChange={() => toggleTool(key)}
+        />
+        {tool.name} ({key})
+      </label>
+    </li>
+  );
+}
+
 export function AgentStepEditor({
   config,
   updateConfig,
@@ -149,23 +173,33 @@ export function AgentStepEditor({
         {availableTools.length === 0 ? (
           <p>No tool catalog available; add tool IDs manually.</p>
         ) : (
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {availableTools.map((tool) => {
-              const key = toolKey(tool);
-              return (
-                <li key={key}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={allowedTools.includes(key)}
-                      onChange={() => toggleTool(key)}
-                    />
-                    {tool.name} ({key})
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            <ul style={{ listStyle: "none", padding: 0 }}>
+              {availableTools
+                .filter((tool) => !isMcpTool(tool))
+                .map((tool) => renderToolItem(tool, allowedTools, toggleTool))}
+            </ul>
+            {availableTools.some((tool) => isMcpTool(tool)) ? (
+              <>
+                <h4>
+                  MCP tools (
+                  {availableTools.filter((tool) => isMcpTool(tool)).length}{" "}
+                  discovered)
+                </h4>
+                <p>Discovered MCP tools can be assigned to this ReAct agent.</p>
+                <ul
+                  aria-label="Discovered MCP tools"
+                  style={{ listStyle: "none", padding: 0 }}
+                >
+                  {availableTools
+                    .filter((tool) => isMcpTool(tool))
+                    .map((tool) =>
+                      renderToolItem(tool, allowedTools, toggleTool),
+                    )}
+                </ul>
+              </>
+            ) : null}
+          </>
         )}
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <label>

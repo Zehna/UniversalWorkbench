@@ -5,6 +5,7 @@ import type { ToolExecutor } from "./runtime.js";
 
 export interface ToolRegistry {
   register(tool: ToolExecutor): void;
+  unregister(id: string, version: string): void;
   resolve(id: string, version: string): ToolExecutor;
   list(): ToolDescriptor[];
 }
@@ -41,6 +42,19 @@ export function createToolRegistry(): ToolRegistry {
         run: (input, config, context) => tool.run(input, config, context),
       });
       versions.set(descriptor.id, byVersion);
+    },
+    unregister(id, version) {
+      const byVersion = versions.get(id);
+      if (!byVersion?.has(version)) {
+        throw new ToolRegistryError(
+          "TOOL_NOT_FOUND",
+          `Unknown tool: ${id}@${version}`,
+        );
+      }
+      byVersion.delete(version);
+      if (byVersion.size === 0) {
+        versions.delete(id);
+      }
     },
     resolve(id, version) {
       const selected = versions.get(id)?.get(version);

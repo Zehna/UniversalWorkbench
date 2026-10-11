@@ -2,7 +2,7 @@
 
 Universal Workbench is a local-first, self-hosted-first workspace for connecting tools without losing project context or provenance.
 
-**Phase 7 — HITL Guardrail & Streaming Agent is complete on `phase-7-hitl-streaming-agent`.** Phase 0–5 are merged to `main`; Phase 6 adds a goal-driven ReAct agent loop (`builtin.ai.agent@1.0.0`) with whitelisted tool calling, iteration (default 5, cap 15) and token budgets, prompt-injection isolation, secret-scrubbed trace persistence, Send-to Document/Artifact for agent outputs, and a trace timeline UI. Phase 7 adds human-in-the-loop approval for gated tools (`requiresApproval`, `awaiting_approval` suspend/resume with rejection feedback), real-time SSE trace streaming (`GET /executions/:id/events` + live `AgentTraceViewer`/`ApprovalCard`), and multi-tool parallel dispatch (`dispatchMany` via `Promise.allSettled`). See [the Phase 7 architecture](docs/architecture/phase-7.md) and [the Phase 6 architecture](docs/architecture/phase-6.md). Phase 5 remains ready for private release ([Phase 5 architecture](docs/architecture/phase-5.md), [private-deployment runbook](docs/runbooks/private-deployment.md)).
+**Phase 8 — MCP Client Bridge is complete on `phase-8-mcp-client-bridge`.** Phase 0–5 are merged to `main`; Phase 6 adds a goal-driven ReAct agent loop (`builtin.ai.agent@1.0.0`) with whitelisted tool calling, iteration (default 5, cap 15) and token budgets, prompt-injection isolation, secret-scrubbed trace persistence, Send-to Document/Artifact for agent outputs, and a trace timeline UI. Phase 7 adds human-in-the-loop approval for gated tools (`requiresApproval`, `awaiting_approval` suspend/resume with rejection feedback), real-time SSE trace streaming (`GET /executions/:id/events` + live `AgentTraceViewer`/`ApprovalCard`), and multi-tool parallel dispatch (`dispatchMany` via `Promise.allSettled`). Phase 8 adds MCP server configuration (stdio/SSE transports), dynamic `mcp.<server>.<tool>@1.0.0` tool bridging with ContextEnvelope mapping, and Vault/HITL-guarded execution with server persistence and settings UI. See [the Phase 8 architecture](docs/architecture/phase-8.md), [the Phase 7 architecture](docs/architecture/phase-7.md) and [the Phase 6 architecture](docs/architecture/phase-6.md). Phase 5 remains ready for private release ([Phase 5 architecture](docs/architecture/phase-5.md), [private-deployment runbook](docs/runbooks/private-deployment.md)).
 
 ## Phase 2 capabilities
 
@@ -132,18 +132,55 @@ deployment smoke, security review and same-commit final verification. See
   (approve → tool runs → completed; reject with reason → completes without
   running gated tool, rejection visible, no secret leak).
 
+## Phase 8 capabilities (mcp client bridge)
+
+- MCP server configuration (`@uw/contracts`): discriminated `stdio`
+  (`command`/`args`/`env`) and `sse` (`url`/`headers`) transports,
+  `secretRefs`, `enabled` flag, and create/update request schemas;
+- MCP client (`@uw/tools`): `McpTransport` abstraction + `McpClient`
+  lifecycle (`connect`/`listTools`/`callTool`/`close` with timeouts and
+  typed `TIMEOUT`/`NETWORK_FAILURE`/`INVALID_INPUT`/`INVALID_OUTPUT`
+  errors), `StdioProcessTransport` (newline-delimited JSON-RPC 2.0 over a
+  spawned process) and `InMemoryMcpTransport` test double (SSE persists as
+  configuration; live sync discovery is stdio-only);
+- dynamic ToolDescriptor bridge: `tools/list` →
+  `mcp.<server>.<tool>@1.0.0` (`accepts`/`produces` `json`+`text`,
+  `capabilities: ["mcp"]`, `executionMode: "server"`,
+  `idempotency: "unsafe"`, configurable `requiresApproval`), `tools/call`
+  → sanitized `ContextEnvelope` outputs (`structuredContent` → `json`,
+  all-text → `text`, mixed/empty handled, `isError` → typed failure);
+- registry injection: `registerMcpTools` / `unregisterMcpServerTools`
+  (server-scoped `mcp.<server>.*` prefix, `DUPLICATE_TOOL` on re-register)
+  and `resolveMcpEnv` (`secret://` via Vault resolver, literals untouched,
+  failures as `INVALID_CONFIG` without leaking detail);
+- security carried forward: Vault `secret://vault/*` resolution with
+  `secret://local/*` fail-closed on the server, `[REDACTED]` scrubbing
+  across traces/observations/errors, fail-closed `allowedTools` whitelist
+  (`UNAUTHORIZED_TOOL`/`UNKNOWN_TOOL` observations), and Phase 7 HITL
+  guardrails (`requiresApproval` suspend → `awaiting_approval` → approve
+  resumes and runs, reject feeds back without running);
+- server persistence + API: owner/project-scoped MCP server repository and
+  CRUD + `POST /:serverId/sync` discovery/registration endpoints with 404
+  concealment (sync registers descriptors via a stub echo client; live
+  executor wiring is follow-up work, see [the Phase 8 architecture](docs/architecture/phase-8.md));
+- web settings: `McpSettings` (stdio/SSE form, sync/connection test,
+  discovered-tool inspection) and MCP tool selection in `AgentStepEditor`;
+- golden coverage: `packages/execution/test/golden-mcp.integration.test.ts`
+  (ReAct over mock MCP → observes output → completes; HITL suspend on
+  `requiresApproval` → approve → runs once → completes, no secret leak).
+
 ## Test commands
 
 ```sh
-npm test                                   # all workspace suites (includes Phase 7 golden HITL)
+npm test                                   # all workspace suites (includes Phase 8 golden MCP)
 npm run typecheck                          # zero TypeScript errors required
-npm run test -w @uw/execution              # execution engine + golden HITL/agent/AI suites
-npm run test -w @uw/tools                  # agent executor + dispatcher HITL suites
-npm run test -w @uw/server                 # HITL approve/reject + SSE streaming suites
-npm run test -w @uw/web                    # ApprovalCard + AgentTraceViewer SSE suites
+npm run test -w @uw/execution              # execution engine + golden MCP/HITL/agent/AI suites
+npm run test -w @uw/tools                  # MCP adapter/registry + agent dispatcher HITL suites
+npm run test -w @uw/server                 # MCP management API + HITL/SSE suites
+npm run test -w @uw/web                    # MCP settings + ApprovalCard/AgentTraceViewer suites
 npm run typecheck --workspace=@uw/web      # web typecheck (requiresApproval on mocks)
 npm run test -w @uw/providers              # provider tool-calling suite
-npm run test -w @uw/contracts              # agent + HITL schema suites
+npm run test -w @uw/contracts              # MCP server config + agent/HITL schema suites
 ```
 
 No test sends real network traffic (deterministic injected transports) or
@@ -188,8 +225,7 @@ docs                architecture, runbooks, specs, and plans
 
 ## Next boundary
 
-**Phase 7 Task 6 gate is the merge boundary.** MCP/plugin expansion, broader
-ingestion, multi-agent orchestration, and arbitrary code execution remain
-deferred.
+**Phase 8 Task 6 gate is the merge boundary.** Broader ingestion,
+multi-agent orchestration, and arbitrary code execution remain deferred.
 
-See [the runbook](docs/runbooks/local-development.md), [Phase 2 architecture](docs/architecture/phase-2.md), [Phase 3 architecture](docs/architecture/phase-3.md), [Phase 4 architecture](docs/architecture/phase-4.md), [Phase 5 architecture](docs/architecture/phase-5.md), [Phase 6 architecture](docs/architecture/phase-6.md), [Phase 7 architecture](docs/architecture/phase-7.md) and [the product blueprint](docs/superpowers/specs/2026-09-15-universal-workbench-design.md).
+See [the runbook](docs/runbooks/local-development.md), [Phase 2 architecture](docs/architecture/phase-2.md), [Phase 3 architecture](docs/architecture/phase-3.md), [Phase 4 architecture](docs/architecture/phase-4.md), [Phase 5 architecture](docs/architecture/phase-5.md), [Phase 6 architecture](docs/architecture/phase-6.md), [Phase 7 architecture](docs/architecture/phase-7.md), [Phase 8 architecture](docs/architecture/phase-8.md) and [the product blueprint](docs/superpowers/specs/2026-09-15-universal-workbench-design.md).

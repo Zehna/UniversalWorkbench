@@ -65,3 +65,31 @@ export type {
   HttpTransport,
   HttpTransportResponse,
 } from "./network/http-tool.js";
+export {
+  InMemoryMcpTransport,
+  McpClient,
+  StdioProcessTransport,
+} from "./mcp/client.js";
+export type {
+  McpCallToolResult,
+  McpClientOptions,
+  McpContentItem,
+  McpToolDefinition,
+  McpTransport,
+  StdioProcessTransportOptions,
+} from "./mcp/client.js";
+export {
+  convertMcpToolToDescriptor,
+  convertMcpToolsToDescriptors,
+  createMcpToolExecutor,
+} from "./mcp/adapter.js";
+export type {
+  ConvertMcpToolOptions,
+  McpToolExecutorClient,
+} from "./mcp/adapter.js";
+export {
+  registerMcpTools,
+  resolveMcpEnv,
+  unregisterMcpServerTools,
+} from "./mcp/registry.js";
+export type { McpSecretResolver } from "./mcp/registry.js";

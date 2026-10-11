@@ -11,6 +11,8 @@ import type { WorkflowService } from "@uw/workflow";
 import type { ToolRegistry } from "@uw/tools";
 import type { ExecutionRepository, WorkflowEngine } from "@uw/execution";
 import type { createVaultStore } from "@uw/database";
+import type { McpServerRepository } from "@uw/database";
+import type { McpDiscoverTools } from "./routes/mcp.js";
 import type { SessionCookieConfig } from "./middleware/auth.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { createAuthRouter } from "./routes/auth.js";
@@ -26,6 +28,7 @@ import { createToolsRouter } from "./routes/tools.js";
 import { createWorkflowsRouter } from "./routes/workflows.js";
 import { createExecutionsRouter } from "./routes/executions.js";
 import { createVaultRouter } from "./routes/vault.js";
+import { createMcpRouter } from "./routes/mcp.js";
 
 export interface AppDependencies {
   databaseReady(): Promise<boolean>;
@@ -44,6 +47,8 @@ export interface AppDependencies {
   vaultPool?: Parameters<typeof createVaultStore>[0];
   auditRepository?: AuditRepository;
   artifactsDir?: string;
+  mcpServers?: McpServerRepository;
+  mcpDiscoverTools?: McpDiscoverTools;
 }
 
 function requestIdFromLocals(
@@ -262,6 +267,24 @@ export function createApp(deps: AppDependencies) {
         sessionCookie: deps.sessionCookie,
         pool: deps.vaultPool,
         ...(deps.auditRepository ? { audit: deps.auditRepository } : {}),
+      }),
+    );
+  }
+
+  if (hasAuthDependencies(deps) && deps.mcpServers && deps.toolRegistry) {
+    app.use(
+      [
+        "/projects/:projectId/mcp-servers",
+        "/api/projects/:projectId/mcp-servers",
+      ],
+      createMcpRouter({
+        authService: deps.authService,
+        sessionCookie: deps.sessionCookie,
+        mcpServers: deps.mcpServers,
+        registry: deps.toolRegistry,
+        ...(deps.mcpDiscoverTools
+          ? { discoverTools: deps.mcpDiscoverTools }
+          : {}),
       }),
     );
   }
