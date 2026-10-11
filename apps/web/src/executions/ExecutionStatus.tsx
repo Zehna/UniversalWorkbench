@@ -198,6 +198,23 @@ export function ExecutionStatus({
     view?.steps
       .filter((step) => step.status === "completed")
       .flatMap((step) => step.outputContexts) ?? [];
+  const liveAgentOutputs =
+    view?.steps.flatMap((step) => step.outputContexts).filter(
+      (output): output is Extract<ContextEnvelope, { type: "agent_response" }> =>
+        output.type === "agent_response",
+    ) ?? [];
+  const liveTrace = liveAgentOutputs.flatMap((output) => {
+    const payload = agentPayloadOf(output);
+    return payload ? toTraceItems(payload.trace) : [];
+  });
+  const liveAgentStatus =
+    liveAgentOutputs.length > 0
+      ? (() => {
+          const last = liveAgentOutputs[liveAgentOutputs.length - 1]!;
+          const payload = agentPayloadOf(last);
+          return typeof payload?.status === "string" ? payload.status : undefined;
+        })()
+      : undefined;
 
   return (
     <section aria-label="Execution status">
@@ -303,6 +320,8 @@ export function ExecutionStatus({
                       ? agentPayload.text
                       : undefined
                   }
+                  projectId={projectId}
+                  executionId={executionId}
                 />
               ) : null}
               <pre
@@ -352,6 +371,20 @@ export function ExecutionStatus({
             </div>
             );
           })}
+        </section>
+      ) : null}
+      {status &&
+      (status === "queued" ||
+        status === "running" ||
+        status === "awaiting_approval") ? (
+        <section aria-label="Live execution stream">
+          <h4>Live stream</h4>
+          <AgentTraceViewer
+            trace={liveTrace}
+            status={liveAgentStatus ?? status}
+            projectId={projectId}
+            executionId={executionId}
+          />
         </section>
       ) : null}
       {saved ? <p role="status">Artifact saved: {saved}</p> : null}
