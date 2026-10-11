@@ -51,6 +51,7 @@ export type {
   DelegationOptions,
   DelegationSupervisorContext,
   SubAgentDelegationResult,
+  SubAgentPendingApproval,
 } from "./agent/delegation.js";
 export type {
   AgentApprovalResolutionInput,

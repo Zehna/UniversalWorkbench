@@ -16,6 +16,7 @@ import type {
   AgentProviderPort,
   AgentProviderToolDefinition,
 } from "../builtin/agent.js";
+import type { AgentApprovalResolutionInput } from "./dispatcher.js";
 import { AgentToolDispatcher } from "./dispatcher.js";
 import type { ToolExecutor, ToolRunContext } from "../runtime.js";
 
@@ -42,6 +43,22 @@ export interface DelegationInput {
 
 export interface DelegationOptions {
   remainingSupervisorIterations: number;
+  approvalResolutions?:
+    Record<string, AgentApprovalResolutionInput> | undefined;
+}
+
+export interface SubAgentPendingApproval {
+  tool: string;
+  toolCallId?: string;
+  arguments?: Record<string, unknown>;
+  reason: string;
+  subAgentId: string;
+  role: string;
+  toolCall: {
+    id?: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  };
 }
 
 export interface SubAgentDelegationResult {
@@ -53,6 +70,7 @@ export interface SubAgentDelegationResult {
   usage: AiUsage;
   usageSource: AiUsageSource;
   nestedTrace: AgentNestedTraceItem;
+  pendingApprovals?: SubAgentPendingApproval[];
 }
 
 function toSafeArguments(value: unknown): Record<string, unknown> {
@@ -204,6 +222,7 @@ export async function runSubAgentDelegation(
   let model = supervisorContext.model;
   let status: AgentStatus = "completed";
   let iterations = 0;
+  let pendingApprovals: SubAgentPendingApproval[] | undefined;
 
   for (let iteration = 1; iteration <= effectiveMax; iteration += 1) {
     if (supervisorContext.context.signal.aborted) {
@@ -260,7 +279,12 @@ export async function runSubAgentDelegation(
       dispatchInputs,
       supervisorContext.input,
       supervisorContext.context,
+      options.approvalResolutions,
     );
+
+    const awaitingIndices = observations
+      .map((observation, index) => ({ observation, index }))
+      .filter(({ observation }) => observation?.requiresApproval === true);
 
     for (let index = 0; index < toolCalls.length; index += 1) {
       const toolCall = toolCalls[index];
@@ -286,6 +310,42 @@ export async function runSubAgentDelegation(
           isError: observation.isError,
         },
       });
+    }
+
+    if (awaitingIndices.length > 0) {
+      pendingApprovals = awaitingIndices.map(({ observation, index }) => {
+        const toolCall = toolCalls[index];
+        const callName = toolCall?.name.trim() ?? "";
+        const callArgs = toSafeArguments(toolCall?.arguments);
+        return {
+          tool:
+            observation?.pendingApproval?.tool &&
+            observation.pendingApproval.tool.length > 0
+              ? observation.pendingApproval.tool
+              : callName,
+          ...(observation?.pendingApproval?.toolCallId !== undefined ||
+          observation?.toolCallId !== undefined
+            ? {
+                toolCallId:
+                  observation?.pendingApproval?.toolCallId ??
+                  observation?.toolCallId,
+              }
+            : {}),
+          arguments: observation?.pendingApproval?.arguments ?? {},
+          reason:
+            observation?.pendingApproval?.reason ??
+            `Tool ${callName} requires approval`,
+          subAgentId: subAgentSpec.id,
+          role: subAgentSpec.role,
+          toolCall: {
+            ...(toolCall?.id !== undefined ? { id: toolCall.id } : {}),
+            name: callName,
+            arguments: callArgs,
+          },
+        };
+      });
+      status = "awaiting_approval";
+      break;
     }
 
     const observationTexts = observations.map((observation) => {
@@ -327,5 +387,6 @@ export async function runSubAgentDelegation(
     usage,
     usageSource,
     nestedTrace,
+    ...(pendingApprovals !== undefined ? { pendingApprovals } : {}),
   };
 }

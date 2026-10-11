@@ -284,6 +284,13 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
               toolCallId?: string;
               arguments?: Record<string, unknown>;
               reason: string;
+              subAgentId?: string;
+              role?: string;
+              toolCall?: {
+                id?: string;
+                name: string;
+                arguments: Record<string, unknown>;
+              };
             }>
           | undefined;
 
@@ -404,6 +411,22 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
             toolCalls.length,
           ) as AgentDispatchObservation[];
           const nestedTraces = new Map<number, AgentNestedTraceItem>();
+          const childPendingByIndex = new Map<
+            number,
+            Array<{
+              tool: string;
+              toolCallId?: string;
+              arguments?: Record<string, unknown>;
+              reason: string;
+              subAgentId: string;
+              role: string;
+              toolCall: {
+                id?: string;
+                name: string;
+                arguments: Record<string, unknown>;
+              };
+            }>
+          >();
           normalObservations.forEach((obs, i) => {
             const originalIdx = normalIndices[i];
             if (originalIdx !== undefined) {
@@ -486,13 +509,47 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
                   ? { context: parsedDelegation.data.context }
                   : {}),
               },
-              { remainingSupervisorIterations },
+              { remainingSupervisorIterations, approvalResolutions },
             );
             promptTokens += child.usage.promptTokens;
             completionTokens += child.usage.completionTokens;
             totalTokens += child.usage.totalTokens;
             if (child.usageSource !== "provider") allProviderUsage = false;
             nestedTraces.set(index, child.nestedTrace);
+            if (
+              child.status === "awaiting_approval" &&
+              child.pendingApprovals !== undefined &&
+              child.pendingApprovals.length > 0
+            ) {
+              childPendingByIndex.set(index, [...child.pendingApprovals]);
+              observations[index] = {
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+                output: {
+                  subAgentId: child.nestedTrace.subAgentId,
+                  text: child.text,
+                  status: child.status,
+                  iterations: child.iterations,
+                  pendingApprovals: child.pendingApprovals,
+                },
+                durationMs: Math.max(0, Date.now() - startedAt),
+                isError: false,
+                requiresApproval: true,
+                pendingApproval: {
+                  tool: child.pendingApprovals[0]?.tool ?? "",
+                  ...(child.pendingApprovals[0]?.toolCallId !== undefined
+                    ? {
+                        toolCallId: child.pendingApprovals[0]
+                          ?.toolCallId as string,
+                      }
+                    : {}),
+                  arguments: child.pendingApprovals[0]?.arguments ?? {},
+                  reason:
+                    child.pendingApprovals[0]?.reason ??
+                    "Sub-agent tool requires approval",
+                },
+              };
+              continue;
+            }
             observations[index] = {
               ...(toolCallId !== undefined ? { toolCallId } : {}),
               output: {
@@ -538,23 +595,49 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
           }
 
           if (awaiting.length > 0) {
-            pendingApprovals = awaiting.map((observation) => ({
-              tool:
-                observation.pendingApproval?.tool ??
-                dispatchInputs[observations.indexOf(observation)]?.name ??
-                "",
-              ...(observation.pendingApproval?.toolCallId !== undefined ||
-              observation.toolCallId !== undefined
-                ? {
-                    toolCallId:
-                      observation.pendingApproval?.toolCallId ??
-                      observation.toolCallId,
-                  }
-                : {}),
-              arguments: observation.pendingApproval?.arguments ?? {},
-              reason:
-                observation.pendingApproval?.reason ?? "Tool requires approval",
-            }));
+            const expanded: Array<{
+              tool: string;
+              toolCallId?: string;
+              arguments?: Record<string, unknown>;
+              reason: string;
+              subAgentId?: string;
+              role?: string;
+              toolCall?: {
+                id?: string;
+                name: string;
+                arguments: Record<string, unknown>;
+              };
+            }> = [];
+            for (let index = 0; index < observations.length; index += 1) {
+              const observation = observations[index];
+              if (observation?.requiresApproval !== true) continue;
+              const childPending = childPendingByIndex.get(index);
+              if (childPending !== undefined && childPending.length > 0) {
+                for (const entry of childPending) {
+                  expanded.push({ ...entry });
+                }
+                continue;
+              }
+              expanded.push({
+                tool:
+                  observation?.pendingApproval?.tool ??
+                  dispatchInputs[index]?.name ??
+                  "",
+                ...(observation?.pendingApproval?.toolCallId !== undefined ||
+                observation?.toolCallId !== undefined
+                  ? {
+                      toolCallId:
+                        observation?.pendingApproval?.toolCallId ??
+                        observation?.toolCallId,
+                    }
+                  : {}),
+                arguments: observation?.pendingApproval?.arguments ?? {},
+                reason:
+                  observation?.pendingApproval?.reason ??
+                  "Tool requires approval",
+              });
+            }
+            pendingApprovals = expanded;
             status = "awaiting_approval";
             break;
           }
