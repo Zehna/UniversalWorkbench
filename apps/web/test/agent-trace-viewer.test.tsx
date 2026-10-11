@@ -132,6 +132,7 @@ describe("AgentStepEditor", () => {
             executionMode: "server",
             idempotency: "safe",
             configSchema: { type: "object" },
+            requiresApproval: false,
           },
         ]}
       />,
@@ -202,6 +203,7 @@ describe("AgentStepEditor", () => {
             executionMode: "server",
             idempotency: "safe",
             configSchema: { type: "object" },
+            requiresApproval: false,
           },
         ]}
       />,

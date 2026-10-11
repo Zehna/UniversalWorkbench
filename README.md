@@ -2,7 +2,7 @@
 
 Universal Workbench is a local-first, self-hosted-first workspace for connecting tools without losing project context or provenance.
 
-**Phase 6 — Autonomous ReAct Agent is complete on `phase-6-react-agent`.** Phase 0–5 are merged to `main`; Phase 6 adds a goal-driven ReAct agent loop (`builtin.ai.agent@1.0.0`) with whitelisted tool calling, iteration (default 5, cap 15) and token budgets, prompt-injection isolation, secret-scrubbed trace persistence, Send-to Document/Artifact for agent outputs, and a trace timeline UI. See [the Phase 6 architecture](docs/architecture/phase-6.md). Phase 5 remains ready for private release ([Phase 5 architecture](docs/architecture/phase-5.md), [private-deployment runbook](docs/runbooks/private-deployment.md)).
+**Phase 7 — HITL Guardrail & Streaming Agent is complete on `phase-7-hitl-streaming-agent`.** Phase 0–5 are merged to `main`; Phase 6 adds a goal-driven ReAct agent loop (`builtin.ai.agent@1.0.0`) with whitelisted tool calling, iteration (default 5, cap 15) and token budgets, prompt-injection isolation, secret-scrubbed trace persistence, Send-to Document/Artifact for agent outputs, and a trace timeline UI. Phase 7 adds human-in-the-loop approval for gated tools (`requiresApproval`, `awaiting_approval` suspend/resume with rejection feedback), real-time SSE trace streaming (`GET /executions/:id/events` + live `AgentTraceViewer`/`ApprovalCard`), and multi-tool parallel dispatch (`dispatchMany` via `Promise.allSettled`). See [the Phase 7 architecture](docs/architecture/phase-7.md) and [the Phase 6 architecture](docs/architecture/phase-6.md). Phase 5 remains ready for private release ([Phase 5 architecture](docs/architecture/phase-5.md), [private-deployment runbook](docs/runbooks/private-deployment.md)).
 
 ## Phase 2 capabilities
 
@@ -104,15 +104,46 @@ deployment smoke, security review and same-commit final verification. See
   (HTTP tool → observe JSON → reason → final response, whitelist negative,
   iteration-cap termination, trace/token/Send-to/no-leak assertions).
 
+## Phase 7 capabilities (hitl streaming agent)
+
+- HITL guardrail: `requiresApproval` tool descriptors, agent suspend with
+  `status: "awaiting_approval"` + `structured.pendingApprovals`, engine
+  `suspend → awaiting_approval → resume → process` state machine with
+  `resolveApproval({ decision, rejectionReason? })` validation;
+- approval UX + API: `POST /executions/:id/approve` (empty body),
+  `POST /executions/:id/reject` (`{ reason? }`, 1–2000 chars), owner-scoped
+  404 concealment, 409 when not awaiting approval; `ApprovalCard`
+  (approve/reject + reason, busy/error states);
+- rejection feedback: denied calls become `"Action was rejected by user:
+  <reason>"` error observations fed back into the agent conversation, so the
+  agent completes alternatively without ever invoking the gated executor;
+- real-time SSE streaming: `GET /executions/:id/events`
+  (`text/event-stream`, history replay + 50 ms status poll up to 2 s,
+  clean end on terminal/disconnect) and live `AgentTraceViewer` timeline
+  (`EventSource` lifecycle, `approval_needed` embeds `ApprovalCard`);
+- parallel dispatch: `AgentToolDispatcher.dispatchMany` fans out each
+  iteration's tool calls via `Promise.allSettled` (per-call approval lookup
+  by `toolCallId` then tool name; one failure becomes a per-call
+  `TOOL_EXECUTION_FAILED` observation, never a batch failure);
+- secret safety carried forward: resolved `secret://` plaintext scrubbed to
+  `[REDACTED]` across text/traces/observations/errors plus redacted step
+  persistence; golden HITL canary scan;
+- golden coverage: `packages/execution/test/golden-hitl.integration.test.ts`
+  (approve → tool runs → completed; reject with reason → completes without
+  running gated tool, rejection visible, no secret leak).
+
 ## Test commands
 
 ```sh
-npm test                                   # all workspace suites (includes Phase 6 golden agent)
+npm test                                   # all workspace suites (includes Phase 7 golden HITL)
 npm run typecheck                          # zero TypeScript errors required
-npm run test -w @uw/execution              # execution engine + golden agent/AI suites
-npm run test -w @uw/tools                  # agent executor + dispatcher suites
+npm run test -w @uw/execution              # execution engine + golden HITL/agent/AI suites
+npm run test -w @uw/tools                  # agent executor + dispatcher HITL suites
+npm run test -w @uw/server                 # HITL approve/reject + SSE streaming suites
+npm run test -w @uw/web                    # ApprovalCard + AgentTraceViewer SSE suites
+npm run typecheck --workspace=@uw/web      # web typecheck (requiresApproval on mocks)
 npm run test -w @uw/providers              # provider tool-calling suite
-npm run test -w @uw/contracts              # agent schema suite
+npm run test -w @uw/contracts              # agent + HITL schema suites
 ```
 
 No test sends real network traffic (deterministic injected transports) or
@@ -157,8 +188,8 @@ docs                architecture, runbooks, specs, and plans
 
 ## Next boundary
 
-**Phase 6 Task 7 gate is the merge boundary.** MCP/plugin expansion, broader
+**Phase 7 Task 6 gate is the merge boundary.** MCP/plugin expansion, broader
 ingestion, multi-agent orchestration, and arbitrary code execution remain
 deferred.
 
-See [the runbook](docs/runbooks/local-development.md), [Phase 2 architecture](docs/architecture/phase-2.md), [Phase 3 architecture](docs/architecture/phase-3.md), [Phase 4 architecture](docs/architecture/phase-4.md), [Phase 5 architecture](docs/architecture/phase-5.md), [Phase 6 architecture](docs/architecture/phase-6.md) and [the product blueprint](docs/superpowers/specs/2026-09-15-universal-workbench-design.md).
+See [the runbook](docs/runbooks/local-development.md), [Phase 2 architecture](docs/architecture/phase-2.md), [Phase 3 architecture](docs/architecture/phase-3.md), [Phase 4 architecture](docs/architecture/phase-4.md), [Phase 5 architecture](docs/architecture/phase-5.md), [Phase 6 architecture](docs/architecture/phase-6.md), [Phase 7 architecture](docs/architecture/phase-7.md) and [the product blueprint](docs/superpowers/specs/2026-09-15-universal-workbench-design.md).
