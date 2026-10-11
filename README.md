@@ -2,7 +2,7 @@
 
 Universal Workbench is a local-first, self-hosted-first workspace for connecting tools without losing project context or provenance.
 
-**Phase 8 — MCP Client Bridge is complete on `phase-8-mcp-client-bridge`.** Phase 0–5 are merged to `main`; Phase 6 adds a goal-driven ReAct agent loop (`builtin.ai.agent@1.0.0`) with whitelisted tool calling, iteration (default 5, cap 15) and token budgets, prompt-injection isolation, secret-scrubbed trace persistence, Send-to Document/Artifact for agent outputs, and a trace timeline UI. Phase 7 adds human-in-the-loop approval for gated tools (`requiresApproval`, `awaiting_approval` suspend/resume with rejection feedback), real-time SSE trace streaming (`GET /executions/:id/events` + live `AgentTraceViewer`/`ApprovalCard`), and multi-tool parallel dispatch (`dispatchMany` via `Promise.allSettled`). Phase 8 adds MCP server configuration (stdio/SSE transports), dynamic `mcp.<server>.<tool>@1.0.0` tool bridging with ContextEnvelope mapping, and Vault/HITL-guarded execution with server persistence and settings UI. See [the Phase 8 architecture](docs/architecture/phase-8.md), [the Phase 7 architecture](docs/architecture/phase-7.md) and [the Phase 6 architecture](docs/architecture/phase-6.md). Phase 5 remains ready for private release ([Phase 5 architecture](docs/architecture/phase-5.md), [private-deployment runbook](docs/runbooks/private-deployment.md)).
+**Phase 9 — Multi-Agent Orchestration is complete on `phase-9-multi-agent-orchestration`.** Phase 0–5 are merged to `main`; Phase 6 adds a goal-driven ReAct agent loop (`builtin.ai.agent@1.0.0`) with whitelisted tool calling, iteration (default 5, cap 15) and token budgets, prompt-injection isolation, secret-scrubbed trace persistence, Send-to Document/Artifact for agent outputs, and a trace timeline UI. Phase 7 adds human-in-the-loop approval for gated tools (`requiresApproval`, `awaiting_approval` suspend/resume with rejection feedback), real-time SSE trace streaming (`GET /executions/:id/events` + live `AgentTraceViewer`/`ApprovalCard`), and multi-tool parallel dispatch (`dispatchMany` via `Promise.allSettled`). Phase 8 adds MCP server configuration (stdio/SSE transports), dynamic `mcp.<server>.<tool>@1.0.0` tool bridging with ContextEnvelope mapping, and Vault/HITL-guarded execution with server persistence and settings UI. Phase 9 adds hierarchical sub-agent delegation (`builtin.agent.delegate@1.0.0`) with scoped tools, cascaded iteration/token budgets, nested-trace persistence, nested HITL approval bubbling with lineage, and squad configuration plus hierarchical trace UI. See [the Phase 9 architecture](docs/architecture/phase-9.md), [the Phase 8 architecture](docs/architecture/phase-8.md), [the Phase 7 architecture](docs/architecture/phase-7.md) and [the Phase 6 architecture](docs/architecture/phase-6.md). Phase 5 remains ready for private release ([Phase 5 architecture](docs/architecture/phase-5.md), [private-deployment runbook](docs/runbooks/private-deployment.md)).
 
 ## Phase 2 capabilities
 
@@ -169,18 +169,51 @@ deployment smoke, security review and same-commit final verification. See
   (ReAct over mock MCP → observes output → completes; HITL suspend on
   `requiresApproval` → approve → runs once → completes, no secret leak).
 
+## Phase 9 capabilities (multi-agent orchestration)
+
+- Sub-agent delegation contracts (`@uw/contracts`): `AiSubAgentSpecSchema`
+  (`id`/`role`/`instructions`/`allowedTools`/`maxIterations`/`maxOutputTokens`),
+  `AgentDelegationInputSchema` (`subAgentId`/`task`/`context?`),
+  `AgentNestedTraceItemSchema` (`subAgentId`/`role`/`trace`/`status`/`usage`),
+  `AgentTraceItemSchema.nestedTrace?`, and `AiAgentConfigSchema.subAgents`
+  (default `[]`);
+- delegation executor (`@uw/tools`): `builtin.agent.delegate@1.0.0` with
+  child-scoped `AgentToolDispatcher`, isolated child ReAct loop
+  (`instructions + task + context`), and `INVALID_DELEGATION_INPUT` /
+  `UNKNOWN_SUB_AGENT` error observations;
+- strict budget cascading: child `effectiveMax = min(spec.maxIterations,
+remaining supervisor iterations)` with `iteration_limit_reached` cap,
+  `maxOutputTokens` inheritance, and cumulative prompt/completion/total token
+  accounting into the supervisor payload and `execution.usage`;
+- nested HITL approval propagation: child gated calls suspend the root
+  execution at `awaiting_approval` with `pendingApprovals[]` lineage
+  (`subAgentId`/`role`/`toolCall`), approve resumes the child once and
+  completes the supervisor, reject feeds back without running the tool;
+- server wiring: pinned delegation registry, nested-trace persistence in
+  `agent_response` outputs, SSE `sub_agent_turn` lineage frames
+  (`buildExecutionEvents`), approve/reject resume of nested approvals, and
+  Send-to Document over multi-agent outputs;
+- web hierarchy: `AgentTraceViewer` collapsible sub-agent timeline blocks
+  (status/usage + per-child thought/tool/observation rows) and
+  `AgentStepEditor` Sub-Agent Squad tab (id/role/instructions/tools/1–15
+  iterations with uniqueness validation);
+- golden coverage: `packages/execution/test/golden-multi-agent.integration.test.ts`
+  (supervisor → specialist runs scoped tool → completes with nested traces +
+  cascaded tokens; nested HITL suspend with lineage → approve → gated tool
+  runs once → completes, no secret leak).
+
 ## Test commands
 
 ```sh
-npm test                                   # all workspace suites (includes Phase 8 golden MCP)
+npm test                                   # all workspace suites (includes Phase 9 golden multi-agent)
 npm run typecheck                          # zero TypeScript errors required
-npm run test -w @uw/execution              # execution engine + golden MCP/HITL/agent/AI suites
-npm run test -w @uw/tools                  # MCP adapter/registry + agent dispatcher HITL suites
-npm run test -w @uw/server                 # MCP management API + HITL/SSE suites
-npm run test -w @uw/web                    # MCP settings + ApprovalCard/AgentTraceViewer suites
+npm run test -w @uw/execution              # execution engine + golden multi-agent/MCP/HITL/agent/AI suites
+npm run test -w @uw/tools                  # delegation/budget + MCP adapter/registry + dispatcher HITL suites
+npm run test -w @uw/server                 # multi-agent workflow/SSE/approval + MCP management suites
+npm run test -w @uw/web                    # squad viewer + MCP settings + ApprovalCard/AgentTraceViewer suites
 npm run typecheck --workspace=@uw/web      # web typecheck (requiresApproval on mocks)
 npm run test -w @uw/providers              # provider tool-calling suite
-npm run test -w @uw/contracts              # MCP server config + agent/HITL schema suites
+npm run test -w @uw/contracts              # sub-agent delegation + MCP server config + agent/HITL schema suites
 ```
 
 No test sends real network traffic (deterministic injected transports) or
@@ -225,7 +258,7 @@ docs                architecture, runbooks, specs, and plans
 
 ## Next boundary
 
-**Phase 8 Task 6 gate is the merge boundary.** Broader ingestion,
-multi-agent orchestration, and arbitrary code execution remain deferred.
+**Phase 9 Task 6 gate is the merge boundary.** Broader ingestion and
+arbitrary code execution remain deferred.
 
-See [the runbook](docs/runbooks/local-development.md), [Phase 2 architecture](docs/architecture/phase-2.md), [Phase 3 architecture](docs/architecture/phase-3.md), [Phase 4 architecture](docs/architecture/phase-4.md), [Phase 5 architecture](docs/architecture/phase-5.md), [Phase 6 architecture](docs/architecture/phase-6.md), [Phase 7 architecture](docs/architecture/phase-7.md), [Phase 8 architecture](docs/architecture/phase-8.md) and [the product blueprint](docs/superpowers/specs/2026-09-15-universal-workbench-design.md).
+See [the runbook](docs/runbooks/local-development.md), [Phase 2 architecture](docs/architecture/phase-2.md), [Phase 3 architecture](docs/architecture/phase-3.md), [Phase 4 architecture](docs/architecture/phase-4.md), [Phase 5 architecture](docs/architecture/phase-5.md), [Phase 6 architecture](docs/architecture/phase-6.md), [Phase 7 architecture](docs/architecture/phase-7.md), [Phase 8 architecture](docs/architecture/phase-8.md), [Phase 9 architecture](docs/architecture/phase-9.md) and [the product blueprint](docs/superpowers/specs/2026-09-15-universal-workbench-design.md).

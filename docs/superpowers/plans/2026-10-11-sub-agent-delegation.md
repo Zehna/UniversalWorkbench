@@ -30,10 +30,12 @@
 ### Task 1: Create `agent/delegation.ts` core module
 
 **Files:**
+
 - Create: `packages/tools/src/agent/delegation.ts`
 - Test: `packages/tools/test/agent-delegation.test.ts`
 
 **Interfaces:**
+
 - Consumes: `AgentProviderPort` from `../builtin/agent.js`, `AgentToolDispatcher` from `./dispatcher.js`, `AiSubAgentSpec, AgentNestedTraceItem, AgentTraceItem, AiUsage` from `@uw/contracts`, `ToolExecutor, ToolRunContext` + `ContextEnvelope` types.
 - Produces:
   - `DELEGATION_TOOL_NAME = "builtin.agent.delegate@1.0.0"`
@@ -44,7 +46,10 @@
 - [ ] **Step 1: Write failing test for delegation module import**
 
 ```typescript
-import { DELEGATION_TOOL_NAME, runSubAgentDelegation } from "../src/agent/delegation.js";
+import {
+  DELEGATION_TOOL_NAME,
+  runSubAgentDelegation,
+} from "../src/agent/delegation.js";
 expect(DELEGATION_TOOL_NAME).toBe("builtin.agent.delegate@1.0.0");
 ```
 
@@ -56,10 +61,29 @@ Expected: FAIL with module not found.
 - [ ] **Step 3: Implement `delegation.ts` in `packages/tools/src/agent/delegation.ts`**
 
 Types:
+
 ```typescript
-interface DelegationSupervisorContext { provider: AgentProviderPort; secretValue: string; tools: ToolExecutor[]; input: ContextEnvelope; context: ToolRunContext; model: string; systemPrompt?: string; maxOutputTokens: number; timeoutMs: number; }
-interface DelegationInput { task: string; context?: unknown; idempotencyKey?: string; signal?: AbortSignal; }
-interface DelegationOptions { remainingSupervisorIterations: number; providerRequestId?: string; }
+interface DelegationSupervisorContext {
+  provider: AgentProviderPort;
+  secretValue: string;
+  tools: ToolExecutor[];
+  input: ContextEnvelope;
+  context: ToolRunContext;
+  model: string;
+  systemPrompt?: string;
+  maxOutputTokens: number;
+  timeoutMs: number;
+}
+interface DelegationInput {
+  task: string;
+  context?: unknown;
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+}
+interface DelegationOptions {
+  remainingSupervisorIterations: number;
+  providerRequestId?: string;
+}
 ```
 
 Logic: `effectiveMax = Math.max(1, Math.min(spec.maxIterations ?? 5, remainingSupervisorIterations))` — child ReAct loop mirrors `builtin/agent.ts`: build dispatcher with `allowedTools: spec.allowedTools`, conversation = `${spec.instructions}\n\n${task}`, iterate provider.complete → dispatchMany → trace push → accumulate usage. Return nestedTrace `{ subAgentId: spec.id, role: spec.role, trace, status, usage }`.
@@ -77,11 +101,13 @@ Expected: PASS (import resolves; loop tested fully in Task 3).
 git add packages/tools/src/agent/delegation.ts
 git commit -m "feat(tools): add sub-agent delegation loop with budget cascading" || true
 ```
+
 (defer final squash — single commit at end per Global Constraints; this step may be folded.)
 
 ### Task 2: Wire delegation tool into supervisor `builtin/agent.ts`
 
 **Files:**
+
 - Modify: `packages/tools/src/builtin/agent.ts`
 - Consumes: Task 1 `runSubAgentDelegation`, `DELEGATION_TOOL_NAME`, `createDelegationToolDescriptor`.
 - Produces: Supervisor loop with delegation interception, cumulative usage, nestedTrace observation.
@@ -89,7 +115,24 @@ git commit -m "feat(tools): add sub-agent delegation loop with budget cascading"
 - [ ] **Step 1: Write failing test — supervisor injects delegate tool when subAgents present**
 
 ```typescript
-const result = await runTool(tool, textInput("hi"), { ...baseConfig, allowedTools: [], subAgents: [{ id: "researcher", role: "researcher", instructions: "Be concise", allowedTools: [TRIM_NAME], maxIterations: 2 }] }, baseContext());
+const result = await runTool(
+  tool,
+  textInput("hi"),
+  {
+    ...baseConfig,
+    allowedTools: [],
+    subAgents: [
+      {
+        id: "researcher",
+        role: "researcher",
+        instructions: "Be concise",
+        allowedTools: [TRIM_NAME],
+        maxIterations: 2,
+      },
+    ],
+  },
+  baseContext(),
+);
 expect(provider.complete).toHaveBeenCalled(); // supervisor first call requests delegate
 ```
 
@@ -116,21 +159,23 @@ Fold into final commit (see Task 4).
 ### Task 3: Export + full test suite `agent-delegation.test.ts`
 
 **Files:**
+
 - Modify: `packages/tools/src/index.ts`
 - Test: `packages/tools/test/agent-delegation.test.ts`
 
 **Interfaces:**
+
 - Consumes: Tasks 1–2.
 - Produces: Public exports `runSubAgentDelegation, createDelegationToolDescriptor, DELEGATION_TOOL_NAME` + 5 passing tests.
 
 - [ ] **Step 1: Write the 5 failing tests**
 
 ```typescript
-it("delegates sub-task to specialist and returns result to supervisor")
-it("sub-agent executes its own scoped tool")
-it("nested trace captured in supervisor observation")
-it("strict budget cascading caps sub-agent iterations")
-it("cumulative token usage across parent and child")
+it("delegates sub-task to specialist and returns result to supervisor");
+it("sub-agent executes its own scoped tool");
+it("nested trace captured in supervisor observation");
+it("strict budget cascading caps sub-agent iterations");
+it("cumulative token usage across parent and child");
 ```
 
 Each uses `providerDouble` sequence for supervisor + shared provider double counting calls; child scoped tool = `createTextTrimTool()`. Budget test: supervisor maxIterations 3, spec maxIterations 5, remaining 1 → child effective max 1 (assert child provider calls <=1 and `nestedTrace.trace.length <= 1`). Usage test asserts parent usage === supervisor calls + child calls summed.
@@ -143,8 +188,17 @@ Expected: FAIL (exports missing / behavior wrong).
 - [ ] **Step 3: Implement exports in `packages/tools/src/index.ts`**
 
 ```typescript
-export { DELEGATION_TOOL_NAME, createDelegationToolDescriptor, runSubAgentDelegation } from "./agent/delegation.js";
-export type { DelegationInput, DelegationOptions, DelegationSupervisorContext, SubAgentDelegationResult } from "./agent/delegation.js";
+export {
+  DELEGATION_TOOL_NAME,
+  createDelegationToolDescriptor,
+  runSubAgentDelegation,
+} from "./agent/delegation.js";
+export type {
+  DelegationInput,
+  DelegationOptions,
+  DelegationSupervisorContext,
+  SubAgentDelegationResult,
+} from "./agent/delegation.js";
 ```
 
 Plus any Task 2 fixes needed for tests.
@@ -181,4 +235,5 @@ git add docs/superpowers/plans/2026-10-11-sub-agent-delegation.md packages/tools
 git commit -m "feat(tools): implement sub-agent delegation with budget cascading"
 git push origin phase-9-multi-agent-orchestration
 ```
+
 Expected: push succeeds.
