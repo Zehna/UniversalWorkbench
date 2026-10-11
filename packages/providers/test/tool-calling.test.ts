@@ -40,7 +40,9 @@ describe("provider tool-calling abstraction", () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("WORKBENCH_AI_MOCK", "1");
     const provider = createMockProvider({
-      toolCalls: [{ id: "call_1", name: "get_weather", arguments: { city: "Paris" } }],
+      toolCalls: [
+        { id: "call_1", name: "get_weather", arguments: { city: "Paris" } },
+      ],
     });
     const result = await provider.complete(
       baseRequest({ tools: [weatherTool] }),
@@ -102,9 +104,10 @@ describe("provider tool-calling abstraction", () => {
     );
     const firstCall = fetchImpl.mock.calls[0] as unknown[] | undefined;
     const init = firstCall?.[1] as unknown as { body?: string } | undefined;
-    seenBody = JSON.parse(
-      String(init?.body ?? "{}"),
-    ) as Record<string, unknown>;
+    seenBody = JSON.parse(String(init?.body ?? "{}")) as Record<
+      string,
+      unknown
+    >;
     expect(seenBody["tools"]).toEqual([
       {
         type: "function",
@@ -138,9 +141,10 @@ describe("provider tool-calling abstraction", () => {
     await provider.complete(baseRequest());
     const firstCall = fetchImpl.mock.calls[0] as unknown[] | undefined;
     const init = firstCall?.[1] as unknown as { body?: string } | undefined;
-    const seenBody = JSON.parse(
-      String(init?.body ?? "{}"),
-    ) as Record<string, unknown>;
+    const seenBody = JSON.parse(String(init?.body ?? "{}")) as Record<
+      string,
+      unknown
+    >;
     expect("tools" in seenBody).toBe(false);
   });
 });

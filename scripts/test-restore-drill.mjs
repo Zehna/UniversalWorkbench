@@ -69,7 +69,12 @@ function check(name, actual, expected) {
   checks.push({ name, pass });
   if (!pass) {
     console.error(
-      JSON.stringify({ event: "restore-drill.check-failed", name, actual, expected }),
+      JSON.stringify({
+        event: "restore-drill.check-failed",
+        name,
+        actual,
+        expected,
+      }),
     );
   }
 }
@@ -215,9 +220,12 @@ try {
   runCli(
     backupCreate,
     [
-      "--out", archivePath,
-      "--database-url", srcDbUrl,
-      "--artifacts-dir", srcArtifactsDir,
+      "--out",
+      archivePath,
+      "--database-url",
+      srcDbUrl,
+      "--artifacts-dir",
+      srcArtifactsDir,
     ],
     "backup-create",
   );
@@ -230,7 +238,15 @@ try {
   await writeFile(tamperedPath, tampered);
   const tamperResult = spawnSync(
     process.execPath,
-    [backupRestore, "--archive", tamperedPath, "--db-url", dstDbUrl, "--storage-dir", dstArtifactsDir],
+    [
+      backupRestore,
+      "--archive",
+      tamperedPath,
+      "--db-url",
+      dstDbUrl,
+      "--storage-dir",
+      dstArtifactsDir,
+    ],
     { encoding: "utf8" },
   );
   check("tampered archive is rejected", tamperResult.status !== 0, true);
@@ -239,9 +255,12 @@ try {
   runCli(
     backupRestore,
     [
-      "--archive", archivePath,
-      "--db-url", dstDbUrl,
-      "--storage-dir", dstArtifactsDir,
+      "--archive",
+      archivePath,
+      "--db-url",
+      dstDbUrl,
+      "--storage-dir",
+      dstArtifactsDir,
     ],
     "backup-restore",
   );
@@ -262,20 +281,34 @@ try {
        where d.id = $1`,
       [documentId],
     );
-    check("note body restored", doc.rows[0]?.content?.body, "disaster recovery test body");
+    check(
+      "note body restored",
+      doc.rows[0]?.content?.body,
+      "disaster recovery test body",
+    );
     check("note relational link intact", doc.rows[0]?.project_id, projectId);
 
     const artifactRow = await dstPool.query(
       "select id, project_id, checksum_sha256, size_bytes from artifacts where id = $1",
       [artifactId],
     );
-    check("artifact record restored", artifactRow.rows[0]?.checksum_sha256, artifactSha);
-    check("artifact relational link intact", artifactRow.rows[0]?.project_id, projectId);
+    check(
+      "artifact record restored",
+      artifactRow.rows[0]?.checksum_sha256,
+      artifactSha,
+    );
+    check(
+      "artifact relational link intact",
+      artifactRow.rows[0]?.project_id,
+      projectId,
+    );
 
     const restoredBytes = await readFile(
       join(dstArtifactsDir, projectId, artifactId, artifactSha),
     );
-    const restoredSha = createHash("sha256").update(restoredBytes).digest("hex");
+    const restoredSha = createHash("sha256")
+      .update(restoredBytes)
+      .digest("hex");
     check("artifact bytes checksum matches", restoredSha, artifactSha);
 
     // Vault: encrypted rows identical without any key; plaintext round-trips with the drill key.
@@ -286,10 +319,14 @@ try {
       const columns =
         "owner_id, name, key_version, encode(iv,'hex') iv, encode(ciphertext,'hex') ciphertext, encode(auth_tag,'hex') auth_tag";
       srcRows = (
-        await srcProbe.query(`select ${columns} from vault_secrets order by owner_id, name`)
+        await srcProbe.query(
+          `select ${columns} from vault_secrets order by owner_id, name`,
+        )
       ).rows;
       dstRows = (
-        await dstPool.query(`select ${columns} from vault_secrets order by owner_id, name`)
+        await dstPool.query(
+          `select ${columns} from vault_secrets order by owner_id, name`,
+        )
       ).rows;
     } finally {
       await db.closeDatabasePool(srcProbe);
@@ -297,7 +334,11 @@ try {
     check("vault encrypted rows identical", dstRows, srcRows);
 
     const vault = db.createVaultStore(dstPool);
-    check("vault plaintext round-trips", await vault.get(ownerId, "drill-key"), vaultPlaintext);
+    check(
+      "vault plaintext round-trips",
+      await vault.get(ownerId, "drill-key"),
+      vaultPlaintext,
+    );
   } finally {
     await db.closeDatabasePool(dstPool);
   }

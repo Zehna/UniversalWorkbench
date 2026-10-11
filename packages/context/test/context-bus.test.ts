@@ -23,6 +23,7 @@ function tool(
     version?: string;
     accepts?: ContextType[];
     permissions?: string[];
+    requiresApproval?: boolean;
   } = {},
 ): ToolDescriptor {
   return {
@@ -37,6 +38,7 @@ function tool(
     executionMode: "local",
     idempotency: "safe",
     configSchema: {},
+    requiresApproval: options.requiresApproval ?? false,
   };
 }
 

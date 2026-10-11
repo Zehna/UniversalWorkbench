@@ -63,9 +63,7 @@ export function DiagnosticsView({
             <ul>
               <li>Database: {asText(checks.database)}</li>
               <li>Storage: {asText(checks.storage)}</li>
-              <li>
-                Vault: {asText(asRecord(checks.vault).status)}
-              </li>
+              <li>Vault: {asText(asRecord(checks.vault).status)}</li>
             </ul>
           ) : (
             <p>Loading checks…</p>

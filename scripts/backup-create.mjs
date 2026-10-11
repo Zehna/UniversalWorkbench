@@ -2,10 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { closeDatabasePool, createDatabasePool } from "@uw/database";
-import {
-  collectArtifactFiles,
-  createBackupArchive,
-} from "@uw/storage";
+import { collectArtifactFiles, createBackupArchive } from "@uw/storage";
 
 const USAGE = `usage: backup-create [--out <path>] [--database-url <url>] [--artifacts-dir <dir>]
 
@@ -23,7 +20,11 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--help" || arg === "-h") return { help: true };
-    if (arg === "--out" || arg === "--database-url" || arg === "--artifacts-dir") {
+    if (
+      arg === "--out" ||
+      arg === "--database-url" ||
+      arg === "--artifacts-dir"
+    ) {
       const value = argv[i + 1];
       if (!value || value.startsWith("--")) {
         fail(`backup-create: ${arg} requires a value`, 2);
@@ -44,7 +45,9 @@ if (args.help) {
 }
 
 const databaseUrl =
-  args["database-url"] ?? process.env.DATABASE_URL ?? process.env.TEST_DATABASE_URL;
+  args["database-url"] ??
+  process.env.DATABASE_URL ??
+  process.env.TEST_DATABASE_URL;
 if (!databaseUrl) {
   fail("backup-create requires --database-url (or DATABASE_URL)");
 }
@@ -62,7 +65,9 @@ function runPgDump(url) {
     fail(`backup-create: pg_dump failed to start: ${result.error.message}`);
   }
   if (result.status !== 0) {
-    const stderr = (result.stderr ?? Buffer.alloc(0)).toString("utf8").slice(0, 500);
+    const stderr = (result.stderr ?? Buffer.alloc(0))
+      .toString("utf8")
+      .slice(0, 500);
     fail(`backup-create: pg_dump exited ${result.status}: ${stderr}`);
   }
   return new Uint8Array(result.stdout ?? Buffer.alloc(0));

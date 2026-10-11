@@ -48,9 +48,29 @@ export type AgentTraceItem = z.infer<typeof AgentTraceItemSchema>;
 export const AgentStatusSchema = z.enum([
   "completed",
   "iteration_limit_reached",
+  "awaiting_approval",
   "error",
 ]);
 export type AgentStatus = z.infer<typeof AgentStatusSchema>;
+
+export const AgentApprovalRequestSchema = z.object({
+  executionId: z.string().trim().min(1),
+  nodeId: z.string().trim().min(1),
+  toolCall: AgentToolCallSchema,
+  reason: z.string().trim().min(1).max(2000).optional(),
+});
+export type AgentApprovalRequest = z.infer<typeof AgentApprovalRequestSchema>;
+
+export const AgentApprovalDecisionSchema = z.enum(["approved", "rejected"]);
+export type AgentApprovalDecision = z.infer<typeof AgentApprovalDecisionSchema>;
+
+export const AgentApprovalResolutionSchema = z.object({
+  decision: AgentApprovalDecisionSchema,
+  rejectionReason: z.string().trim().min(1).max(2000).optional(),
+});
+export type AgentApprovalResolution = z.infer<
+  typeof AgentApprovalResolutionSchema
+>;
 
 export const AgentResponsePayloadSchema = z.object({
   text: z.string(),

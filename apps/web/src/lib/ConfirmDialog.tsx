@@ -13,9 +13,7 @@ function focusableElements(root: HTMLElement): HTMLElement[] {
   const candidates = root.querySelectorAll<HTMLElement>(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
   );
-  return [...candidates].filter(
-    (element) => !element.hasAttribute("disabled"),
-  );
+  return [...candidates].filter((element) => !element.hasAttribute("disabled"));
 }
 
 /**
@@ -41,9 +39,7 @@ export function ConfirmDialog({
         : null;
     // Focus the safe default (Cancel, the last action): Enter alone must
     // never confirm a destructive action.
-    const elements = dialog.current
-      ? focusableElements(dialog.current)
-      : [];
+    const elements = dialog.current ? focusableElements(dialog.current) : [];
     elements[elements.length - 1]?.focus();
     return () => {
       previousFocus.current?.focus?.();

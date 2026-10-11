@@ -9,7 +9,7 @@ import type { DocumentService } from "@uw/documents";
 import type { SyncRepository, SyncService } from "@uw/sync";
 import type { WorkflowService } from "@uw/workflow";
 import type { ToolRegistry } from "@uw/tools";
-import type { ExecutionRepository } from "@uw/execution";
+import type { ExecutionRepository, WorkflowEngine } from "@uw/execution";
 import type { createVaultStore } from "@uw/database";
 import type { SessionCookieConfig } from "./middleware/auth.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
@@ -39,6 +39,7 @@ export interface AppDependencies {
   toolRegistry?: ToolRegistry;
   grantedWorkflowPermissions?: readonly string[];
   executionRepository?: ExecutionRepository;
+  executionEngine?: Pick<WorkflowEngine, "resolveApproval">;
   syncRepository?: SyncRepository;
   vaultPool?: Parameters<typeof createVaultStore>[0];
   auditRepository?: AuditRepository;
@@ -246,6 +247,7 @@ export function createApp(deps: AppDependencies) {
         authService: deps.authService,
         sessionCookie: deps.sessionCookie,
         repository: deps.executionRepository,
+        ...(deps.executionEngine ? { engine: deps.executionEngine } : {}),
       }),
     );
   }

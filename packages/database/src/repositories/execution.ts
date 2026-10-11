@@ -245,6 +245,29 @@ export function createPostgresExecutionRepository(
       requireUpdated(result.rowCount, "Execution is not queued");
     },
 
+    async suspendExecution(executionId, usage) {
+      const result = await pool.query(
+        `update executions
+            set status = 'awaiting_approval',
+                usage = $2::jsonb
+          where id = $1
+            and status = 'running'`,
+        [executionId, JSON.stringify(usage)],
+      );
+      requireUpdated(result.rowCount, "Execution is not running");
+    },
+
+    async resumeExecution(executionId) {
+      const result = await pool.query(
+        `update executions
+            set status = 'running'
+          where id = $1
+            and status = 'awaiting_approval'`,
+        [executionId],
+      );
+      requireUpdated(result.rowCount, "Execution is not awaiting approval");
+    },
+
     async recordStep(input) {
       const client = await pool.connect();
       try {

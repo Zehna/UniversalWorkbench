@@ -37,7 +37,9 @@ function assertSafeArchivePath(path: string): void {
   if (
     path.startsWith("/") ||
     path.includes("\\") ||
-    path.split("/").some((segment) => segment === "" || segment === "." || segment === "..")
+    path
+      .split("/")
+      .some((segment) => segment === "" || segment === "." || segment === "..")
   ) {
     throw new UnsafeBackupPathError(path);
   }
@@ -73,7 +75,11 @@ function splitUstarPath(name: string): { name: string; prefix: string } {
   return { name: rest, prefix };
 }
 
-function encodeTarHeader(path: string, size: number, mtime: number): Uint8Array {
+function encodeTarHeader(
+  path: string,
+  size: number,
+  mtime: number,
+): Uint8Array {
   assertSafeArchivePath(path);
   const { name, prefix } = splitUstarPath(path);
   const header = new Uint8Array(512);
@@ -232,7 +238,9 @@ export async function createBackupArchive(
   for (const artifact of input.artifacts) {
     assertSafeArchivePath(artifact.path);
     if (seen.has(artifact.path)) {
-      throw new UnsafeBackupPathError(`Duplicate artifact path: ${artifact.path}`);
+      throw new UnsafeBackupPathError(
+        `Duplicate artifact path: ${artifact.path}`,
+      );
     }
     seen.add(artifact.path);
   }
@@ -297,7 +305,10 @@ function parseManifest(files: Map<string, Uint8Array>): BackupManifest {
   } catch {
     throw new BackupIntegrityError("Archive manifest is not valid JSON");
   }
-  if (manifest.format !== BACKUP_FORMAT || manifest.version !== BACKUP_VERSION) {
+  if (
+    manifest.format !== BACKUP_FORMAT ||
+    manifest.version !== BACKUP_VERSION
+  ) {
     throw new BackupIntegrityError("Unsupported backup format version");
   }
   return manifest;
@@ -324,7 +335,10 @@ export async function verifyBackupIntegrity(
     if (!bytes) {
       throw new BackupIntegrityError(`Archived file missing: ${entry.path}`);
     }
-    if (bytes.byteLength !== entry.sizeBytes || sha256Hex(bytes) !== entry.sha256) {
+    if (
+      bytes.byteLength !== entry.sizeBytes ||
+      sha256Hex(bytes) !== entry.sha256
+    ) {
       throw new BackupIntegrityError(
         `Checksum mismatch for archived file: ${entry.path}`,
       );

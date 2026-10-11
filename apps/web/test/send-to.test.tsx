@@ -42,6 +42,7 @@ function tool(
     executionMode: "server",
     idempotency: "safe",
     configSchema: { type: "object" },
+    requiresApproval: false,
   };
 }
 

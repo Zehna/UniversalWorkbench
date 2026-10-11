@@ -10,6 +10,11 @@ import type {
 export interface ExecutionRepository {
   createExecution(input: CreateExecutionRecord): Promise<ExecutionRecord>;
   markRunning(executionId: string, startedAt: Date): Promise<void>;
+  suspendExecution(
+    executionId: string,
+    usage: Record<string, unknown>,
+  ): Promise<void>;
+  resumeExecution(executionId: string): Promise<void>;
   recordStep(input: ExecutionStepRecord): Promise<void>;
   complete(input: CompleteExecutionRecord): Promise<void>;
   fail(input: FailExecutionRecord): Promise<void>;

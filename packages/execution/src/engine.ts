@@ -33,6 +33,16 @@ export interface ExecuteWorkflowInput {
 export interface WorkflowEngine {
   enqueue(input: ExecuteWorkflowInput): Promise<ExecutionRecord>;
   process(executionId: string, signal: AbortSignal): Promise<ExecutionView>;
+  resolveApproval(
+    executionId: string,
+    resolution: ResolveApprovalInput,
+    signal?: AbortSignal,
+  ): Promise<ExecutionView>;
+}
+
+export interface ResolveApprovalInput {
+  decision: "approved" | "rejected";
+  rejectionReason?: string;
 }
 
 export interface WorkflowEngineDependencies {
@@ -144,6 +154,43 @@ function isTerminal(status: ExecutionRecord["status"]): boolean {
   );
 }
 
+function isAwaitingApprovalOutput(
+  outputs: readonly ContextEnvelope[],
+): boolean {
+  for (const output of outputs) {
+    if (output.type !== "agent_response") continue;
+    const payload = output.payload as unknown as { status?: unknown };
+    if (payload?.status === "awaiting_approval") return true;
+  }
+  return false;
+}
+
+function extractPendingApprovals(
+  outputs: readonly ContextEnvelope[],
+): Array<{ tool: string; toolCallId?: string }> {
+  const pending: Array<{ tool: string; toolCallId?: string }> = [];
+  for (const output of outputs) {
+    if (output.type !== "agent_response") continue;
+    const payload = output.payload as unknown as {
+      structured?: { pendingApprovals?: unknown };
+    };
+    const list = payload?.structured?.pendingApprovals;
+    if (!Array.isArray(list)) continue;
+    for (const entry of list) {
+      if (entry === null || typeof entry !== "object") continue;
+      const record = entry as Record<string, unknown>;
+      const tool = typeof record["tool"] === "string" ? record["tool"] : "";
+      if (!tool) continue;
+      const toolCallId =
+        typeof record["toolCallId"] === "string"
+          ? (record["toolCallId"] as string)
+          : undefined;
+      pending.push(toolCallId !== undefined ? { tool, toolCallId } : { tool });
+    }
+  }
+  return pending;
+}
+
 async function waitFor<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) {
     throw new ExecutionEngineError("CANCELLED", "Workflow was cancelled");
@@ -203,7 +250,12 @@ export function createWorkflowEngine(
     return latest;
   }
 
-  return {
+  const pendingResolutions = new Map<
+    string,
+    Record<string, ResolveApprovalInput>
+  >();
+
+  const engine: WorkflowEngine = {
     async enqueue(input) {
       const parsed = ContextEnvelopeSchema.safeParse(input.input);
       if (
@@ -257,6 +309,9 @@ export function createWorkflowEngine(
     async process(executionId, signal) {
       const item = await reload(executionId);
       if (isTerminal(item.view.execution.status)) return resultFromStore(item);
+      if (item.view.execution.status === "awaiting_approval") {
+        if (!pendingResolutions.has(executionId)) return resultFromStore(item);
+      }
 
       const validated = validateWorkflow(item.workflow, deps.registry);
       const permissions = new Set(item.grantedPermissions);
@@ -300,6 +355,15 @@ export function createWorkflowEngine(
           }
 
           const last = history[history.length - 1];
+          const awaitingStep =
+            last?.status === "awaiting_approval" ? last : undefined;
+          if (awaitingStep && !pendingResolutions.has(executionId)) {
+            await deps.store.suspend({
+              executionId,
+              usage: { ...usage },
+            });
+            return (await reload(executionId)).view;
+          }
           if (last?.status === "running") {
             if (retryClass(descriptor, node) === "unsafe") {
               throw new ExecutionEngineError(
@@ -329,6 +393,7 @@ export function createWorkflowEngine(
           }
           if (
             last &&
+            last.status !== "awaiting_approval" &&
             !canRetry(
               descriptor,
               node,
@@ -350,7 +415,11 @@ export function createWorkflowEngine(
             );
           }
 
-          const max = node.retry?.maxAttempts ?? 1;
+          const baseMax = node.retry?.maxAttempts ?? 1;
+          const max =
+            awaitingStep !== undefined
+              ? Math.max(baseMax, awaitingStep.attempt + 1)
+              : baseMax;
           for (
             let attempt = (last?.attempt ?? 0) + 1;
             attempt <= max;
@@ -392,13 +461,21 @@ export function createWorkflowEngine(
               ),
             );
             const callSignal = AbortSignal.any([combined, nodeTimeout]);
+            const storedResolutions = pendingResolutions.get(executionId);
+            const effectiveConfig =
+              awaitingStep && storedResolutions
+                ? {
+                    ...(node.config as Record<string, unknown>),
+                    approvalResolutions: storedResolutions,
+                  }
+                : node.config;
             try {
               const executor = deps.registry.resolve(
                 node.toolId,
                 node.toolVersion,
               );
               const tool = await waitFor(
-                runTool(executor, source, node.config, {
+                runTool(executor, source, effectiveConfig, {
                   executionId,
                   stepId: step.id,
                   projectId: run.projectId,
@@ -451,6 +528,28 @@ export function createWorkflowEngine(
                   "BUDGET_OUTPUT",
                   "Workflow output byte budget exceeded",
                 );
+              }
+              if (isAwaitingApprovalOutput(tool.outputs)) {
+                await deps.store.finishStep({
+                  id: step.id,
+                  executionId,
+                  nodeId,
+                  attempt,
+                  status: "awaiting_approval",
+                  finishedAt: now(),
+                  outputContexts: tool.outputs,
+                  error: null,
+                });
+                step.status = "awaiting_approval";
+                step.finishedAt = now();
+                step.outputContexts = tool.outputs;
+                usage.outputBytes += bytes;
+                addOutputTokens(usage, tool.outputs);
+                await deps.store.suspend({
+                  executionId,
+                  usage: { ...usage },
+                });
+                return (await reload(executionId)).view;
               }
               await deps.store.finishStep({
                 id: step.id,
@@ -609,5 +708,63 @@ export function createWorkflowEngine(
         return (await reload(executionId)).view;
       }
     },
+
+    async resolveApproval(executionId, resolution, signal) {
+      const item = await reload(executionId);
+      if (item.view.execution.status !== "awaiting_approval") {
+        throw new ExecutionEngineError(
+          "INVALID_STATE",
+          "Execution is not awaiting approval",
+        );
+      }
+      const decision = resolution.decision;
+      if (decision !== "approved" && decision !== "rejected") {
+        throw new ExecutionEngineError(
+          "INVALID_INPUT",
+          "Approval decision must be approved or rejected",
+        );
+      }
+      const rejectionReason =
+        typeof resolution.rejectionReason === "string"
+          ? resolution.rejectionReason.trim()
+          : "";
+      if (decision === "rejected" && rejectionReason.length === 0) {
+        throw new ExecutionEngineError(
+          "INVALID_INPUT",
+          "Rejection reason is required",
+        );
+      }
+      const suspendedSteps = item.view.steps.filter(
+        (step) => step.status === "awaiting_approval",
+      );
+      const pending: Array<{ tool: string; toolCallId?: string }> = [];
+      for (const step of suspendedSteps) {
+        pending.push(...extractPendingApprovals(step.outputContexts));
+      }
+      if (pending.length === 0) {
+        throw new ExecutionEngineError(
+          "INVALID_STATE",
+          "No pending approvals for execution",
+        );
+      }
+      const mapped: Record<string, ResolveApprovalInput> = {};
+      for (const entry of pending) {
+        const value: ResolveApprovalInput =
+          decision === "approved"
+            ? { decision }
+            : { decision, rejectionReason };
+        if (entry.toolCallId) mapped[entry.toolCallId] = value;
+        mapped[entry.tool] = value;
+      }
+      pendingResolutions.set(executionId, mapped);
+      await deps.store.resume(executionId);
+      const activeSignal = signal ?? new AbortController().signal;
+      const view = await engine.process(executionId, activeSignal);
+      if (view.execution.status !== "awaiting_approval") {
+        pendingResolutions.delete(executionId);
+      }
+      return view;
+    },
   };
+  return engine;
 }

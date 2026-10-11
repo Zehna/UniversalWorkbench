@@ -19,11 +19,25 @@ export interface AgentToolCallInput {
   arguments?: Record<string, unknown>;
 }
 
+export interface AgentPendingApproval {
+  tool: string;
+  toolCallId?: string;
+  arguments?: Record<string, unknown>;
+  reason: string;
+}
+
+export interface AgentApprovalResolutionInput {
+  decision: "approved" | "rejected";
+  rejectionReason?: string;
+}
+
 export interface AgentDispatchObservation {
   toolCallId?: string;
   output: unknown;
   durationMs: number;
   isError: boolean;
+  requiresApproval?: boolean;
+  pendingApproval?: AgentPendingApproval;
 }
 
 export interface AgentToolDispatcherOptions {
@@ -31,7 +45,9 @@ export interface AgentToolDispatcherOptions {
   allowedTools: readonly string[];
 }
 
-export function toToolName(descriptor: Pick<ToolDescriptor, "id" | "version">): string {
+export function toToolName(
+  descriptor: Pick<ToolDescriptor, "id" | "version">,
+): string {
   return `${descriptor.id}@${descriptor.version}`;
 }
 
@@ -56,7 +72,10 @@ function resolveCallName(call: AgentToolCallInput): string {
   return typeof raw === "string" ? raw.trim() : "";
 }
 
-function unauthorizedError(tool: string, message: string): AgentObservation["output"] {
+function unauthorizedError(
+  tool: string,
+  message: string,
+): AgentObservation["output"] {
   return {
     error: {
       code: "UNAUTHORIZED_TOOL",
@@ -87,23 +106,34 @@ export class AgentToolDispatcher {
     return [...this.executors.values()]
       .filter((tool) => this.allowed.has(toToolName(tool.descriptor)))
       .map((tool) => toFunctionCallingSpec(tool.descriptor))
-      .sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0));
+      .sort((left, right) =>
+        left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
+      );
   }
 
   async dispatch(
     call: AgentToolCallInput,
     input: ContextEnvelope,
     context: ToolRunContext,
+    approval?: AgentApprovalResolutionInput,
   ): Promise<AgentDispatchObservation> {
     const startedAt = Date.now();
     const toolCallId = call?.id;
     const name = resolveCallName(call);
 
-    const finish = (output: unknown, isError: boolean): AgentDispatchObservation => ({
+    const finish = (
+      output: unknown,
+      isError: boolean,
+      extra?: Pick<
+        AgentDispatchObservation,
+        "requiresApproval" | "pendingApproval"
+      >,
+    ): AgentDispatchObservation => ({
       ...(toolCallId !== undefined ? { toolCallId } : {}),
       output,
       durationMs: Math.max(0, Date.now() - startedAt),
       isError,
+      ...(extra ?? {}),
     });
 
     if (!name || !this.allowed.has(name)) {
@@ -132,6 +162,26 @@ export class AgentToolDispatcher {
       );
     }
 
+    if (executor.descriptor.requiresApproval === true) {
+      if (approval?.decision === "approved") {
+        // Approved: fall through to execution below.
+      } else if (approval?.decision === "rejected") {
+        const reason = approval.rejectionReason?.trim() || "rejected by user";
+        return finish(`Action was rejected by user: ${reason}`, true);
+      } else {
+        const pending: AgentPendingApproval = {
+          tool: name,
+          ...(toolCallId !== undefined ? { toolCallId } : {}),
+          arguments: call.arguments ?? {},
+          reason: `Tool ${name} requires approval`,
+        };
+        return finish({ pendingApproval: pending }, false, {
+          requiresApproval: true,
+          pendingApproval: pending,
+        });
+      }
+    }
+
     const config: Record<string, unknown> = call.arguments ?? {};
     try {
       const result = await runTool(executor, input, config, context);
@@ -139,7 +189,9 @@ export class AgentToolDispatcher {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const code =
-        error instanceof Error && "code" in error && typeof (error as { code: unknown }).code === "string"
+        error instanceof Error &&
+        "code" in error &&
+        typeof (error as { code: unknown }).code === "string"
           ? ((error as { code: string }).code as string)
           : undefined;
       return finish(
@@ -154,6 +206,43 @@ export class AgentToolDispatcher {
         true,
       );
     }
+  }
+
+  async dispatchMany(
+    calls: AgentToolCallInput[],
+    input: ContextEnvelope,
+    context: ToolRunContext,
+    approvals?: Record<string, AgentApprovalResolutionInput>,
+  ): Promise<AgentDispatchObservation[]> {
+    const tasks = calls.map((call) => {
+      const name = resolveCallName(call);
+      const approval =
+        (call?.id !== undefined ? approvals?.[call.id] : undefined) ??
+        (name !== "" ? approvals?.[name] : undefined);
+      return this.dispatch(call, input, context, approval);
+    });
+    const settled = await Promise.allSettled(tasks);
+    return settled.map((result, index) => {
+      if (result.status === "fulfilled") return result.value;
+      const call = calls[index];
+      const toolCallId = call?.id;
+      const message =
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason);
+      return {
+        ...(toolCallId !== undefined ? { toolCallId } : {}),
+        output: {
+          error: {
+            code: "TOOL_EXECUTION_FAILED",
+            message,
+            tool: resolveCallName(call as AgentToolCallInput),
+          },
+        },
+        durationMs: 0,
+        isError: true,
+      } satisfies AgentDispatchObservation;
+    });
   }
 }
 

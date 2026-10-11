@@ -411,6 +411,35 @@ export const api = {
     );
   },
 
+  async approveExecution(
+    projectId: string,
+    executionId: string,
+  ): Promise<ExecutionDetails> {
+    return executionDetails(
+      await request(
+        `/projects/${projectId}/executions/${executionId}/approve`,
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      ),
+    );
+  },
+
+  async rejectExecution(
+    projectId: string,
+    executionId: string,
+    reason?: string,
+  ): Promise<ExecutionDetails> {
+    const trimmed = reason?.trim();
+    return executionDetails(
+      await request(`/projects/${projectId}/executions/${executionId}/reject`, {
+        method: "POST",
+        body: JSON.stringify(trimmed ? { reason: trimmed } : {}),
+      }),
+    );
+  },
+
   async saveExecutionOutput(
     projectId: string,
     executionId: string,

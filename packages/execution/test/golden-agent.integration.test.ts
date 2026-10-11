@@ -43,7 +43,11 @@ interface ProviderStep {
     name: string;
     arguments: Record<string, unknown>;
   }>;
-  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }
 
 function agentProviderDouble(steps: ProviderStep[]) {
@@ -151,7 +155,11 @@ describe("Phase 6 golden ReAct agent integration", () => {
         toolCall?: { name: string; arguments: Record<string, unknown> };
         observation?: { output: unknown; isError: boolean };
       }>;
-      usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+      usage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+      };
       usageSource: string;
     };
     expect(payload.text).toContain("42");

@@ -1,6 +1,8 @@
 export { ExecutionStatusSchema } from "@uw/contracts";
 export type { ExecutionStatus } from "@uw/contracts";
 export type {
+  ApprovalDecision,
+  ApprovalResolution,
   CompleteExecutionRecord,
   CreateExecutionRecord,
   ExecutionJson,
@@ -32,6 +34,7 @@ export type {
 export { createWorkflowEngine } from "./engine.js";
 export type {
   ExecuteWorkflowInput,
+  ResolveApprovalInput,
   WorkflowEngine,
   WorkflowEngineDependencies,
 } from "./engine.js";
@@ -43,5 +46,6 @@ export type {
   ExecutionSubmission,
   FinishStepInput,
   StoredWorkflowRun,
+  SuspendExecutionInput,
   WorkflowExecutionStore,
 } from "./store.js";

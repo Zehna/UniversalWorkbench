@@ -131,6 +131,31 @@ export class MemoryStore implements WorkflowExecutionStore {
     row.view.execution.status = "running";
     row.view.execution.startedAt = startedAt;
   }
+  async suspendExecution(
+    id: string,
+    usage: Record<string, unknown>,
+  ): Promise<void> {
+    const row = this.rows.get(id)!;
+    if (row.view.execution.status !== "running")
+      throw new Error("Invalid state");
+    row.view.execution.status = "awaiting_approval";
+    row.view.execution.usage = usage;
+  }
+  async resumeExecution(id: string): Promise<void> {
+    const row = this.rows.get(id)!;
+    if (row.view.execution.status !== "awaiting_approval")
+      throw new Error("Invalid state");
+    row.view.execution.status = "running";
+  }
+  async suspend(input: {
+    executionId: string;
+    usage: Record<string, unknown>;
+  }): Promise<void> {
+    return this.suspendExecution(input.executionId, input.usage);
+  }
+  async resume(id: string): Promise<void> {
+    return this.resumeExecution(id);
+  }
   async startStep(step: ExecutionStepRecord): Promise<void> {
     const row = this.rows.get(step.executionId)!;
     if (

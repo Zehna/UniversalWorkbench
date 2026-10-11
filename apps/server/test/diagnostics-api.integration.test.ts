@@ -20,9 +20,11 @@ function authFor(ownerId: string | null) {
     isInitialized: vi.fn().mockResolvedValue(true),
     setupOwner: vi.fn(),
     login: vi.fn(),
-    resolveSession: vi.fn().mockResolvedValue(
-      ownerId ? { id: ownerId, username: "owner", createdAt: NOW } : null,
-    ),
+    resolveSession: vi
+      .fn()
+      .mockResolvedValue(
+        ownerId ? { id: ownerId, username: "owner", createdAt: NOW } : null,
+      ),
     logout: vi.fn(),
   } satisfies AuthService;
 }
@@ -34,7 +36,10 @@ const sessionCookie = {
 };
 
 interface StubPool {
-  query: (text: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
+  query: (
+    text: string,
+    params?: unknown[],
+  ) => Promise<{ rows: Record<string, unknown>[] }>;
 }
 
 function healthyPool(): StubPool {

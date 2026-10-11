@@ -3,6 +3,7 @@ import type { StructuredExecutionError } from "./model.js";
 export type ExecutionEngineErrorCode =
   | "INVALID_INPUT"
   | "INVALID_BUDGET"
+  | "INVALID_STATE"
   | "WORKFLOW_VERSION_CONFLICT"
   | "EXECUTION_NOT_FOUND"
   | "INVALID_OUTPUT"
