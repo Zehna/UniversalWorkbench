@@ -102,8 +102,6 @@ describe("phase 7 hitl contracts", () => {
     expect(
       AgentApprovalResolutionSchema.safeParse({ decision: "pending" }).success,
     ).toBe(false);
-    expect(
-      AgentApprovalResolutionSchema.safeParse({}).success,
-    ).toBe(false);
+    expect(AgentApprovalResolutionSchema.safeParse({}).success).toBe(false);
   });
 });

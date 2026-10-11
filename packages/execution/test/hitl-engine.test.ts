@@ -127,13 +127,8 @@ describe("HITL engine suspend/resume", () => {
     const store = new MemoryStore();
     const engine = createWorkflowEngine({ store, registry });
     const agentNode = agentNodeInput(registry, { allowedTools: [gatedName] });
-    const created = await engine.enqueue(
-      enqueueInput(registry, agentNode),
-    );
-    const view = await engine.process(
-      created.id,
-      new AbortController().signal,
-    );
+    const created = await engine.enqueue(enqueueInput(registry, agentNode));
+    const view = await engine.process(created.id, new AbortController().signal);
     expect(view.execution.status).toBe("awaiting_approval");
     expect(view.steps).toHaveLength(1);
     expect(view.steps[0]?.status).toBe("awaiting_approval");
@@ -162,24 +157,29 @@ describe("HITL engine suspend/resume", () => {
       new AbortController().signal,
     );
     expect(suspended.execution.status).toBe("awaiting_approval");
-    const resumed = await (engine as never as {
-      resolveApproval: (
-        id: string,
-        r: { decision: "approved" },
-      ) => Promise<typeof suspended>;
-    }).resolveApproval(created.id, { decision: "approved" });
+    const resumed = await (
+      engine as never as {
+        resolveApproval: (
+          id: string,
+          r: { decision: "approved" },
+        ) => Promise<typeof suspended>;
+      }
+    ).resolveApproval(created.id, { decision: "approved" });
     expect(resumed.execution.status).toBe("completed");
     expect(gatedRun).toHaveBeenCalled();
-    const finalOutput = resumed.steps[resumed.steps.length - 1]?.outputContexts[0];
+    const finalOutput =
+      resumed.steps[resumed.steps.length - 1]?.outputContexts[0];
     expect(finalOutput?.type).toBe("agent_response");
-    expect(
-      (finalOutput?.payload as { status: string }).status,
-    ).toBe("completed");
+    expect((finalOutput?.payload as { status: string }).status).toBe(
+      "completed",
+    );
   });
 
   it("resuming with rejected passes feedback into the agent which completes alternatively", async () => {
     const gatedRun = vi.fn(async () => ({
-      outputs: [{ ...textEnvelope("should not run"), payload: "should not run" }],
+      outputs: [
+        { ...textEnvelope("should not run"), payload: "should not run" },
+      ],
       usage: { inputBytes: 1, outputBytes: 1 },
     }));
     const { registry, gatedName } = agentSetup({
@@ -191,12 +191,19 @@ describe("HITL engine suspend/resume", () => {
     const agentNode = agentNodeInput(registry, { allowedTools: [gatedName] });
     const created = await engine.enqueue(enqueueInput(registry, agentNode));
     await engine.process(created.id, new AbortController().signal);
-    const resumed = await (engine as never as {
-      resolveApproval: (
-        id: string,
-        r: { decision: "rejected"; rejectionReason?: string },
-      ) => Promise<{ execution: { status: string }; steps: unknown[] } & Record<string, unknown>>;
-    }).resolveApproval(created.id, {
+    const resumed = await (
+      engine as never as {
+        resolveApproval: (
+          id: string,
+          r: { decision: "rejected"; rejectionReason?: string },
+        ) => Promise<
+          { execution: { status: string }; steps: unknown[] } & Record<
+            string,
+            unknown
+          >
+        >;
+      }
+    ).resolveApproval(created.id, {
       decision: "rejected",
       rejectionReason: "too risky",
     });
@@ -217,25 +224,28 @@ describe("HITL engine suspend/resume", () => {
     const agentNode = agentNodeInput(registry, { allowedTools: [gatedName] });
     const created = await engine.enqueue(enqueueInput(registry, agentNode));
     await expect(
-      (engine as never as {
-        resolveApproval: (
-          id: string,
-          r: unknown,
-        ) => Promise<unknown>;
-      }).resolveApproval(created.id, { decision: "approved" }),
+      (
+        engine as never as {
+          resolveApproval: (id: string, r: unknown) => Promise<unknown>;
+        }
+      ).resolveApproval(created.id, { decision: "approved" }),
     ).rejects.toThrow();
     const suspended = await engine.process(
       created.id,
       new AbortController().signal,
     );
     expect(suspended.execution.status).toBe("awaiting_approval");
-    await (engine as never as {
-      resolveApproval: (id: string, r: unknown) => Promise<unknown>;
-    }).resolveApproval(created.id, { decision: "approved" });
-    await expect(
-      (engine as never as {
+    await (
+      engine as never as {
         resolveApproval: (id: string, r: unknown) => Promise<unknown>;
-      }).resolveApproval(created.id, { decision: "rejected" }),
+      }
+    ).resolveApproval(created.id, { decision: "approved" });
+    await expect(
+      (
+        engine as never as {
+          resolveApproval: (id: string, r: unknown) => Promise<unknown>;
+        }
+      ).resolveApproval(created.id, { decision: "rejected" }),
     ).rejects.toThrow();
   });
 });

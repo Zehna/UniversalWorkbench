@@ -115,7 +115,7 @@ deployment smoke, security review and same-commit final verification. See
   404 concealment, 409 when not awaiting approval; `ApprovalCard`
   (approve/reject + reason, busy/error states);
 - rejection feedback: denied calls become `"Action was rejected by user:
-  <reason>"` error observations fed back into the agent conversation, so the
+<reason>"` error observations fed back into the agent conversation, so the
   agent completes alternatively without ever invoking the gated executor;
 - real-time SSE streaming: `GET /executions/:id/events`
   (`text/event-stream`, history replay + 50 ms status poll up to 2 s,

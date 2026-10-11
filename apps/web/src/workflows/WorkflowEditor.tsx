@@ -6,7 +6,10 @@ import type {
   WorkflowNode,
 } from "@uw/contracts";
 import { api, type WorkflowVersion } from "../api/client";
-import { validateAiAgentConfig, validateAiToolConfig } from "../tools/ai-config";
+import {
+  validateAiAgentConfig,
+  validateAiToolConfig,
+} from "../tools/ai-config";
 import {
   compatibleTools,
   descriptorFor,

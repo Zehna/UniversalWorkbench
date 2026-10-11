@@ -167,8 +167,7 @@ export function createVaultRouter(deps: VaultRouterDependencies) {
       if (deps.audit) {
         const requestId = res.locals.requestId;
         const traceId =
-          typeof requestId === "string" &&
-          IdSchema.safeParse(requestId).success
+          typeof requestId === "string" && IdSchema.safeParse(requestId).success
             ? requestId
             : randomUUID();
         await deps.audit.record({

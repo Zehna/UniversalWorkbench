@@ -13,13 +13,13 @@
 validation; `ArtifactService.create` enforces it (defense in depth) and
 `apps/server/src/routes/artifacts.ts` enforces it at the edge:
 
-| Helper | Guarantee |
-| ------ | --------- |
-| `sniffMimeType(bytes)` | Magic-byte detection for png, jpeg, webp, pdf; structural detection for json (parse-verified) and text (strict UTF-8, no NUL). `null` for empty/unknown. |
-| `verifyMimeType(bytes, declared)` | Strict equality of sniffed vs declared (normalized) type; unsupported types always fail. |
-| `sanitizeFilename(name)` | Strips traversal, NUL/controls, leading dots; unsafe chars become `_`; dot-only/empty falls back to `file`; 255-char cap preserving extension. |
-| `computeSha256Hex` / `assertSizeWithinLimit` | Checksums and bounds (`MAX_ARTIFACT_BYTES` 10 MiB, `MAX_INLINE_JSON_BYTES` 512 KiB). |
-| `validateArtifactUpload` | One-shot size + content + checksum + filename validation. |
+| Helper                                       | Guarantee                                                                                                                                                |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sniffMimeType(bytes)`                       | Magic-byte detection for png, jpeg, webp, pdf; structural detection for json (parse-verified) and text (strict UTF-8, no NUL). `null` for empty/unknown. |
+| `verifyMimeType(bytes, declared)`            | Strict equality of sniffed vs declared (normalized) type; unsupported types always fail.                                                                 |
+| `sanitizeFilename(name)`                     | Strips traversal, NUL/controls, leading dots; unsafe chars become `_`; dot-only/empty falls back to `file`; 255-char cap preserving extension.           |
+| `computeSha256Hex` / `assertSizeWithinLimit` | Checksums and bounds (`MAX_ARTIFACT_BYTES` 10 MiB, `MAX_INLINE_JSON_BYTES` 512 KiB).                                                                     |
+| `validateArtifactUpload`                     | One-shot size + content + checksum + filename validation.                                                                                                |
 
 Downloads send a sanitized `Content-Disposition` filename plus `nosniff`.
 
@@ -64,10 +64,10 @@ negative → restore → assert loop (10 checks) against throwaway databases.
 `apps/server/src/routes/diagnostics.ts`, mounted at `/diagnostics` and
 `/api/diagnostics`:
 
-| Endpoint | Auth | Behavior |
-| -------- | ---- | -------- |
-| `GET /health` | no | Liveness `{ status: "ok" }`. |
-| `GET /readiness` | no | DB `select 1` ping, storage write/read/delete probe, vault keyring state. Gates on DB + storage (vault reported, non-gating); 200 `ready` / 503 `not_ready`. |
+| Endpoint               | Auth  | Behavior                                                                                                                                                                                                           |
+| ---------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /health`          | no    | Liveness `{ status: "ok" }`.                                                                                                                                                                                       |
+| `GET /readiness`       | no    | DB `select 1` ping, storage write/read/delete probe, vault keyring state. Gates on DB + storage (vault reported, non-gating); 200 `ready` / 503 `not_ready`.                                                       |
 | `GET /recovery-bundle` | owner | `buildRecoveryBundle` redress via `redactSecrets`: migration IDs, queue pending/claimed, sync counts, table counts, vault config + row count, node/platform. Per-field fail-open (`null`), never env/key material. |
 
 ## 5. Web resilience & accessibility (`apps/web`)

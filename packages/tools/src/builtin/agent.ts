@@ -114,21 +114,25 @@ function toSafeArguments(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function toApprovalMap(value: unknown): Record<string, AgentApprovalResolutionInput> | undefined {
+function toApprovalMap(
+  value: unknown,
+): Record<string, AgentApprovalResolutionInput> | undefined {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
   }
   const out: Record<string, AgentApprovalResolutionInput> = {};
   let found = false;
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) continue;
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry))
+      continue;
     const record = entry as Record<string, unknown>;
     if (record["decision"] === "approved") {
       out[key] = { decision: "approved" };
       found = true;
     } else if (record["decision"] === "rejected") {
       const reason =
-        typeof record["rejectionReason"] === "string" && record["rejectionReason"].trim().length > 0
+        typeof record["rejectionReason"] === "string" &&
+        record["rejectionReason"].trim().length > 0
           ? (record["rejectionReason"] as string)
           : undefined;
       out[key] =
@@ -222,7 +226,10 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
 
       try {
         if (context.signal.aborted) {
-          throw new ToolRuntimeError("ABORTED", "Agent execution was cancelled");
+          throw new ToolRuntimeError(
+            "ABORTED",
+            "Agent execution was cancelled",
+          );
         }
         const inputText = inputToText(validInput.payload);
         const dispatcher = new AgentToolDispatcher({
@@ -242,7 +249,9 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
         const maxIterations = toolConfig.maxIterations;
 
         const rawConfig = config as Record<string, unknown>;
-        const approvalResolutions = toApprovalMap(rawConfig["approvalResolutions"]);
+        const approvalResolutions = toApprovalMap(
+          rawConfig["approvalResolutions"],
+        );
 
         let conversation = `${toolConfig.prompt}\n\n${inputText}`;
         const trace: AgentTraceItem[] = [];
@@ -252,15 +261,18 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
         let allProviderUsage = true;
         let text = "";
         let model = toolConfig.model;
-        let status: "completed" | "iteration_limit_reached" | "awaiting_approval" =
+        let status:
+          "completed" | "iteration_limit_reached" | "awaiting_approval" =
           "completed";
         let iterations = 0;
-        let pendingApprovals: Array<{
-          tool: string;
-          toolCallId?: string;
-          arguments?: Record<string, unknown>;
-          reason: string;
-        }> | undefined;
+        let pendingApprovals:
+          | Array<{
+              tool: string;
+              toolCallId?: string;
+              arguments?: Record<string, unknown>;
+              reason: string;
+            }>
+          | undefined;
 
         for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
           if (context.signal.aborted) {
@@ -399,7 +411,8 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
               observation.toolCallId !== undefined
                 ? {
                     toolCallId:
-                      observation.pendingApproval?.toolCallId ?? observation.toolCallId,
+                      observation.pendingApproval?.toolCallId ??
+                      observation.toolCallId,
                   }
                 : {}),
               arguments: observation.pendingApproval?.arguments ?? {},
@@ -432,7 +445,9 @@ export function createAgentTool(deps: AgentToolDeps): ToolExecutor {
           iterations,
           trace: scrubTraceValue(trace, knownSecrets) as AgentTraceItem[],
           usage: { promptTokens, completionTokens, totalTokens },
-          usageSource: allProviderUsage ? ("provider" as const) : ("estimated" as const),
+          usageSource: allProviderUsage
+            ? ("provider" as const)
+            : ("estimated" as const),
           ...(pendingApprovals !== undefined
             ? { structured: { pendingApprovals } }
             : {}),

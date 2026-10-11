@@ -34,7 +34,8 @@ export function AgentStepEditor({
     (!Number.isInteger(maxIterationsRaw) ||
       maxIterationsRaw < 1 ||
       maxIterationsRaw > 15);
-  const secretRef = typeof config.secretRef === "string" ? config.secretRef : "";
+  const secretRef =
+    typeof config.secretRef === "string" ? config.secretRef : "";
   const [customTool, setCustomTool] = useState("");
 
   function clampIterations(value: number): number {
@@ -133,7 +134,9 @@ export function AgentStepEditor({
           step={1}
           value={maxIterations}
           onChange={(event) =>
-            updateConfig({ maxIterations: clampIterations(Number(event.target.value)) })
+            updateConfig({
+              maxIterations: clampIterations(Number(event.target.value)),
+            })
           }
         />
       </label>

@@ -1,9 +1,6 @@
 import type { ContextEnvelope } from "@uw/contracts";
 import { describe, expect, it, vi } from "vitest";
-import {
-  AgentToolDispatcher,
-  toToolName,
-} from "../src/agent/dispatcher.js";
+import { AgentToolDispatcher, toToolName } from "../src/agent/dispatcher.js";
 import { createAgentTool, runTool, createTextTrimTool } from "../src/index.js";
 import type { ToolExecutor, ToolRunContext } from "../src/index.js";
 
@@ -33,7 +30,11 @@ function textInput(payload: unknown): ContextEnvelope {
   };
 }
 
-function delayedTool(id: string, delayMs: number, payload: unknown): ToolExecutor {
+function delayedTool(
+  id: string,
+  delayMs: number,
+  payload: unknown,
+): ToolExecutor {
   const base = createTextTrimTool();
   return {
     descriptor: {
@@ -140,7 +141,9 @@ describe("parallel tool dispatch + approval suspension", () => {
       toolCalls: [{ id: "call_1", name: gatedName, arguments: {} }],
     }));
     const agent = createAgentTool({
-      providers: new Map([["test-provider", { id: "test-provider", complete } as never]]),
+      providers: new Map([
+        ["test-provider", { id: "test-provider", complete } as never],
+      ]),
       resolveSecret: async () => "secret-value",
       tools: [gated as never],
     });
@@ -191,7 +194,9 @@ describe("parallel tool dispatch + approval suspension", () => {
       };
     });
     const agent = createAgentTool({
-      providers: new Map([["test-provider", { id: "test-provider", complete } as never]]),
+      providers: new Map([
+        ["test-provider", { id: "test-provider", complete } as never],
+      ]),
       resolveSecret: async () => "secret-value",
       tools: [gated as never],
     });

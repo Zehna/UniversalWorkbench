@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApprovalCard } from "../src/executions/ApprovalCard";
 import { AgentTraceViewer } from "../src/executions/AgentTraceViewer";
@@ -28,16 +34,26 @@ describe("ApprovalCard", () => {
 
   it("renders pending tool parameters", () => {
     render(
-      <ApprovalCard projectId="proj-1" executionId="exec-1" pendingApprovals={pending} />,
+      <ApprovalCard
+        projectId="proj-1"
+        executionId="exec-1"
+        pendingApprovals={pending}
+      />,
     );
     expect(screen.getByText(/awaiting approval/i)).toBeInTheDocument();
     expect(screen.getByText(/builtin\.approval\.gated/)).toBeInTheDocument();
-    expect(screen.getByText(/https:\/\/example\.org\/risky/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/https:\/\/example\.org\/risky/),
+    ).toBeInTheDocument();
   });
 
   it("triggers approve API call", async () => {
     render(
-      <ApprovalCard projectId="proj-1" executionId="exec-1" pendingApprovals={pending} />,
+      <ApprovalCard
+        projectId="proj-1"
+        executionId="exec-1"
+        pendingApprovals={pending}
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: /approve/i }));
     await waitFor(() => {
@@ -53,7 +69,11 @@ describe("ApprovalCard", () => {
 
   it("passes rejection reason in reject request body", async () => {
     render(
-      <ApprovalCard projectId="proj-1" executionId="exec-1" pendingApprovals={pending} />,
+      <ApprovalCard
+        projectId="proj-1"
+        executionId="exec-1"
+        pendingApprovals={pending}
+      />,
     );
     fireEvent.change(screen.getByLabelText(/rejection reason/i), {
       target: { value: "too risky" },

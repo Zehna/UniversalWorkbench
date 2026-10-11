@@ -33,7 +33,11 @@ function textInput(payload: unknown): ContextEnvelope {
 interface ProviderResultDouble {
   text: string;
   model?: string;
-  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
   usageSource?: "provider" | "estimated";
   toolCalls?: Array<{
     id?: string;

@@ -26,11 +26,11 @@ function authFor(ownerId: string | null) {
     isInitialized: vi.fn().mockResolvedValue(true),
     setupOwner: vi.fn(),
     login: vi.fn(),
-    resolveSession: vi.fn().mockResolvedValue(
-      ownerId
-        ? { id: ownerId, username: "owner", createdAt: NOW }
-        : null,
-    ),
+    resolveSession: vi
+      .fn()
+      .mockResolvedValue(
+        ownerId ? { id: ownerId, username: "owner", createdAt: NOW } : null,
+      ),
     logout: vi.fn(),
   } satisfies AuthService;
 }
@@ -51,8 +51,7 @@ function jsonErrors(app: express.Express): void {
       _next: express.NextFunction,
     ) => {
       const err = error as { status?: unknown; code?: unknown };
-      const status =
-        typeof err?.status === "number" ? err.status : 500;
+      const status = typeof err?.status === "number" ? err.status : 500;
       const code = typeof err?.code === "string" ? err.code : "INTERNAL_ERROR";
       res.status(status).json({ error: { code } });
     },
@@ -238,7 +237,9 @@ describe("project destructive safeguards", () => {
         create: vi.fn(),
         list: vi.fn(async () => []),
         get: vi.fn(async (ownerId: string, projectId: string) =>
-          ownerId === OWNER_A ? (store.get(`${ownerId}:${projectId}`) ?? null) : null,
+          ownerId === OWNER_A
+            ? (store.get(`${ownerId}:${projectId}`) ?? null)
+            : null,
         ),
         update: vi.fn(),
         remove: vi.fn(async (ownerId: string, projectId: string) => {
@@ -264,9 +265,9 @@ describe("project destructive safeguards", () => {
       traceId: "trace-1",
     });
 
-    await expect(service.delete(OWNER_A, PROJECT_ID, "trace-2")).rejects.toThrow(
-      ProjectNotFoundError,
-    );
+    await expect(
+      service.delete(OWNER_A, PROJECT_ID, "trace-2"),
+    ).rejects.toThrow(ProjectNotFoundError);
     await expect(
       service.delete(OWNER_B, PROJECT_ID, "trace-3"),
     ).rejects.toThrow(ProjectNotFoundError);

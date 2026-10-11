@@ -38,8 +38,6 @@ describe("DiagnosticsView", () => {
     });
 
     render(<DiagnosticsView fetchJson={fetchJson} />);
-    expect(
-      await screen.findByRole("alert"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 });

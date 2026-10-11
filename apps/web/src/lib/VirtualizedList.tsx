@@ -32,10 +32,7 @@ export function VirtualizedList<T>({
   }, []);
 
   const totalHeight = items.length * itemHeight;
-  const start = Math.max(
-    0,
-    Math.floor(scrollTop / itemHeight) - overscan,
-  );
+  const start = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
   const visibleCount = Math.ceil(containerHeight / itemHeight) + overscan * 2;
   const end = Math.min(items.length, start + visibleCount);
   const topPadding = start * itemHeight;

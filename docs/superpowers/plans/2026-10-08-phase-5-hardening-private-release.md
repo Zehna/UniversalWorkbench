@@ -7,6 +7,7 @@ Branch: `phase-5-hardening-private-release`
 ---
 
 ### Task 1: Upload Security & Artifact Content Verification
+
 - **Files:**
   - Create: `packages/artifacts/src/security.ts`
   - Modify: `packages/artifacts/src/index.ts`
@@ -25,6 +26,7 @@ Branch: `phase-5-hardening-private-release`
 ---
 
 ### Task 2: Authz & Destructive Action Safeguards
+
 - **Files:**
   - Modify: `apps/server/src/routes/projects.ts`
   - Modify: `apps/server/src/routes/vault.ts`
@@ -41,6 +43,7 @@ Branch: `phase-5-hardening-private-release`
 ---
 
 ### Task 3: Unified Backup Engine & CLI
+
 - **Files:**
   - Create: `packages/storage/src/backup.ts`
   - Create: `scripts/backup-create.mjs`
@@ -56,6 +59,7 @@ Branch: `phase-5-hardening-private-release`
 ---
 
 ### Task 4: Automated Restore Drill & Verification Script
+
 - **Files:**
   - Create: `scripts/backup-restore.mjs`
   - Create: `scripts/test-restore-drill.mjs`
@@ -69,6 +73,7 @@ Branch: `phase-5-hardening-private-release`
 ---
 
 ### Task 5: System Diagnostics & Redacted Recovery Bundle
+
 - **Files:**
   - Create: `apps/server/src/routes/diagnostics.ts`
   - Modify: `apps/server/src/app.ts`
@@ -86,6 +91,7 @@ Branch: `phase-5-hardening-private-release`
 ---
 
 ### Task 6: Accessibility, PWA Resilience, & Large Payload Handling
+
 - **Files:**
   - Modify: `apps/web/src/...`
   - Test: `apps/web/test/accessibility-performance.test.tsx`
@@ -101,6 +107,7 @@ Branch: `phase-5-hardening-private-release`
 ---
 
 ### Task 7: Production Deployment Hardening, Runbook, & Final Phase 5 Gate
+
 - **Files:**
   - Create: `deploy/docker/compose.prod.yml`
   - Create: `docs/architecture/phase-5.md`

@@ -14,13 +14,13 @@ provider seam + token budgets, Phase 5 hardening, and Phase 6 ReAct loop
 unchanged in behavior, and adds approval/streaming behavior in existing
 packages (no new top-level package):
 
-| Package | Responsibility |
-| ------- | -------------- |
-| `@uw/contracts` | `requiresApproval` on `ToolDescriptorSchema` (default `false`); `awaiting_approval` on `ExecutionStatusSchema` + `AgentStatusSchema`; `AgentApprovalRequest/Decision/Resolution` schemas. |
-| `@uw/tools` | `AgentToolDispatcher.dispatch` approval gate + `dispatchMany` parallel fan-out (`Promise.allSettled`); `createAgentTool` suspend (`awaiting_approval` + `structured.pendingApprovals`) and resume via `approvalResolutions` config. |
-| `@uw/execution` | Engine suspend/resume state machine (`suspend` → `awaiting_approval` → `resume` → `process`), `resolveApproval` validation, rejection feedback into agent conversation, redacted step persistence. |
-| `apps/server` | `POST /executions/:id/approve`, `POST /executions/:id/reject`, `GET /executions/:id/events` (SSE trace stream); pinned registry with gated tools; owner-scoped approval. |
-| `apps/web` | `ApprovalCard` (approve/reject + reason), `AgentTraceViewer` live SSE timeline (thought/tool-call/observation + `approval_needed` embed), SSE connection lifecycle. |
+| Package         | Responsibility                                                                                                                                                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@uw/contracts` | `requiresApproval` on `ToolDescriptorSchema` (default `false`); `awaiting_approval` on `ExecutionStatusSchema` + `AgentStatusSchema`; `AgentApprovalRequest/Decision/Resolution` schemas.                                           |
+| `@uw/tools`     | `AgentToolDispatcher.dispatch` approval gate + `dispatchMany` parallel fan-out (`Promise.allSettled`); `createAgentTool` suspend (`awaiting_approval` + `structured.pendingApprovals`) and resume via `approvalResolutions` config. |
+| `@uw/execution` | Engine suspend/resume state machine (`suspend` → `awaiting_approval` → `resume` → `process`), `resolveApproval` validation, rejection feedback into agent conversation, redacted step persistence.                                  |
+| `apps/server`   | `POST /executions/:id/approve`, `POST /executions/:id/reject`, `GET /executions/:id/events` (SSE trace stream); pinned registry with gated tools; owner-scoped approval.                                                            |
+| `apps/web`      | `ApprovalCard` (approve/reject + reason), `AgentTraceViewer` live SSE timeline (thought/tool-call/observation + `approval_needed` embed), SSE connection lifecycle.                                                                 |
 
 Dependency direction stays acyclic:
 
@@ -36,7 +36,7 @@ composes engine + dispatcher + providers; the web client only speaks HTTP/SSE.
 
 Gated tools opt in via `requiresApproval: true` in their descriptor
 (`packages/contracts/src/tool.ts`, `ToolDescriptorSchema`). The agent
-whitelist (`allowedTools`) is orthogonal: a tool must be both allowed *and*
+whitelist (`allowedTools`) is orthogonal: a tool must be both allowed _and_
 approved to run.
 
 ```text
@@ -75,7 +75,7 @@ awaiting_approval --(process() with no resolution)--> suspend() (idempotent re-s
 Details:
 
 - `isAwaitingApprovalOutput` detects `agent_response.status ===
-  "awaiting_approval"`; the step is finished as `awaiting_approval` (not
+"awaiting_approval"`; the step is finished as `awaiting_approval` (not
   `completed`), usage/tokens accumulate, then `store.suspend` persists
   `awaiting_approval` on the execution.
 - `resolveApproval(executionId, { decision, rejectionReason? })` validates:
@@ -105,12 +105,12 @@ Server routes (`apps/server/src/routes/executions.ts`):
 - `POST /:executionId/approve` rejects non-empty bodies (400), non-awaiting
   executions (409 `EXECUTION_NOT_AWAITING_APPROVAL`), and missing engine
   wiring (500). Delegates to `engine.resolveApproval(id, { decision:
-  "approved" })`.
+"approved" })`.
 - `POST /:executionId/reject` accepts `{ reason?: string(1..2000) }` strict
   (`RejectBodySchema`), defaults to `"Rejected by user"`, same 409/500
   handling, delegates with `{ decision: "rejected", rejectionReason }`.
 - Both are owner-scoped (`requireOwner` + repository `get(ownerId,
-  projectId, executionId)` → 404 concealment, same rule as Phase 5 IDOR
+projectId, executionId)` → 404 concealment, same rule as Phase 5 IDOR
   handling).
 
 ## 3. Secret safety
@@ -144,7 +144,7 @@ Secrets never widen authority and never persist:
    → terminal `completed`.
 2. Headers (`Content-Type: text/event-stream`, `Cache-Control: no-cache`,
    `Connection: keep-alive`, `X-Accel-Buffering: no`) flush each `data:
-   <json>\n\n` frame immediately.
+<json>\n\n` frame immediately.
 3. If the execution is terminal, the stream ends after replay. Otherwise the
    handler polls the repository every 50 ms for up to 2 s, emitting a
    lightweight `{ type: "status", executionId, status, steps }` frame whenever
@@ -178,10 +178,20 @@ tolerate both `{ tool, toolCallId, arguments, reason }` and legacy
 tool call in one iteration concurrently:
 
 ```ts
-const tasks = calls.map((call) => this.dispatch(call, input, ctx, approvalFor(call)));
+const tasks = calls.map((call) =>
+  this.dispatch(call, input, ctx, approvalFor(call)),
+);
 const settled = await Promise.allSettled(tasks);
-return settled.map((result, i) => result.status === "fulfilled" ? result.value
-  : { toolCallId: calls[i]?.id, output: { error: { code: "TOOL_EXECUTION_FAILED", message, tool } }, durationMs: 0, isError: true });
+return settled.map((result, i) =>
+  result.status === "fulfilled"
+    ? result.value
+    : {
+        toolCallId: calls[i]?.id,
+        output: { error: { code: "TOOL_EXECUTION_FAILED", message, tool } },
+        durationMs: 0,
+        isError: true,
+      },
+);
 ```
 
 - Approval lookup is per call: `approvals[call.id] ?? approvals[call.name]`,
@@ -192,7 +202,7 @@ return settled.map((result, i) => result.status === "fulfilled" ? result.value
   failing the whole iteration. The agent records each observation against its
   own `toolCall` in trace order (`iteration`, `thought` only on index 0),
   serializes all observations as `Observation[i]` conversation context, and
-  only suspends if *any* observation requires approval.
+  only suspends if _any_ observation requires approval.
 - `durationMs` is measured per dispatch (`Date.now()` delta, `>= 0`);
   rejected promises report `0` with `isError: true`.
 - Covered by `packages/tools/test/agent-dispatcher-hitl.test.ts` (parallel

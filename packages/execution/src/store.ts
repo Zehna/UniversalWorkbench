@@ -29,7 +29,8 @@ export interface FinishStepInput {
   executionId: string;
   nodeId: string;
   attempt: number;
-  status: "completed" | "failed" | "cancelled" | "interrupted" | "awaiting_approval";
+  status:
+    "completed" | "failed" | "cancelled" | "interrupted" | "awaiting_approval";
   finishedAt: Date;
   outputContexts: ContextEnvelope[];
   error: StructuredExecutionError | null;

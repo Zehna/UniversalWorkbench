@@ -16,7 +16,9 @@ interface AgentResponsePayloadView {
   usageSource?: unknown;
 }
 
-function agentPayloadOf(output: ContextEnvelope): AgentResponsePayloadView | null {
+function agentPayloadOf(
+  output: ContextEnvelope,
+): AgentResponsePayloadView | null {
   if (output.type !== "agent_response") return null;
   if (output.payload === null || typeof output.payload !== "object")
     return null;
@@ -199,10 +201,14 @@ export function ExecutionStatus({
       .filter((step) => step.status === "completed")
       .flatMap((step) => step.outputContexts) ?? [];
   const liveAgentOutputs =
-    view?.steps.flatMap((step) => step.outputContexts).filter(
-      (output): output is Extract<ContextEnvelope, { type: "agent_response" }> =>
-        output.type === "agent_response",
-    ) ?? [];
+    view?.steps
+      .flatMap((step) => step.outputContexts)
+      .filter(
+        (
+          output,
+        ): output is Extract<ContextEnvelope, { type: "agent_response" }> =>
+          output.type === "agent_response",
+      ) ?? [];
   const liveTrace = liveAgentOutputs.flatMap((output) => {
     const payload = agentPayloadOf(output);
     return payload ? toTraceItems(payload.trace) : [];
@@ -212,7 +218,9 @@ export function ExecutionStatus({
       ? (() => {
           const last = liveAgentOutputs[liveAgentOutputs.length - 1]!;
           const payload = agentPayloadOf(last);
-          return typeof payload?.status === "string" ? payload.status : undefined;
+          return typeof payload?.status === "string"
+            ? payload.status
+            : undefined;
         })()
       : undefined;
 
@@ -289,86 +297,86 @@ export function ExecutionStatus({
               fullText.length > PAYLOAD_PREVIEW_LIMIT && !isExpanded;
             const agentPayload = agentPayloadOf(output);
             return (
-            <div key={output.id}>
-              <p>{output.type}</p>
-              {agentPayload ? (
-                <AgentTraceViewer
-                  trace={toTraceItems(agentPayload.trace)}
-                  status={
-                    typeof agentPayload.status === "string"
-                      ? agentPayload.status
-                      : "completed"
-                  }
-                  usage={agentPayload.usage}
-                  usageSource={
-                    typeof agentPayload.usageSource === "string"
-                      ? agentPayload.usageSource
-                      : usageSourceOf(output)
-                  }
-                  model={
-                    typeof agentPayload.model === "string"
-                      ? agentPayload.model
-                      : undefined
-                  }
-                  iterations={
-                    typeof agentPayload.iterations === "number"
-                      ? agentPayload.iterations
-                      : undefined
-                  }
-                  text={
-                    typeof agentPayload.text === "string"
-                      ? agentPayload.text
-                      : undefined
-                  }
-                  projectId={projectId}
-                  executionId={executionId}
-                />
-              ) : null}
-              <pre
-                style={{
-                  overflowX: "auto",
-                  whiteSpace: "pre-wrap",
-                  overflowWrap: "anywhere",
-                }}
-              >
-                {truncated
-                  ? fullText.slice(0, PAYLOAD_PREVIEW_LIMIT)
-                  : fullText}
-              </pre>
-              {fullText.length > PAYLOAD_PREVIEW_LIMIT ? (
+              <div key={output.id}>
+                <p>{output.type}</p>
+                {agentPayload ? (
+                  <AgentTraceViewer
+                    trace={toTraceItems(agentPayload.trace)}
+                    status={
+                      typeof agentPayload.status === "string"
+                        ? agentPayload.status
+                        : "completed"
+                    }
+                    usage={agentPayload.usage}
+                    usageSource={
+                      typeof agentPayload.usageSource === "string"
+                        ? agentPayload.usageSource
+                        : usageSourceOf(output)
+                    }
+                    model={
+                      typeof agentPayload.model === "string"
+                        ? agentPayload.model
+                        : undefined
+                    }
+                    iterations={
+                      typeof agentPayload.iterations === "number"
+                        ? agentPayload.iterations
+                        : undefined
+                    }
+                    text={
+                      typeof agentPayload.text === "string"
+                        ? agentPayload.text
+                        : undefined
+                    }
+                    projectId={projectId}
+                    executionId={executionId}
+                  />
+                ) : null}
+                <pre
+                  style={{
+                    overflowX: "auto",
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {truncated
+                    ? fullText.slice(0, PAYLOAD_PREVIEW_LIMIT)
+                    : fullText}
+                </pre>
+                {fullText.length > PAYLOAD_PREVIEW_LIMIT ? (
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    aria-label={
+                      isExpanded ? "Show less payload" : "Show full payload"
+                    }
+                    onClick={() =>
+                      setExpanded((current) => {
+                        const next = new Set(current);
+                        if (next.has(output.id)) next.delete(output.id);
+                        else next.add(output.id);
+                        return next;
+                      })
+                    }
+                  >
+                    {isExpanded ? "Show less" : "Show full payload"}
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  aria-expanded={isExpanded}
-                  aria-label={
-                    isExpanded ? "Show less payload" : "Show full payload"
-                  }
-                  onClick={() =>
-                    setExpanded((current) => {
-                      const next = new Set(current);
-                      if (next.has(output.id)) next.delete(output.id);
-                      else next.add(output.id);
-                      return next;
-                    })
-                  }
+                  disabled={busy}
+                  onClick={() => void saveOutput(output.id)}
                 >
-                  {isExpanded ? "Show less" : "Show full payload"}
+                  Save output as Artifact
                 </button>
-              ) : null}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void saveOutput(output.id)}
-              >
-                Save output as Artifact
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void saveNote(output.id)}
-              >
-                Save as Note
-              </button>
-            </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveNote(output.id)}
+                >
+                  Save as Note
+                </button>
+              </div>
             );
           })}
         </section>

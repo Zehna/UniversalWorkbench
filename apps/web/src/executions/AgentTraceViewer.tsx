@@ -43,11 +43,20 @@ function toPendingApprovals(value: unknown): PendingApproval[] {
     const approval: PendingApproval = {};
     if (typeof record.tool === "string") approval.tool = record.tool;
     if (typeof record.name === "string") approval.name = record.name;
-    if (typeof record.toolCallId === "string") approval.toolCallId = record.toolCallId;
+    if (typeof record.toolCallId === "string")
+      approval.toolCallId = record.toolCallId;
     if (typeof record.id === "string") approval.id = record.id;
-    if (record.arguments !== undefined && typeof record.arguments === "object" && record.arguments !== null)
+    if (
+      record.arguments !== undefined &&
+      typeof record.arguments === "object" &&
+      record.arguments !== null
+    )
       approval.arguments = record.arguments as Record<string, unknown>;
-    if (record.args !== undefined && typeof record.args === "object" && record.args !== null)
+    if (
+      record.args !== undefined &&
+      typeof record.args === "object" &&
+      record.args !== null
+    )
       approval.args = record.args as Record<string, unknown>;
     if (typeof record.toolCall === "object" && record.toolCall !== null) {
       const call = record.toolCall as Record<string, unknown>;
@@ -55,10 +64,7 @@ function toPendingApprovals(value: unknown): PendingApproval[] {
         approval.tool = call.tool;
       if (approval.name === undefined && typeof call.name === "string")
         approval.name = call.name;
-      if (
-        approval.toolCallId === undefined &&
-        typeof call.id === "string"
-      )
+      if (approval.toolCallId === undefined && typeof call.id === "string")
         approval.toolCallId = call.id;
       if (
         approval.arguments === undefined &&
@@ -106,7 +112,9 @@ export function AgentTraceViewer({
   const [liveItems, setLiveItems] = useState<AgentTraceItem[]>([]);
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [liveText, setLiveText] = useState<string | null>(null);
-  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(
+    [],
+  );
   const nextIteration = useRef(trace.length + 1);
 
   const resolvedStatus = liveStatus ?? status;
@@ -123,7 +131,8 @@ export function AgentTraceViewer({
     if (isTerminalStatus(status)) return;
     const EventSourceImpl =
       typeof globalThis !== "undefined"
-        ? (globalThis as unknown as { EventSource?: typeof EventSource }).EventSource
+        ? (globalThis as unknown as { EventSource?: typeof EventSource })
+            .EventSource
         : undefined;
     if (!EventSourceImpl) return;
     const source = new EventSourceImpl(
@@ -136,12 +145,15 @@ export function AgentTraceViewer({
       const hasObservation = event.observation !== undefined;
       if (!hasThought && !hasToolCall && !hasObservation) return;
       const iteration =
-        typeof event.iteration === "number" && Number.isInteger(event.iteration) && event.iteration > 0
+        typeof event.iteration === "number" &&
+        Number.isInteger(event.iteration) &&
+        event.iteration > 0
           ? (event.iteration as number)
           : nextIteration.current++;
       const item: AgentTraceItem = { iteration };
       if (hasThought) item.thought = event.thought as string;
-      if (hasToolCall) item.toolCall = event.toolCall as AgentTraceItem["toolCall"];
+      if (hasToolCall)
+        item.toolCall = event.toolCall as AgentTraceItem["toolCall"];
       if (hasObservation)
         item.observation = event.observation as AgentTraceItem["observation"];
       setLiveItems((current) => [...current, item]);
@@ -191,7 +203,10 @@ export function AgentTraceViewer({
     }
 
     if (typeof (source as EventSource).addEventListener === "function") {
-      (source as EventSource).addEventListener("message", onMessage as EventListener);
+      (source as EventSource).addEventListener(
+        "message",
+        onMessage as EventListener,
+      );
     } else {
       (source as unknown as { onmessage: unknown }).onmessage = onMessage;
     }
@@ -239,15 +254,18 @@ export function AgentTraceViewer({
         <ol>
           {combined.map((item) => {
             const isOpen = expanded.has(item.iteration);
-            const toolName =
-              item.toolCall?.tool ?? item.toolCall?.name ?? "";
+            const toolName = item.toolCall?.tool ?? item.toolCall?.name ?? "";
             const args =
-              item.toolCall?.arguments && typeof item.toolCall.arguments === "object"
+              item.toolCall?.arguments &&
+              typeof item.toolCall.arguments === "object"
                 ? (item.toolCall.arguments as Record<string, unknown>)
                 : {};
             const observation = item.observation;
             return (
-              <li key={item.iteration} aria-label={`Iteration ${item.iteration}`}>
+              <li
+                key={item.iteration}
+                aria-label={`Iteration ${item.iteration}`}
+              >
                 <article>
                   <h5>Iteration {item.iteration}</h5>
                   {item.thought ? (

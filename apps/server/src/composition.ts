@@ -257,16 +257,25 @@ export function composeToolRegistry(
   const textTrim = createTextTrimTool();
   const jsonExtract = createJsonExtractTool();
   const markdownToText = createMarkdownToTextTool();
-  const httpTool = fixtureModeEnabled() || dockerSmokeFixtureEnabled()
-    ? createFixtureHttpTool()
-    : createHttpTool();
+  const httpTool =
+    fixtureModeEnabled() || dockerSmokeFixtureEnabled()
+      ? createFixtureHttpTool()
+      : createHttpTool();
   const aiTool = composeAiTool(pool);
   registry.register(textTrim);
   registry.register(jsonExtract);
   registry.register(markdownToText);
   registry.register(httpTool);
   registry.register(aiTool);
-  registry.register(composeAgentTool(pool, [textTrim, jsonExtract, markdownToText, httpTool, aiTool]));
+  registry.register(
+    composeAgentTool(pool, [
+      textTrim,
+      jsonExtract,
+      markdownToText,
+      httpTool,
+      aiTool,
+    ]),
+  );
   return registry;
 }
 
@@ -287,10 +296,7 @@ export function composeAgentTool(
   const agentProviders = new Map<string, AgentProviderPort>();
   const gatedMock = mockProviderIfAllowed();
   if (gatedMock) {
-    agentProviders.set(
-      gatedMock.id,
-      gatedMock as unknown as AgentProviderPort,
-    );
+    agentProviders.set(gatedMock.id, gatedMock as unknown as AgentProviderPort);
   }
   const httpOptions = httpProviderOptionsFromEnv();
   if (httpOptions) {

@@ -110,9 +110,7 @@ export function verifyMimeType(
   declaredMime: string,
 ): boolean {
   const normalized = normalizeDeclaredMime(declaredMime);
-  if (
-    !(SUPPORTED_MIME_TYPES as readonly string[]).includes(normalized)
-  ) {
+  if (!(SUPPORTED_MIME_TYPES as readonly string[]).includes(normalized)) {
     return false;
   }
   if (bytes.byteLength === 0) return false;

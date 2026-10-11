@@ -18,8 +18,10 @@ interface ApprovalCardProps {
 }
 
 function toolNameOf(entry: PendingApproval): string {
-  if (typeof entry.tool === "string" && entry.tool.length > 0) return entry.tool;
-  if (typeof entry.name === "string" && entry.name.length > 0) return entry.name;
+  if (typeof entry.tool === "string" && entry.tool.length > 0)
+    return entry.tool;
+  if (typeof entry.name === "string" && entry.name.length > 0)
+    return entry.name;
   if (typeof entry.toolCallId === "string" && entry.toolCallId.length > 0)
     return entry.toolCallId;
   if (typeof entry.id === "string" && entry.id.length > 0) return entry.id;
@@ -27,7 +29,8 @@ function toolNameOf(entry: PendingApproval): string {
 }
 
 function argsOf(entry: PendingApproval): Record<string, unknown> {
-  if (entry.arguments && typeof entry.arguments === "object") return entry.arguments;
+  if (entry.arguments && typeof entry.arguments === "object")
+    return entry.arguments;
   if (entry.args && typeof entry.args === "object") return entry.args;
   return {};
 }
@@ -49,22 +52,28 @@ export function ApprovalCard({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [decision, setDecision] = useState<"approved" | "rejected" | null>(null);
+  const [decision, setDecision] = useState<"approved" | "rejected" | null>(
+    null,
+  );
 
   async function post(path: string, body: unknown): Promise<void> {
-    const response = await fetch(`/api/projects/${projectId}/executions/${executionId}${path}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(body),
-    });
+    const response = await fetch(
+      `/api/projects/${projectId}/executions/${executionId}${path}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      },
+    );
     if (!response.ok) {
       let message = "Request failed";
       try {
         const data = (await response.json()) as {
           error?: { message?: unknown };
         };
-        if (typeof data?.error?.message === "string") message = data.error.message;
+        if (typeof data?.error?.message === "string")
+          message = data.error.message;
       } catch {
         // Keep default message.
       }
@@ -111,8 +120,7 @@ export function ApprovalCard({
           {pendingApprovals.map((entry, index) => {
             const name = toolNameOf(entry);
             const args = argsOf(entry);
-            const key =
-              entry.toolCallId ?? entry.id ?? `${name}:${index}`;
+            const key = entry.toolCallId ?? entry.id ?? `${name}:${index}`;
             return (
               <li key={key}>
                 <p>{name}</p>

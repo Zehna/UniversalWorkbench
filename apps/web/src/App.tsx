@@ -50,9 +50,7 @@ function Workbench({ owner }: { owner: OwnerPublic }) {
           { id: "diagnostics", label: "Diagnostics" },
         ]}
         selected={tab}
-        onSelect={(id) =>
-          setTab(id as "projects" | "secrets" | "diagnostics")
-        }
+        onSelect={(id) => setTab(id as "projects" | "secrets" | "diagnostics")}
       />
       {tab === "secrets" ? (
         <SecretsSettings ownerId={owner.id} />

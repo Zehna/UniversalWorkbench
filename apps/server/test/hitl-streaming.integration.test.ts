@@ -70,7 +70,10 @@ function awaitingView(): ExecutionView {
               usageSource: "provider",
               structured: {
                 pendingApprovals: [
-                  { tool: "builtin.approval.gated@1.0.0", toolCallId: "call_1" },
+                  {
+                    tool: "builtin.approval.gated@1.0.0",
+                    toolCallId: "call_1",
+                  },
                 ],
               },
             },
@@ -113,13 +116,19 @@ function sessionCookie() {
 }
 
 function setup(options: {
-  getImpl: (owner: string, project: string, id: string) => Promise<ExecutionView | null>;
-  resolveApprovalImpl?: (id: string, resolution: unknown) => Promise<ExecutionView>;
+  getImpl: (
+    owner: string,
+    project: string,
+    id: string,
+  ) => Promise<ExecutionView | null>;
+  resolveApprovalImpl?: (
+    id: string,
+    resolution: unknown,
+  ) => Promise<ExecutionView>;
 }) {
   const get = vi.fn(options.getImpl);
   const resolveApproval = vi.fn(
-    options.resolveApprovalImpl ??
-      (async () => completedView()),
+    options.resolveApprovalImpl ?? (async () => completedView()),
   );
   const repository = { get } as unknown as ExecutionRepository;
   const engine = { resolveApproval } as unknown as {

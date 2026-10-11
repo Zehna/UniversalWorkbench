@@ -131,7 +131,10 @@ export class MemoryStore implements WorkflowExecutionStore {
     row.view.execution.status = "running";
     row.view.execution.startedAt = startedAt;
   }
-  async suspendExecution(id: string, usage: Record<string, unknown>): Promise<void> {
+  async suspendExecution(
+    id: string,
+    usage: Record<string, unknown>,
+  ): Promise<void> {
     const row = this.rows.get(id)!;
     if (row.view.execution.status !== "running")
       throw new Error("Invalid state");

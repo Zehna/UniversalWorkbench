@@ -144,7 +144,9 @@ describe("Phase 7 golden HITL end-to-end", () => {
     expect(suspendedOutput?.type).toBe("agent_response");
     const suspendedPayload = suspendedOutput?.payload as {
       status: string;
-      structured?: { pendingApprovals?: Array<{ tool: string; toolCallId?: string }> };
+      structured?: {
+        pendingApprovals?: Array<{ tool: string; toolCallId?: string }>;
+      };
     };
     expect(suspendedPayload.status).toBe("awaiting_approval");
     expect(suspendedPayload.structured?.pendingApprovals?.[0]?.tool).toBe(
@@ -158,7 +160,8 @@ describe("Phase 7 golden HITL end-to-end", () => {
     });
     expect(resumed.execution.status).toBe("completed");
     expect(gatedRun).toHaveBeenCalledTimes(1);
-    const finalOutput = resumed.steps[resumed.steps.length - 1]?.outputContexts[0];
+    const finalOutput =
+      resumed.steps[resumed.steps.length - 1]?.outputContexts[0];
     expect(finalOutput?.type).toBe("agent_response");
     expect((finalOutput?.payload as { status: string }).status).toBe(
       "completed",

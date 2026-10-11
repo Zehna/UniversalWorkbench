@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentTraceViewer } from "../src/executions/AgentTraceViewer";
 import { AgentStepEditor } from "../src/workflows/AgentStepEditor";
 
-function payload(overrides: Partial<AgentResponsePayload> = {}): AgentResponsePayload {
+function payload(
+  overrides: Partial<AgentResponsePayload> = {},
+): AgentResponsePayload {
   return {
     text: "Final answer: 42",
     model: "gpt-4o-mini",
@@ -56,8 +58,12 @@ describe("AgentTraceViewer", () => {
         text={data.text}
       />,
     );
-    expect(screen.getByText("I should fetch the data first.")).toBeInTheDocument();
-    expect(screen.getByText("I now have everything needed.")).toBeInTheDocument();
+    expect(
+      screen.getByText("I should fetch the data first."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("I now have everything needed."),
+    ).toBeInTheDocument();
     expect(screen.getByText("builtin.http.request")).toBeInTheDocument();
     expect(screen.getByText(/https:\/\/example\.org\/api/)).toBeInTheDocument();
     expect(screen.getByText("Duration: 150ms")).toBeInTheDocument();
@@ -147,7 +153,13 @@ describe("AgentStepEditor", () => {
 
   it("emits config patches for form interactions", () => {
     const onChange = vi.fn();
-    render(<AgentStepEditor config={{}} updateConfig={onChange} availableTools={[]} />);
+    render(
+      <AgentStepEditor
+        config={{}}
+        updateConfig={onChange}
+        availableTools={[]}
+      />,
+    );
     fireEvent.change(screen.getByLabelText(/AI provider/i), {
       target: { value: "http" },
     });
@@ -165,7 +177,11 @@ describe("AgentStepEditor", () => {
   it("clamps maxIterations to 1-15 and defaults to 5", () => {
     const onChange = vi.fn();
     const { rerender } = render(
-      <AgentStepEditor config={{}} updateConfig={onChange} availableTools={[]} />,
+      <AgentStepEditor
+        config={{}}
+        updateConfig={onChange}
+        availableTools={[]}
+      />,
     );
     // Default display is 5 when unset.
     expect(screen.getByLabelText(/Max iterations/i)).toHaveDisplayValue("5");
@@ -179,7 +195,11 @@ describe("AgentStepEditor", () => {
     expect(onChange).toHaveBeenCalledWith({ maxIterations: 1 });
 
     rerender(
-      <AgentStepEditor config={{ maxIterations: 99 }} updateConfig={onChange} availableTools={[]} />,
+      <AgentStepEditor
+        config={{ maxIterations: 99 }}
+        updateConfig={onChange}
+        availableTools={[]}
+      />,
     );
     expect(screen.getByText(/between 1 and 15/i)).toBeInTheDocument();
   });

@@ -51,10 +51,7 @@ async function checkStorage(
   deps: DiagnosticsRouterDependencies,
 ): Promise<CheckState> {
   if (!deps.artifactsDir) return "unknown";
-  const probe = join(
-    deps.artifactsDir,
-    `.diagnostics-probe-${randomUUID()}`,
-  );
+  const probe = join(deps.artifactsDir, `.diagnostics-probe-${randomUUID()}`);
   try {
     await writeFile(probe, "diagnostics", { flag: "wx" });
     await rm(probe, { force: true });
@@ -175,8 +172,7 @@ export async function collectRecoveryBundle(
            from execution_queue`,
       );
       const row = result.rows[0] as
-        | { pending: string; claimed: string }
-        | undefined;
+        { pending: string; claimed: string } | undefined;
       return row
         ? { pending: Number(row.pending), claimed: Number(row.claimed) }
         : null;
@@ -203,16 +199,28 @@ export async function collectRecoveryBundle(
       },
       queue: queueRow ?? { pending: null, claimed: null },
       sync: {
-        devices: await countOrNull(pool, "select count(*) as count from sync_devices"),
+        devices: await countOrNull(
+          pool,
+          "select count(*) as count from sync_devices",
+        ),
         operations: await countOrNull(
           pool,
           "select count(*) as count from sync_operations",
         ),
       },
       tables: {
-        projects: await countOrNull(pool, "select count(*) as count from projects"),
-        documents: await countOrNull(pool, "select count(*) as count from documents"),
-        artifacts: await countOrNull(pool, "select count(*) as count from artifacts"),
+        projects: await countOrNull(
+          pool,
+          "select count(*) as count from projects",
+        ),
+        documents: await countOrNull(
+          pool,
+          "select count(*) as count from documents",
+        ),
+        artifacts: await countOrNull(
+          pool,
+          "select count(*) as count from artifacts",
+        ),
       },
       environment: {
         service: "universal-workbench",

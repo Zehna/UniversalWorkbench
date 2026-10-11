@@ -32,7 +32,10 @@ export function TabList({ tabs, selected, onSelect, ...rest }: TabListProps) {
     }
   }
 
-  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, id: string): void {
+  function onKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    id: string,
+  ): void {
     if (event.key === "ArrowRight") {
       event.preventDefault();
       move(id, 1);

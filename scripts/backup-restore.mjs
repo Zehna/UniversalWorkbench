@@ -64,7 +64,9 @@ function runPsql(url, sql, input) {
     fail(`backup-restore: psql failed to start: ${result.error.message}`);
   }
   if (result.status !== 0) {
-    const stderr = (result.stderr ?? Buffer.alloc(0)).toString("utf8").slice(0, 500);
+    const stderr = (result.stderr ?? Buffer.alloc(0))
+      .toString("utf8")
+      .slice(0, 500);
     fail(`backup-restore: psql exited ${result.status}: ${stderr}`);
   }
   return result;
@@ -120,7 +122,8 @@ try {
 
   // Vault: re-insert encrypted rows (ciphertext only, never plaintext).
   const envelopeRaw = files.get("vault/envelope.json");
-  if (!envelopeRaw) fail("backup-restore: archive is missing vault/envelope.json");
+  if (!envelopeRaw)
+    fail("backup-restore: archive is missing vault/envelope.json");
   const envelope = JSON.parse(Buffer.from(envelopeRaw).toString("utf8"));
   let restoredVaultRows = 0;
   for (const row of envelope.rows ?? []) {
@@ -133,7 +136,14 @@ try {
          ciphertext = excluded.ciphertext,
          auth_tag = excluded.auth_tag,
          updated_at = now()`,
-      [row.ownerId, row.name, row.keyVersion, row.ivHex, row.ciphertextHex, row.authTagHex],
+      [
+        row.ownerId,
+        row.name,
+        row.keyVersion,
+        row.ivHex,
+        row.ciphertextHex,
+        row.authTagHex,
+      ],
     );
     restoredVaultRows += 1;
   }

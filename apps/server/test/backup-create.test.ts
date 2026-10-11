@@ -103,7 +103,10 @@ describe("unified backup creation", () => {
     };
     const lyingFiles = [...good.files.entries()].map(([path, bytes]) => ({
       path,
-      bytes: path === "manifest.json" ? enc.encode(JSON.stringify(lyingManifest)) : bytes,
+      bytes:
+        path === "manifest.json"
+          ? enc.encode(JSON.stringify(lyingManifest))
+          : bytes,
     }));
     const lyingArchive = gzipSync(createTarArchive(lyingFiles));
     await expect(
@@ -134,9 +137,14 @@ describe("unified backup creation", () => {
       expect(envelope.keyMaterial).toBeUndefined();
       expect(envelope.plaintext).toBeUndefined();
       for (const row of envelope.rows) {
-        expect(Object.keys(row).sort()).toEqual(
-          ["authTagHex", "ciphertextHex", "ivHex", "keyVersion", "name", "ownerId"],
-        );
+        expect(Object.keys(row).sort()).toEqual([
+          "authTagHex",
+          "ciphertextHex",
+          "ivHex",
+          "keyVersion",
+          "name",
+          "ownerId",
+        ]);
         for (const value of Object.values(row)) {
           expect(String(value)).not.toContain(sentinelPassword);
         }

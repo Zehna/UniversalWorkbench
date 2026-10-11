@@ -32,7 +32,10 @@ describe("agent contracts and schemas", () => {
         prompt: "Search and summarize",
         systemPrompt: "You are a helpful researcher",
         secretRef: "secret://vault/openai-key",
-        allowedTools: ["builtin.http.request@1.0.0", "builtin.json.transform@1.0.0"],
+        allowedTools: [
+          "builtin.http.request@1.0.0",
+          "builtin.json.transform@1.0.0",
+        ],
         maxIterations: 10,
         maxOutputTokens: 4096,
       };
@@ -186,7 +189,9 @@ describe("agent contracts and schemas", () => {
     });
 
     it("accepts iteration_limit_reached status", () => {
-      expect(AgentStatusSchema.parse("iteration_limit_reached")).toBe("iteration_limit_reached");
+      expect(AgentStatusSchema.parse("iteration_limit_reached")).toBe(
+        "iteration_limit_reached",
+      );
     });
 
     it("rejects invalid status", () => {

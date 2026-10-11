@@ -154,7 +154,9 @@ function isTerminal(status: ExecutionRecord["status"]): boolean {
   );
 }
 
-function isAwaitingApprovalOutput(outputs: readonly ContextEnvelope[]): boolean {
+function isAwaitingApprovalOutput(
+  outputs: readonly ContextEnvelope[],
+): boolean {
   for (const output of outputs) {
     if (output.type !== "agent_response") continue;
     const payload = output.payload as unknown as { status?: unknown };
@@ -183,9 +185,7 @@ function extractPendingApprovals(
         typeof record["toolCallId"] === "string"
           ? (record["toolCallId"] as string)
           : undefined;
-      pending.push(
-        toolCallId !== undefined ? { tool, toolCallId } : { tool },
-      );
+      pending.push(toolCallId !== undefined ? { tool, toolCallId } : { tool });
     }
   }
   return pending;
@@ -464,7 +464,10 @@ export function createWorkflowEngine(
             const storedResolutions = pendingResolutions.get(executionId);
             const effectiveConfig =
               awaitingStep && storedResolutions
-                ? { ...(node.config as Record<string, unknown>), approvalResolutions: storedResolutions }
+                ? {
+                    ...(node.config as Record<string, unknown>),
+                    approvalResolutions: storedResolutions,
+                  }
                 : node.config;
             try {
               const executor = deps.registry.resolve(
@@ -755,17 +758,12 @@ export function createWorkflowEngine(
       }
       pendingResolutions.set(executionId, mapped);
       await deps.store.resume(executionId);
-      try {
-        const activeSignal =
-          signal ?? new AbortController().signal;
-        const view = await engine.process(executionId, activeSignal);
-        if (view.execution.status !== "awaiting_approval") {
-          pendingResolutions.delete(executionId);
-        }
-        return view;
-      } catch (error) {
-        throw error;
+      const activeSignal = signal ?? new AbortController().signal;
+      const view = await engine.process(executionId, activeSignal);
+      if (view.execution.status !== "awaiting_approval") {
+        pendingResolutions.delete(executionId);
       }
+      return view;
     },
   };
   return engine;

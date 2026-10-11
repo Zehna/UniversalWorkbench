@@ -13,14 +13,14 @@ Phase 6 keeps the Phase 2 local-first sync, Phase 3 DAG/workflow core, Phase 4
 AI provider seam, and Phase 5 hardening unchanged, and adds agent behavior in
 existing packages (no new top-level package):
 
-| Package         | Responsibility                                                                    |
-| --------------- | --------------------------------------------------------------------------------- |
-| `@uw/contracts` | `AiAgentConfigSchema`, `AgentTraceItemSchema`, `AgentResponsePayloadSchema` (`agent_response`). |
-| `@uw/providers` | Tool-calling extension: `tools` on `ProviderRequest`, `toolCalls` on `ProviderResult` (mock + HTTP). |
-| `@uw/tools`     | `AgentToolDispatcher` (function-calling adapter + whitelist), `builtin.ai.agent@1.0.0` ReAct executor. |
-| `@uw/execution` | Unchanged engine: token aggregation extended to `agent_response`, redacted step persistence. |
+| Package         | Responsibility                                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `@uw/contracts` | `AiAgentConfigSchema`, `AgentTraceItemSchema`, `AgentResponsePayloadSchema` (`agent_response`).                         |
+| `@uw/providers` | Tool-calling extension: `tools` on `ProviderRequest`, `toolCalls` on `ProviderResult` (mock + HTTP).                    |
+| `@uw/tools`     | `AgentToolDispatcher` (function-calling adapter + whitelist), `builtin.ai.agent@1.0.0` ReAct executor.                  |
+| `@uw/execution` | Unchanged engine: token aggregation extended to `agent_response`, redacted step persistence.                            |
 | `apps/server`   | Agent registration in the pinned registry, sanitized trace persistence, Send-to Document/Artifact for `agent_response`. |
-| `apps/web`      | `AgentStepEditor` (allowed-tools + iteration config), `AgentTraceViewer` (thought/tool-call/observation timeline). |
+| `apps/web`      | `AgentStepEditor` (allowed-tools + iteration config), `AgentTraceViewer` (thought/tool-call/observation timeline).      |
 
 Dependency direction (acyclic, same rule as Phase 4):
 
@@ -80,7 +80,7 @@ Prompt + input -> LLM (thought + toolCall?) -> dispatcher -> Observation
 - **Permission re-check:** dispatched tools run through `runTool`, which
   enforces the server grant per step (`http` needs `network`, agent needs
   `ai`). AI output text claiming grants never widens the grant — `content
-  cannot grant permissions` holds from Phase 4. The agent itself is excluded
+cannot grant permissions` holds from Phase 4. The agent itself is excluded
   from its own dispatch set to prevent recursive invocation.
 - **Prompt injection isolation:** tool observation outputs are serialized as
   `Observation[i]: <JSON>` conversation context, never as trusted
@@ -93,9 +93,9 @@ Prompt + input -> LLM (thought + toolCall?) -> dispatcher -> Observation
 
 - **Trace shape:** every iteration pushes an `AgentTraceItem` (`iteration`,
   `thought`, optional `toolCall {id?, name, arguments}`, optional `observation
-  {toolCallId?, output, durationMs, isError}`). The final `agent_response`
+{toolCallId?, output, durationMs, isError}`). The final `agent_response`
   payload carries `{text, model, status, iterations, trace, usage,
-  usageSource}` and validates against `AgentResponsePayloadSchema` before
+usageSource}` and validates against `AgentResponsePayloadSchema` before
   persistence (`INVALID_OUTPUT` otherwise).
 - **Secret scrubbing:** the resolved `secretValue` is scrubbed (deep
   `scrubTraceValue` over final text, thoughts, arguments, observations, plus
@@ -108,7 +108,7 @@ Prompt + input -> LLM (thought + toolCall?) -> dispatcher -> Observation
   (`outputContextIds` includes the agent output). Send-to routes accept
   `agent_response` for both Note (`documents/from-execution`, body = payload
   `text`, title `Agent result`, 512 KiB cap) and Artifact (`artifacts/
-  from-execution`), generated from Context Bus compatibility plus granted
+from-execution`), generated from Context Bus compatibility plus granted
   permissions — never hard-coded per screen.
 - **UI:** `AgentTraceViewer` renders the expandable thought → tool-call
   (name + args preview) → observation (JSON, duration, error flag) timeline

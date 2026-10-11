@@ -45,7 +45,9 @@ export interface AgentToolDispatcherOptions {
   allowedTools: readonly string[];
 }
 
-export function toToolName(descriptor: Pick<ToolDescriptor, "id" | "version">): string {
+export function toToolName(
+  descriptor: Pick<ToolDescriptor, "id" | "version">,
+): string {
   return `${descriptor.id}@${descriptor.version}`;
 }
 
@@ -70,7 +72,10 @@ function resolveCallName(call: AgentToolCallInput): string {
   return typeof raw === "string" ? raw.trim() : "";
 }
 
-function unauthorizedError(tool: string, message: string): AgentObservation["output"] {
+function unauthorizedError(
+  tool: string,
+  message: string,
+): AgentObservation["output"] {
   return {
     error: {
       code: "UNAUTHORIZED_TOOL",
@@ -101,7 +106,9 @@ export class AgentToolDispatcher {
     return [...this.executors.values()]
       .filter((tool) => this.allowed.has(toToolName(tool.descriptor)))
       .map((tool) => toFunctionCallingSpec(tool.descriptor))
-      .sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0));
+      .sort((left, right) =>
+        left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
+      );
   }
 
   async dispatch(
@@ -117,7 +124,10 @@ export class AgentToolDispatcher {
     const finish = (
       output: unknown,
       isError: boolean,
-      extra?: Pick<AgentDispatchObservation, "requiresApproval" | "pendingApproval">,
+      extra?: Pick<
+        AgentDispatchObservation,
+        "requiresApproval" | "pendingApproval"
+      >,
     ): AgentDispatchObservation => ({
       ...(toolCallId !== undefined ? { toolCallId } : {}),
       output,
@@ -179,7 +189,9 @@ export class AgentToolDispatcher {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const code =
-        error instanceof Error && "code" in error && typeof (error as { code: unknown }).code === "string"
+        error instanceof Error &&
+        "code" in error &&
+        typeof (error as { code: unknown }).code === "string"
           ? ((error as { code: string }).code as string)
           : undefined;
       return finish(
@@ -215,7 +227,9 @@ export class AgentToolDispatcher {
       const call = calls[index];
       const toolCallId = call?.id;
       const message =
-        result.reason instanceof Error ? result.reason.message : String(result.reason);
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason);
       return {
         ...(toolCallId !== undefined ? { toolCallId } : {}),
         output: {
