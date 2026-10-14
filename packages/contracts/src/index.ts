@@ -2,6 +2,7 @@ export * from "./agent.js";
 export * from "./ai.js";
 export * from "./artifact.js";
 export * from "./auth.js";
+export * from "./code.js";
 export * from "./common.js";
 export * from "./context.js";
 export * from "./document.js";

@@ -9,6 +9,7 @@ export const ContextTypeSchema = z.enum([
   "artifact_ref",
   "ai_response",
   "agent_response",
+  "code_result",
 ]);
 
 export const ContextProvenanceSchema = z.object({
